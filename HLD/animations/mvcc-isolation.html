@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Isolation Anomalies &amp; MVCC</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --border:#30363d;
+    --text:#e6edf3; --muted:#8b949e;
+    --accent:#58a6ff; --green:#3fb950; --amber:#d29922; --red:#f85149; --purple:#bc8cff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    line-height:1.5; padding:24px 16px 60px;
+  }
+  .wrap{max-width:960px; margin:0 auto}
+  header h1{font-size:1.7rem; margin:0 0 8px}
+  header p{color:var(--muted); margin:0 0 20px; max-width:780px}
+  .panel{background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:16px}
+  .stage{padding:8px}
+  svg{display:block; width:100%; height:auto}
+  .controls{display:flex; flex-wrap:wrap; gap:10px; align-items:center}
+  .controls .group{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+  button{
+    background:#21262d; color:var(--text); border:1px solid var(--border);
+    border-radius:999px; padding:8px 16px; font-size:0.9rem; cursor:pointer;
+    font-family:inherit; transition:background .15s,border-color .15s;
+  }
+  button:hover:not(:disabled){background:#2d333b; border-color:var(--accent)}
+  button:disabled{opacity:.4; cursor:not-allowed}
+  button.primary{border-color:var(--accent)}
+  .seg{display:inline-flex; border:1px solid var(--border); border-radius:999px; overflow:hidden}
+  .seg button{border:none; border-radius:0; padding:8px 14px}
+  .seg button.active{background:var(--accent); color:#0d1117; font-weight:600}
+  label.ctl{display:flex; flex-direction:column; gap:3px; font-size:0.78rem; color:var(--muted)}
+  label.ctl span.val{color:var(--text); font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  select{background:#21262d; color:var(--text); border:1px solid var(--border); border-radius:8px; padding:7px 10px; font-family:inherit; font-size:0.9rem}
+  #narration{
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:0.92rem;
+    background:#0d1117; border:1px solid var(--border); border-left:4px solid var(--accent);
+    border-radius:8px; padding:12px 14px; min-height:48px;
+  }
+  #narration .tag{color:var(--accent); font-weight:700}
+  .verdict{margin-top:10px; padding:10px 12px; border-radius:8px; font-size:0.9rem; display:none}
+  .verdict.bad{display:block; background:rgba(248,81,73,.12); border:1px solid var(--red); color:#ffb4af}
+  .verdict.good{display:block; background:rgba(63,185,80,.12); border:1px solid var(--green); color:#9ff0ab}
+  .legend{display:flex; flex-wrap:wrap; gap:14px; font-size:0.82rem; color:var(--muted)}
+  .legend .item{display:flex; align-items:center; gap:6px}
+  .sw{width:16px; height:16px; border-radius:4px; display:inline-block; border:1px solid var(--border)}
+  .hint{font-size:0.9rem; color:var(--muted)}
+  .hint b{color:var(--purple)}
+  h2.sec{font-size:0.95rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:0 0 10px}
+  footer{margin-top:24px; padding-top:16px; border-top:1px solid var(--border); display:flex; gap:20px; font-size:0.9rem}
+  footer a{color:var(--accent); text-decoration:none}
+  footer a:hover{text-decoration:underline}
+  .scn-desc{font-size:0.85rem; color:var(--muted); margin:8px 0 0}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Isolation Anomalies &amp; MVCC</h1>
+  <p>Two concurrent transactions (T1, T2) operate on the same rows. Step through each operation to see how
+  <b>Lost Update</b> and <b>Write Skew</b> arise &mdash; and watch how <b>Snapshot Isolation</b> and
+  <b>Serializable</b> change the outcome. Key subtlety: snapshot isolation stops lost updates but still allows write skew.</p>
+</header>
+
+<div class="panel">
+  <div style="display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end">
+    <label class="ctl">Scenario
+      <select id="scenario">
+        <option value="lost">Lost Update (both write x)</option>
+        <option value="skew">Write Skew (on-call invariant)</option>
+      </select>
+    </label>
+    <label class="ctl">Isolation level
+      <div class="seg" id="isoSeg">
+        <button data-iso="rc" class="active">Read Committed</button>
+        <button data-iso="si">Snapshot</button>
+        <button data-iso="ser">Serializable</button>
+      </div>
+    </label>
+  </div>
+  <p class="scn-desc" id="scnDesc"></p>
+</div>
+
+<div class="panel stage">
+  <svg id="svg" viewBox="0 0 960 420" role="img" aria-label="Two transaction timelines operating on shared rows"></svg>
+</div>
+
+<div class="panel">
+  <div class="controls">
+    <div class="group">
+      <button id="play" class="primary">&#9654; Play</button>
+      <button id="step">Step &#9654;|</button>
+      <button id="reset">&#8635; Reset</button>
+    </div>
+    <label class="ctl">Speed
+      <input id="speed" type="range" min="400" max="2000" step="100" value="1100">
+      <span class="val" id="speedVal">1.1s / step</span>
+    </label>
+  </div>
+  <div id="narration"><span class="tag">[ready]</span> Press Play or Step. Each step is one read or write by a transaction.</div>
+  <div class="verdict" id="verdict"></div>
+</div>
+
+<div class="panel">
+  <h2 class="sec">Legend</h2>
+  <div class="legend">
+    <span class="item"><span class="sw" style="background:#1f6feb"></span> T1 operation</span>
+    <span class="item"><span class="sw" style="background:#bc8cff"></span> T2 operation</span>
+    <span class="item"><span class="sw" style="background:#3fb950"></span> committed / consistent</span>
+    <span class="item"><span class="sw" style="background:#d29922"></span> read</span>
+    <span class="item"><span class="sw" style="background:#f85149"></span> conflict / abort / anomaly</span>
+    <span class="item"><span class="sw" style="background:#0d1117;border-color:#8b949e"></span> snapshot value (private view)</span>
+  </div>
+</div>
+
+<div class="panel">
+  <h2 class="sec">Try this</h2>
+  <p class="hint">Run <b>Write Skew</b> under <b>Snapshot</b> isolation, then under <b>Serializable</b>.
+  Snapshot lets both doctors go off-call (invariant broken!) because they wrote <i>different</i> rows and never saw each other's write.
+  Serializable detects the read/write dependency cycle and <b>aborts T2</b>. That gap is the whole point of SSI.</p>
+</div>
+
+<footer>
+  <a href="./index.html">&#8592; Back to gallery</a>
+  <a href="../01-building-blocks/07-databases-relational.md">Related writeup: Relational databases &#8594;</a>
+</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var SVGNS="http://www.w3.org/2000/svg";
+  var svg=document.getElementById("svg");
+  var narration=document.getElementById("narration");
+  var verdict=document.getElementById("verdict");
+  var scnSel=document.getElementById("scenario");
+  var scnDesc=document.getElementById("scnDesc");
+  var isoSeg=document.getElementById("isoSeg");
+  var playBtn=document.getElementById("play");
+  var stepBtn=document.getElementById("step");
+  var resetBtn=document.getElementById("reset");
+  var speed=document.getElementById("speed");
+  var speedVal=document.getElementById("speedVal");
+
+  var C={bg:"#0d1117",panel:"#161b22",border:"#30363d",text:"#e6edf3",muted:"#8b949e",
+    accent:"#58a6ff",t1:"#1f6feb",green:"#3fb950",amber:"#d29922",red:"#f85149",purple:"#bc8cff"};
+
+  // ---- helpers ----
+  function el(tag,attrs,parent){
+    var e=document.createElementNS(SVGNS,tag);
+    if(attrs)for(var k in attrs)e.setAttribute(k,attrs[k]);
+    if(parent)parent.appendChild(e);
+    return e;
+  }
+  function txt(x,y,s,attrs,parent){
+    var t=el("text",Object.assign({x:x,y:y},attrs||{}),parent);
+    t.textContent=s; return t;
+  }
+
+  var state={iso:"rc",scn:"lost",steps:[],idx:0,playing:false,timer:null};
+
+  // ============ scenario builders ============
+  // Each step: {actor:'T1'|'T2'|'sys', op:'read'|'write'|'commit'|'abort'|'check', row, value, note, snapshot, badge}
+  // We build steps dynamically based on iso level so we can show snapshot/serializable behavior correctly.
+
+  function buildLostUpdate(iso){
+    // shared row x = 10. Both want to increment.
+    var steps=[];
+    if(iso==="rc"){
+      steps=[
+        {actor:"T1",op:"begin",note:"T1 begins."},
+        {actor:"T2",op:"begin",note:"T2 begins."},
+        {actor:"T1",op:"read",row:"x",val:10,priv1:10,note:"T1 reads x = 10."},
+        {actor:"T2",op:"read",row:"x",val:10,priv2:10,note:"T2 reads x = 10 (same committed value)."},
+        {actor:"T1",op:"write",row:"x",val:11,priv1:11,dbx:11,note:"T1 writes x = 10 + 1 = 11."},
+        {actor:"T1",op:"commit",note:"T1 commits. x is now 11."},
+        {actor:"T2",op:"write",row:"x",val:11,priv2:11,dbx:11,note:"T2 writes x = 10 + 1 = 11, overwriting T1.",bad:true},
+        {actor:"T2",op:"commit",note:"T2 commits. x = 11.",bad:true},
+        {actor:"sys",op:"verdict",bad:true,
+          title:"LOST UPDATE",
+          msg:"Two increments happened but x went 10 → 11, not 12. T1’s update was silently lost: both read the same old value before either wrote."}
+      ];
+    } else if(iso==="si"){
+      steps=[
+        {actor:"T1",op:"begin",note:"T1 begins — takes a snapshot of the DB."},
+        {actor:"T2",op:"begin",note:"T2 begins — takes its own snapshot."},
+        {actor:"T1",op:"read",row:"x",val:10,priv1:10,note:"T1 reads x = 10 from its snapshot."},
+        {actor:"T2",op:"read",row:"x",val:10,priv2:10,note:"T2 reads x = 10 from its snapshot."},
+        {actor:"T1",op:"write",row:"x",val:11,priv1:11,dbx:11,note:"T1 writes x = 11 (in its private version)."},
+        {actor:"T1",op:"commit",note:"T1 commits. Committed x = 11."},
+        {actor:"T2",op:"write",row:"x",val:11,priv2:11,note:"T2 tries to write x = 11, but x was modified since T2’s snapshot."},
+        {actor:"T2",op:"abort",bad:false,note:"First-committer-wins: T2 hits a write–write conflict and ABORTS.",badge:"ABORT"},
+        {actor:"sys",op:"verdict",bad:false,
+          title:"LOST UPDATE PREVENTED",
+          msg:"Snapshot isolation detects the concurrent write to the SAME row (write-write conflict) and aborts T2. On retry, T2 reads x = 11 and writes 12. No lost update."}
+      ];
+    } else { // ser
+      steps=[
+        {actor:"T1",op:"begin",note:"T1 begins (serializable snapshot)."},
+        {actor:"T2",op:"begin",note:"T2 begins (serializable snapshot)."},
+        {actor:"T1",op:"read",row:"x",val:10,priv1:10,note:"T1 reads x = 10."},
+        {actor:"T2",op:"read",row:"x",val:10,priv2:10,note:"T2 reads x = 10."},
+        {actor:"T1",op:"write",row:"x",val:11,priv1:11,dbx:11,note:"T1 writes x = 11."},
+        {actor:"T1",op:"commit",note:"T1 commits. x = 11."},
+        {actor:"T2",op:"write",row:"x",val:11,priv2:11,note:"T2 attempts x = 11 — write-write conflict on x."},
+        {actor:"T2",op:"abort",note:"Serializable aborts T2 to preserve a serial order.",badge:"ABORT"},
+        {actor:"sys",op:"verdict",bad:false,
+          title:"PREVENTED (serial order enforced)",
+          msg:"Under serializable, the only valid outcomes are T1-then-T2 or T2-then-T1, both giving x = 12. The conflicting interleaving is rejected by aborting T2."}
+      ];
+    }
+    return steps;
+  }
+
+  function buildWriteSkew(iso){
+    // Invariant: at least ONE doctor must be on call. on1=true, on2=true. Each txn checks "other is on call" then goes off.
+    if(iso==="rc"||iso==="si"){
+      // Read Committed and Snapshot both ALLOW write skew (they read disjoint rows, write disjoint rows)
+      var snapNote = iso==="si" ? "from its consistent snapshot" : "(latest committed)";
+      return [
+        {actor:"T1",op:"begin",note:"T1 (Dr. Alice) begins. Invariant: ≥ 1 doctor on call. on_A = on_B = true."},
+        {actor:"T2",op:"begin",note:"T2 (Dr. Bob) begins."},
+        {actor:"T1",op:"check",row:"on_B",val:true,note:"T1 reads on_B = true "+snapNote+". “Bob is on call, so I can leave.”"},
+        {actor:"T2",op:"check",row:"on_A",val:true,note:"T2 reads on_A = true "+snapNote+". “Alice is on call, so I can leave.”"},
+        {actor:"T1",op:"write",row:"on_A",val:false,dbA:false,note:"T1 writes on_A = false (Alice goes off call). Writes a DIFFERENT row than it read."},
+        {actor:"T2",op:"write",row:"on_B",val:false,dbB:false,note:"T2 writes on_B = false (Bob goes off call). Also a disjoint row."},
+        {actor:"T1",op:"commit",note:"T1 commits — no write-write conflict (different rows)."},
+        {actor:"T2",op:"commit",bad:true,note:"T2 commits — still no write-write conflict! Both succeed.",badge:"!"},
+        {actor:"sys",op:"verdict",bad:true,
+          title:"WRITE SKEW"+(iso==="si"?" (allowed under Snapshot!)":""),
+          msg: iso==="si"
+            ? "Each txn read a consistent snapshot and wrote a row nobody else touched, so first-committer-wins finds NO conflict. Yet on_A = on_B = false — invariant violated. This is the key limitation of snapshot isolation."
+            : "Both decisions were based on now-stale reads of disjoint rows. on_A = on_B = false: nobody is on call. Invariant broken."}
+      ];
+    } else { // serializable (SSI)
+      return [
+        {actor:"T1",op:"begin",note:"T1 (Dr. Alice) begins under Serializable Snapshot Isolation."},
+        {actor:"T2",op:"begin",note:"T2 (Dr. Bob) begins."},
+        {actor:"T1",op:"check",row:"on_B",val:true,note:"T1 reads on_B = true. Read tracked as a predicate dependency."},
+        {actor:"T2",op:"check",row:"on_A",val:true,note:"T2 reads on_A = true. Read tracked too."},
+        {actor:"T1",op:"write",row:"on_A",val:false,dbA:false,note:"T1 writes on_A = false. This WRITE conflicts with T2’s earlier READ of on_A (rw-antidependency)."},
+        {actor:"T2",op:"write",row:"on_B",val:false,dbB:false,note:"T2 writes on_B = false. Conflicts with T1’s read of on_B — a dependency cycle forms."},
+        {actor:"T1",op:"commit",note:"T1 commits first."},
+        {actor:"T2",op:"abort",note:"SSI detects the rw-dependency cycle (dangerous structure) and ABORTS T2.",badge:"ABORT"},
+        {actor:"sys",op:"verdict",bad:false,
+          title:"WRITE SKEW PREVENTED",
+          msg:"Serializable tracks read/write antidependencies, not just write-write conflicts. The cycle T1→T2→T1 means no serial order exists, so T2 is aborted. Exactly one doctor (Alice) goes off call; the invariant holds."}
+      ];
+    }
+  }
+
+  function buildSteps(){
+    if(state.scn==="lost")return buildLostUpdate(state.iso);
+    return buildWriteSkew(state.iso);
+  }
+
+  // ============ rendering ============
+  // We render a timeline with two lanes (T1, T2), a shared "Database" box on the right,
+  // and per-transaction private snapshot values.
+
+  function render(){
+    while(svg.firstChild)svg.removeChild(svg.firstChild);
+    var W=960,H=420;
+
+    // background lanes
+    var laneX=40, laneW=620;
+    var t1Y=70, t2Y=200, laneH=70;
+
+    // Title row labels
+    txt(laneX,30,state.scn==="lost"?"Shared row:  x":"Invariant:  on_A OR on_B must stay TRUE",{fill:C.muted,"font-size":13,"font-family":"ui-monospace,Menlo,monospace"},svg);
+
+    // Lane backgrounds
+    drawLane(laneX,t1Y,laneW,laneH,"T1",C.t1);
+    drawLane(laneX,t2Y,laneW,laneH,"T2",C.purple);
+
+    // Timeline axis
+    var axisY=t2Y+laneH+34;
+    el("line",{x1:laneX,y1:axisY,x2:laneX+laneW,y2:axisY,stroke:C.border,"stroke-width":1},svg);
+    txt(laneX,axisY+18,"time →",{fill:C.muted,"font-size":11},svg);
+
+    // Database panel (right)
+    var dbX=700,dbW=220,dbY=60,dbH=300;
+    el("rect",{x:dbX,y:dbY,width:dbW,height:dbH,rx:8,fill:"#0d1117",stroke:C.border},svg);
+    txt(dbX+dbW/2,dbY+24,"DATABASE (committed)",{fill:C.muted,"font-size":12,"text-anchor":"middle","font-family":"ui-monospace,Menlo,monospace"},svg);
+
+    // compute current DB + private state by replaying steps up to idx
+    var st=replay();
+
+    // DB rows
+    if(state.scn==="lost"){
+      drawDbCell(dbX+20,dbY+50,dbW-40,"x",fmt(st.dbx),st.dbxChanged);
+    } else {
+      drawDbCell(dbX+20,dbY+50,dbW-40,"on_A",fmt(st.dbA),st.dbAChanged);
+      drawDbCell(dbX+20,dbY+118,dbW-40,"on_B",fmt(st.dbB),st.dbBChanged);
+    }
+
+    // Invariant status for write skew
+    if(state.scn==="skew"){
+      var ok=(st.dbA===true||st.dbB===true);
+      var iy=dbY+210;
+      el("rect",{x:dbX+20,y:iy,width:dbW-40,height:64,rx:6,fill:ok?"rgba(63,185,80,.12)":"rgba(248,81,73,.14)",stroke:ok?C.green:C.red},svg);
+      txt(dbX+dbW/2,iy+24,ok?"INVARIANT OK":"INVARIANT VIOLATED",{fill:ok?C.green:C.red,"font-size":13,"text-anchor":"middle","font-weight":700},svg);
+      txt(dbX+dbW/2,iy+46,"on_A OR on_B = "+(ok?"true":"false"),{fill:C.text,"font-size":12,"text-anchor":"middle","font-family":"ui-monospace,Menlo,monospace"},svg);
+    }
+
+    // Plot operations as markers along lanes
+    var n=state.steps.length;
+    var slot=(laneW-90)/Math.max(1,n);
+    for(var i=0;i<n;i++){
+      var s=state.steps[i];
+      if(s.op==="verdict")continue;
+      var done=i<=state.idx;
+      var cur=i===state.idx;
+      var cx=laneX+70+slot*i+slot/2;
+      var laneY=(s.actor==="T1")?t1Y:(s.actor==="T2")?t2Y:null;
+      if(laneY===null){
+        // system step: draw on axis
+        continue;
+      }
+      drawOp(cx,laneY+laneH/2,s,done,cur);
+    }
+
+    // current step description connecting line on DB if write
+    var cs=state.steps[state.idx];
+    if(cs && (cs.op==="write")){
+      // highlight target DB row
+    }
+  }
+
+  function drawLane(x,y,w,h,label,color){
+    el("rect",{x:x,y:y,width:w,height:h,rx:8,fill:C.panel,stroke:C.border},svg);
+    el("rect",{x:x,y:y,width:6,height:h,rx:3,fill:color},svg);
+    txt(x+16,y-8,label+(state.scn==="skew"?(label==="T1"?"  (Dr. Alice)":"  (Dr. Bob)"):""),{fill:color,"font-size":13,"font-weight":700,"font-family":"ui-monospace,Menlo,monospace"},svg);
+  }
+
+  function drawDbCell(x,y,w,key,val,changed){
+    el("rect",{x:x,y:y,width:w,height:50,rx:6,fill:"#161b22",stroke:changed?C.green:C.border,"stroke-width":changed?2:1},svg);
+    txt(x+14,y+30,key+" =",{fill:C.muted,"font-size":13,"font-family":"ui-monospace,Menlo,monospace"},svg);
+    txt(x+w-14,y+30,val,{fill:changed?C.green:C.text,"font-size":16,"text-anchor":"end","font-weight":700,"font-family":"ui-monospace,Menlo,monospace"},svg);
+  }
+
+  function drawOp(cx,cy,s,done,cur){
+    var color = s.actor==="T1"?C.t1:C.purple;
+    var fill,stroke=color,label,r=17;
+    if(s.op==="begin"){label="B"; fill="#21262d";}
+    else if(s.op==="read"||s.op==="check"){label="R"; fill=done?C.amber:"#21262d"; if(done)stroke=C.amber;}
+    else if(s.op==="write"){label="W"; fill=done?color:"#21262d";}
+    else if(s.op==="commit"){label="✓"; fill=done?C.green:"#21262d"; if(done)stroke=C.green;}
+    else if(s.op==="abort"){label="✗"; fill=done?C.red:"#21262d"; if(done)stroke=C.red;}
+    else {label="?"; fill="#21262d";}
+
+    if(!done){fill="#1c2128"; stroke=C.border;}
+
+    var g=el("g",{opacity:done?1:0.45},svg);
+    if(cur){
+      el("circle",{cx:cx,cy:cy,r:r+6,fill:"none",stroke:color,"stroke-width":2,opacity:0.7},g);
+    }
+    el("circle",{cx:cx,cy:cy,r:r,fill:fill,stroke:stroke,"stroke-width":2},g);
+    txt(cx,cy+5,label,{fill:(done&&(s.op==="write"))?"#fff":(done?"#0d1117":C.muted),"font-size":14,"text-anchor":"middle","font-weight":700,"font-family":"ui-monospace,Menlo,monospace"},g);
+
+    // op caption below: row + value
+    var cap="";
+    if(s.op==="read"||s.op==="check"){cap=s.row+"→"+fmt(s.val);}
+    else if(s.op==="write"){cap=s.row+"="+fmt(s.val);}
+    else if(s.op==="commit"){cap="commit";}
+    else if(s.op==="abort"){cap="ABORT";}
+    else if(s.op==="begin"){cap="begin";}
+    if(cap){
+      txt(cx,cy+r+16,cap,{fill:done?C.text:C.muted,"font-size":10.5,"text-anchor":"middle","font-family":"ui-monospace,Menlo,monospace"},svg);
+    }
+    if(s.badge && done){
+      txt(cx,cy-r-8,s.badge,{fill:s.op==="abort"?C.red:C.amber,"font-size":11,"text-anchor":"middle","font-weight":700,"font-family":"ui-monospace,Menlo,monospace"},svg);
+    }
+  }
+
+  function fmt(v){
+    if(v===undefined||v===null)return "–";
+    if(v===true)return "true";
+    if(v===false)return "false";
+    return String(v);
+  }
+
+  // Replay committed DB state through current index.
+  function replay(){
+    var st={dbx:(state.scn==="lost"?10:null),dbA:true,dbB:true,
+            dbxChanged:false,dbAChanged:false,dbBChanged:false,
+            priv1:null,priv2:null,priv1Lab:"",priv2Lab:""};
+    for(var i=0;i<=state.idx && i<state.steps.length;i++){
+      var s=state.steps[i];
+      if(s.op==="verdict")continue;
+      // Only committed writes change the DB. We mark a write as committed when the txn's commit step is reached.
+      // Simplify: a write applies to DB only if that txn later commits AND we've passed that commit. Track pending writes.
+    }
+    // Two-pass: collect committed actors up to idx, then apply only committed writes
+    var committed={};
+    var aborted={};
+    for(var j=0;j<=state.idx && j<state.steps.length;j++){
+      var ss=state.steps[j];
+      if(ss.op==="commit")committed[ss.actor]=true;
+      if(ss.op==="abort")aborted[ss.actor]=true;
+    }
+    for(var k=0;k<=state.idx && k<state.steps.length;k++){
+      var w=state.steps[k];
+      if(w.op==="write" && committed[w.actor] && !aborted[w.actor]){
+        if("dbx" in w){st.dbx=w.val; st.dbxChanged=true;}
+        if(w.row==="x"){st.dbx=w.val; st.dbxChanged=true;}
+        if(w.row==="on_A"){st.dbA=w.val; st.dbAChanged=true;}
+        if(w.row==="on_B"){st.dbB=w.val; st.dbBChanged=true;}
+      }
+    }
+    return st;
+  }
+
+  // ============ narration & flow ============
+  function updateNarration(){
+    var s=state.steps[state.idx];
+    if(!s){return;}
+    if(s.op==="verdict"){
+      narration.innerHTML='<span class="tag">[result]</span> '+escapeHtml(s.title)+": "+escapeHtml(s.msg);
+      verdict.className="verdict "+(s.bad?"bad":"good");
+      verdict.textContent=(s.bad?"⚠ ":"✔ ")+s.title+" — "+s.msg;
+      return;
+    }
+    var tag=s.actor;
+    narration.innerHTML='<span class="tag">['+escapeHtml(tag)+']</span> '+escapeHtml(s.note||"");
+    // show running verdict hint only at end
+    var last=state.steps[state.steps.length-1];
+    if(state.idx>=state.steps.length-2 && last.op==="verdict"){
+      verdict.className="verdict "+(last.bad?"bad":"good");
+      verdict.textContent=(last.bad?"⚠ ":"✔ ")+last.title+" — "+last.msg;
+    } else {
+      verdict.className="verdict";
+      verdict.textContent="";
+    }
+  }
+  function escapeHtml(s){return String(s).replace(/[&<>]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;"}[c];});}
+
+  function rebuild(){
+    pause();
+    state.steps=buildSteps();
+    state.idx=0;
+    render();
+    narration.innerHTML='<span class="tag">[ready]</span> '+describeScenario()+" Press Play or Step.";
+    verdict.className="verdict"; verdict.textContent="";
+    syncButtons();
+  }
+  function describeScenario(){
+    if(state.scn==="lost")return "Lost Update: both txns read x, both write x+1.";
+    return "Write Skew: each doctor checks the OTHER is on call, then goes off call.";
+  }
+
+  function stepForward(){
+    if(state.idx<state.steps.length-1){
+      state.idx++;
+      render();
+      updateNarration();
+    } else {
+      pause();
+    }
+    syncButtons();
+  }
+
+  function play(){
+    if(state.idx>=state.steps.length-1){state.idx=0;}
+    state.playing=true;
+    playBtn.innerHTML="&#10073;&#10073; Pause";
+    tick();
+  }
+  function tick(){
+    if(!state.playing)return;
+    stepForward();
+    if(state.idx>=state.steps.length-1){pause();return;}
+    state.timer=setTimeout(function(){requestAnimationFrame(tick);},parseInt(speed.value,10));
+  }
+  function pause(){
+    state.playing=false;
+    if(state.timer){clearTimeout(state.timer);state.timer=null;}
+    playBtn.innerHTML="&#9654; Play";
+  }
+  function reset(){
+    pause();
+    state.idx=0;
+    render();
+    narration.innerHTML='<span class="tag">[ready]</span> '+describeScenario()+" Press Play or Step.";
+    verdict.className="verdict"; verdict.textContent="";
+    syncButtons();
+  }
+  function syncButtons(){
+    stepBtn.disabled=(state.idx>=state.steps.length-1);
+  }
+
+  // ============ scenario descriptions ============
+  function updateScnDesc(){
+    var iso = state.iso==="rc"?"Read Committed":state.iso==="si"?"Snapshot Isolation":"Serializable";
+    var d;
+    if(state.scn==="lost"){
+      d="Lost Update under "+iso+". Two transactions each increment the same counter x (starts at 10). ";
+      d+= state.iso==="rc" ? "Read Committed does NOT prevent this." :
+          state.iso==="si" ? "Snapshot Isolation PREVENTS it via write-write conflict detection." :
+          "Serializable PREVENTS it by aborting a conflicting transaction.";
+    } else {
+      d="Write Skew under "+iso+". Invariant: at least one doctor stays on call. Each transaction reads the other doctor's row, then writes its OWN row. ";
+      d+= state.iso==="rc" ? "Read Committed allows the anomaly." :
+          state.iso==="si" ? "Snapshot Isolation STILL ALLOWS write skew — reads/writes touch disjoint rows, so no write-write conflict is detected." :
+          "Serializable PREVENTS it by tracking read/write antidependencies and aborting T2.";
+    }
+    scnDesc.textContent=d;
+  }
+
+  // ============ wire up controls ============
+  scnSel.addEventListener("change",function(){state.scn=scnSel.value; updateScnDesc(); rebuild();});
+  Array.prototype.forEach.call(isoSeg.querySelectorAll("button"),function(b){
+    b.addEventListener("click",function(){
+      Array.prototype.forEach.call(isoSeg.querySelectorAll("button"),function(x){x.classList.remove("active");});
+      b.classList.add("active");
+      state.iso=b.getAttribute("data-iso");
+      updateScnDesc(); rebuild();
+    });
+  });
+  playBtn.addEventListener("click",function(){ state.playing?pause():play(); });
+  stepBtn.addEventListener("click",function(){ pause(); stepForward(); });
+  resetBtn.addEventListener("click",reset);
+  speed.addEventListener("input",function(){
+    var ms=parseInt(speed.value,10);
+    speedVal.textContent=(ms/1000).toFixed(1)+"s / step";
+  });
+
+  // init
+  state.scn=scnSel.value;
+  updateScnDesc();
+  rebuild();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Raft: Leader Election &amp; Log Replication</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --border:#30363d;
+    --text:#e6edf3; --muted:#8b949e;
+    --accent:#58a6ff; --success:#3fb950; --warning:#d29922;
+    --danger:#f85149; --purple:#bc8cff;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    line-height:1.5;
+  }
+  .wrap{max-width:960px;margin:0 auto;padding:20px 16px 48px;}
+  header h1{font-size:1.6rem;margin:0 0 8px;}
+  header p{color:var(--muted);margin:0 0 18px;max-width:760px;}
+  .stage{
+    background:var(--panel);border:1px solid var(--border);border-radius:8px;
+    padding:8px;margin-bottom:14px;
+  }
+  svg{width:100%;height:auto;display:block;}
+  .controls{
+    display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+    background:var(--panel);border:1px solid var(--border);border-radius:8px;
+    padding:12px;margin-bottom:14px;
+  }
+  button{
+    background:#21262d;color:var(--text);border:1px solid var(--border);
+    border-radius:999px;padding:8px 16px;font-size:.9rem;cursor:pointer;
+    font-family:inherit;transition:background .15s,border-color .15s;
+  }
+  button:hover{background:#30363d;border-color:#8b949e;}
+  button:active{background:#3a4350;}
+  button:disabled{opacity:.45;cursor:not-allowed;}
+  button.primary{border-color:var(--accent);color:var(--accent);}
+  button.danger{border-color:var(--danger);color:var(--danger);}
+  .speed{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:.85rem;}
+  .speed input{accent-color:var(--accent);}
+  .narration{
+    background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--accent);
+    border-radius:8px;padding:12px 14px;margin-bottom:14px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.92rem;
+    min-height:1.5em;
+  }
+  .narration b{color:var(--accent);}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  @media(max-width:700px){.grid{grid-template-columns:1fr;}}
+  .card{
+    background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:14px;
+  }
+  .card h2{font-size:1rem;margin:0 0 10px;}
+  .legend-row{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:.85rem;color:var(--muted);}
+  .swatch{width:16px;height:16px;border-radius:4px;flex:0 0 auto;border:1px solid #00000055;}
+  .dot{width:14px;height:14px;border-radius:50%;flex:0 0 auto;}
+  .tip{color:var(--text);font-size:.88rem;}
+  .tip code{background:#0d1117;border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-size:.82rem;}
+  footer{margin-top:22px;padding-top:14px;border-top:1px solid var(--border);
+    display:flex;gap:18px;flex-wrap:wrap;font-size:.88rem;}
+  footer a{color:var(--accent);text-decoration:none;}
+  footer a:hover{text-decoration:underline;}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Raft: Leader Election &amp; Log Replication</h1>
+    <p>Five servers keep a replicated log in sync. They elect a single leader by majority vote,
+       then the leader replicates client commands; an entry only commits once a majority has stored it.
+       Kill the leader and watch the cluster heal itself.</p>
+  </header>
+
+  <div class="stage">
+    <svg id="svg" viewBox="0 0 720 420" role="img" aria-label="Raft cluster diagram"></svg>
+  </div>
+
+  <div class="controls">
+    <button id="btnPlay" class="primary">Pause</button>
+    <button id="btnStep">Step</button>
+    <button id="btnReset">Reset</button>
+    <button id="btnCmd">Add client command</button>
+    <button id="btnKill" class="danger">Kill leader</button>
+    <label class="speed">Speed
+      <input id="speed" type="range" min="0.4" max="2.5" step="0.1" value="1">
+    </label>
+  </div>
+
+  <div id="narration" class="narration">Initializing cluster&hellip;</div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Legend</h2>
+      <div class="legend-row"><span class="dot" style="background:var(--muted)"></span>Follower &mdash; obeys the current leader</div>
+      <div class="legend-row"><span class="dot" style="background:var(--warning)"></span>Candidate &mdash; ran out its timeout, requesting votes</div>
+      <div class="legend-row"><span class="dot" style="background:var(--success)"></span>Leader &mdash; won a majority for this term</div>
+      <div class="legend-row"><span class="dot" style="background:var(--danger)"></span>Dead &mdash; crashed / killed</div>
+      <div class="legend-row"><span class="swatch" style="background:var(--accent)"></span>Replicated, not yet committed</div>
+      <div class="legend-row"><span class="swatch" style="background:var(--purple)"></span>Committed (stored on a majority)</div>
+      <div class="legend-row"><span class="swatch" style="border-color:var(--warning);background:transparent"></span>Open dot ring = current vote / election progress</div>
+    </div>
+    <div class="card">
+      <h2>Try this</h2>
+      <p class="tip">Press <code>Add client command</code> a few times and watch boxes turn
+        from blue to purple as a majority stores them. Then hit
+        <code>Kill leader</code>: surviving nodes time out, one becomes a
+        <b>candidate</b> in a higher term, collects 3 votes, and resumes replication &mdash;
+        no committed entry is ever lost. Slow the <code>Speed</code> slider down to read every step.</p>
+    </div>
+  </div>
+
+  <footer>
+    <a href="./index.html">&larr; Back to gallery</a>
+    <a href="../02-distributed-systems/13-consensus.md">Related writeup: Consensus &rarr;</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  const svg = document.getElementById("svg");
+  const narration = document.getElementById("narration");
+
+  const COL = {
+    follower:"#8b949e", candidate:"#d29922", leader:"#3fb950", dead:"#f85149",
+    repl:"#58a6ff", commit:"#bc8cff", text:"#e6edf3", border:"#30363d", panel:"#161b22"
+  };
+
+  const N = 5;
+  const CENTER = {x:360, y:200};
+  const RADIUS = 150;
+
+  // ---- model ----
+  let nodes = [];          // node state
+  let term = 0;
+  let nextCmd = 65;        // 'A'
+  let phase = "init";
+  let playing = true;
+  let speedMul = 1;
+  let acc = 0;             // accumulator (ms scaled)
+  let pendingPackets = []; // animated message dots
+  let leaderId = -1;
+  let election = null;     // {candidate, term, votes:Set, decided}
+  let lastTime = performance.now();
+
+  function nodePos(i){
+    const ang = -Math.PI/2 + i*(2*Math.PI/N);
+    return {x:CENTER.x + RADIUS*Math.cos(ang), y:CENTER.y + RADIUS*Math.sin(ang)};
+  }
+
+  function newNode(i){
+    const p = nodePos(i);
+    return {
+      id:i, x:p.x, y:p.y,
+      role:"follower",
+      term:0,
+      log:[],            // {term, cmd, committed}
+      votedFor:null,
+      alive:true,
+      timeout:randTimeout(),  // election timer (in scaled ms)
+      timer:randTimeout()
+    };
+  }
+
+  function randTimeout(){ return 2600 + Math.random()*2600; }
+
+  function reset(){
+    nodes = [];
+    for(let i=0;i<N;i++) nodes.push(newNode(i));
+    term = 0;
+    nextCmd = 65;
+    leaderId = -1;
+    election = null;
+    pendingPackets = [];
+    phase = "follower";
+    acc = 0;
+    setNarration("Cluster started. All nodes are <b>followers</b> at term 0, each waiting on a randomized election timeout.");
+    render();
+  }
+
+  function setNarration(html){ narration.innerHTML = html; }
+
+  function aliveCount(){ return nodes.filter(n=>n.alive).length; }
+  function majority(){ return Math.floor(N/2)+1; } // 3 of 5 always (cluster size fixed)
+
+  // ---- election ----
+  function startElection(cand){
+    term = Math.max(term, cand.term) + 1;
+    cand.term = term;
+    cand.role = "candidate";
+    cand.votedFor = cand.id;
+    // step down any existing leader of lower term
+    nodes.forEach(n=>{ if(n!==cand && n.role==="leader" && n.term < term) n.role="follower"; });
+    leaderId = -1;
+    election = { candidate:cand.id, term:term, votes:new Set([cand.id]), responded:new Set([cand.id]), decided:false };
+    cand.timer = randTimeout();
+    setNarration("Node "+name(cand.id)+" timed out &rarr; becomes <b>candidate</b> for <b>term "+term+"</b>, voting for itself and requesting votes.");
+    // send RequestVote to all others
+    nodes.forEach(n=>{
+      if(n.id!==cand.id && n.alive){
+        sendPacket(cand.id, n.id, "vote-req", term, function(){ handleVoteReq(cand.id, n, term); });
+      }
+    });
+  }
+
+  function handleVoteReq(candId, voter, voteTerm){
+    if(!election || election.term!==voteTerm || election.decided) return;
+    if(!voter.alive) return;
+    let grant = false;
+    // up-to-date check: candidate log must be at least as up to date
+    const cand = nodes[candId];
+    const candLastTerm = cand.log.length? cand.log[cand.log.length-1].term : 0;
+    const candLastIdx = cand.log.length;
+    const myLastTerm = voter.log.length? voter.log[voter.log.length-1].term : 0;
+    const myLastIdx = voter.log.length;
+    const upToDate = (candLastTerm > myLastTerm) || (candLastTerm===myLastTerm && candLastIdx >= myLastIdx);
+    if(voteTerm > voter.term){ voter.term = voteTerm; voter.votedFor = null; voter.role="follower"; }
+    if(voteTerm===voter.term && (voter.votedFor===null || voter.votedFor===candId) && upToDate){
+      voter.votedFor = candId; grant = true; voter.timer = randTimeout();
+    }
+    election.responded.add(voter.id);
+    sendPacket(voter.id, candId, grant?"vote-grant":"vote-deny", voteTerm, function(){ handleVoteResp(candId, voter.id, grant, voteTerm); });
+  }
+
+  function handleVoteResp(candId, voterId, grant, voteTerm){
+    if(!election || election.term!==voteTerm || election.decided) return;
+    if(grant) election.votes.add(voterId);
+    const v = election.votes.size;
+    if(v >= majority()){
+      election.decided = true;
+      const cand = nodes[candId];
+      cand.role = "leader"; leaderId = candId;
+      nodes.forEach(n=>{ if(n!==cand && n.term<=term && n.alive){ n.role="follower"; n.timer=randTimeout(); }});
+      phase = "leader";
+      setNarration("Node "+name(candId)+" received <b>"+v+" votes (majority of "+N+")</b> &rarr; becomes <b>LEADER</b> for term "+term+". It will now send heartbeats / AppendEntries.");
+      election = null;
+      // immediate heartbeat to assert leadership
+      heartbeat(cand, true);
+    } else {
+      const remaining = nodes.filter(n=>n.alive && !election.responded.has(n.id)).length;
+      if(election.responded.size >= aliveCount() && v < majority()){
+        // all alive nodes responded, no majority -> split vote
+        election.decided = true;
+        setNarration("Split vote in term "+term+": node "+name(candId)+" got only "+v+" of "+majority()+" needed. Election fails; timeouts will trigger a new term.");
+        nodes[candId].role = "follower";
+        nodes[candId].timer = randTimeout()*0.6;
+        election = null;
+      }
+    }
+  }
+
+  // ---- replication ----
+  function appendCommand(){
+    if(leaderId<0){ setNarration("No leader yet &mdash; a client command can't be accepted until an election completes."); return; }
+    const ldr = nodes[leaderId];
+    const c = String.fromCharCode(nextCmd++);
+    ldr.log.push({term:term, cmd:c, committed:false});
+    setNarration("Client sent command <b>"+c+"</b>. Leader "+name(leaderId)+" appended it to its log at index "+ldr.log.length+" (term "+term+"), replicating via AppendEntries.");
+    replicate(ldr);
+  }
+
+  function replicate(ldr){
+    nodes.forEach(n=>{
+      if(n.id!==ldr.id && n.alive){
+        sendPacket(ldr.id, n.id, "append", term, function(){ handleAppend(ldr.id, n); });
+      }
+    });
+  }
+
+  function handleAppend(ldrId, fol){
+    if(!fol.alive) return;
+    const ldr = nodes[ldrId];
+    if(ldr.role!=="leader") return;
+    fol.term = Math.max(fol.term, ldr.term);
+    fol.role = "follower";
+    fol.timer = randTimeout();
+    // copy leader log (simplified consistency: follower adopts leader's entries)
+    fol.log = ldr.log.map(e=>({term:e.term, cmd:e.cmd, committed:e.committed}));
+    sendPacket(fol.id, ldrId, "append-ok", ldr.term, function(){ handleAppendAck(ldrId); });
+  }
+
+  function handleAppendAck(ldrId){
+    const ldr = nodes[ldrId];
+    if(ldr.role!=="leader") return;
+    // commit any entry stored on a majority
+    for(let idx=0; idx<ldr.log.length; idx++){
+      if(ldr.log[idx].committed) continue;
+      if(ldr.log[idx].term!==ldr.term) continue; // Raft: only commit current-term entries directly
+      let count=1; // leader has it
+      nodes.forEach(n=>{ if(n.id!==ldr.id && n.alive && n.log.length>idx && n.log[idx] && n.log[idx].cmd===ldr.log[idx].cmd) count++; });
+      if(count>=majority()){
+        ldr.log[idx].committed = true;
+        const cmd = ldr.log[idx].cmd;
+        setNarration("Entry <b>"+cmd+"</b> (index "+(idx+1)+") is now stored on <b>"+count+" nodes (majority)</b> &rarr; <b>COMMITTED</b> in term "+ldr.term+".");
+        // propagate committed flag to followers on next heartbeat
+        nodes.forEach(n=>{ if(n.alive && n.log.length>idx && n.log[idx]) n.log[idx].committed = true; });
+      }
+    }
+  }
+
+  function heartbeat(ldr, silent){
+    if(!ldr || ldr.role!=="leader" || !ldr.alive) return;
+    replicate(ldr);
+  }
+
+  // ---- packets (animated messages) ----
+  function sendPacket(from, to, kind, t, onArrive){
+    pendingPackets.push({from, to, kind, term:t, p:0, onArrive, dur: 900});
+  }
+
+  function name(i){ return "S"+(i+1); }
+
+  // ---- tick ----
+  function tick(dtScaled){
+    // advance packets
+    for(let i=pendingPackets.length-1;i>=0;i--){
+      const pk = pendingPackets[i];
+      pk.p += dtScaled / pk.dur;
+      if(pk.p>=1){
+        pendingPackets.splice(i,1);
+        // drop packet if target died mid-flight
+        if(nodes[pk.to].alive || pk.kind.indexOf("ok")>=0 || pk.kind.indexOf("grant")>=0 || pk.kind.indexOf("deny")>=0){
+          if(typeof pk.onArrive==="function") pk.onArrive();
+        }
+      }
+    }
+
+    // leader heartbeat timer
+    if(leaderId>=0 && nodes[leaderId].alive){
+      const ldr = nodes[leaderId];
+      ldr.hb = (ldr.hb||0) + dtScaled;
+      if(ldr.hb > 1800){ ldr.hb = 0; heartbeat(ldr, true); }
+    }
+
+    // election timeouts for followers/candidates
+    nodes.forEach(n=>{
+      if(!n.alive) return;
+      if(n.role==="leader") return;
+      // if there is an active leader and it's alive, followers don't time out (heartbeats reset them)
+      n.timer -= dtScaled;
+      if(n.timer<=0){
+        // only start a new election if no decided ongoing election from same/higher term in flight
+        if(!election || election.decided){
+          startElection(n);
+        } else {
+          n.timer = randTimeout();
+        }
+      }
+    });
+  }
+
+  // ---- render ----
+  function el(tag, attrs){
+    const e = document.createElementNS(SVG_NS, tag);
+    for(const k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  function render(){
+    while(svg.firstChild) svg.removeChild(svg.firstChild);
+
+    // term banner
+    const banner = el("text",{x:360,y:26,"text-anchor":"middle","font-family":"ui-monospace,monospace","font-size":15,fill:COL.text});
+    banner.textContent = "current term: "+term + "   |   leader: "+(leaderId>=0?name(leaderId):"none")+"   |   majority needed: "+majority()+"/"+N;
+    svg.appendChild(banner);
+
+    // connection lines (faint)
+    for(let i=0;i<N;i++){
+      for(let j=i+1;j<N;j++){
+        const a=nodes[i],b=nodes[j];
+        svg.appendChild(el("line",{x1:a.x,y1:a.y,x2:b.x,y2:b.y,stroke:"#21262d","stroke-width":1}));
+      }
+    }
+
+    // packets
+    pendingPackets.forEach(pk=>{
+      const a=nodes[pk.from], b=nodes[pk.to];
+      const x=a.x+(b.x-a.x)*pk.p, y=a.y+(b.y-a.y)*pk.p;
+      let c=COL.accent;
+      if(pk.kind==="vote-req") c=COL.warning;
+      else if(pk.kind==="vote-grant") c=COL.success;
+      else if(pk.kind==="vote-deny") c=COL.danger;
+      else if(pk.kind==="append") c=COL.accent;
+      else if(pk.kind==="append-ok") c=COL.commit;
+      svg.appendChild(el("circle",{cx:x,cy:y,r:5,fill:c,opacity:0.95}));
+    });
+
+    // nodes
+    nodes.forEach(n=>{
+      let fill = COL.follower;
+      if(!n.alive) fill = COL.dead;
+      else if(n.role==="candidate") fill = COL.candidate;
+      else if(n.role==="leader") fill = COL.leader;
+
+      // election ring for candidate showing votes
+      if(election && election.candidate===n.id && n.alive){
+        const got = election.votes.size, need = majority();
+        const ring = el("circle",{cx:n.x,cy:n.y,r:34,fill:"none",stroke:COL.warning,"stroke-width":3,
+          "stroke-dasharray": (2*Math.PI*34), "stroke-dashoffset": (2*Math.PI*34)*(1-got/need),
+          "transform":"rotate(-90 "+n.x+" "+n.y+")",opacity:0.9});
+        svg.appendChild(ring);
+      }
+
+      const g = el("g",{});
+      const circ = el("circle",{cx:n.x,cy:n.y,r:26,fill:fill,stroke:"#0d1117","stroke-width":2,opacity:n.alive?1:0.55});
+      g.appendChild(circ);
+      // crash X
+      if(!n.alive){
+        g.appendChild(el("line",{x1:n.x-12,y1:n.y-12,x2:n.x+12,y2:n.y+12,stroke:"#0d1117","stroke-width":3}));
+        g.appendChild(el("line",{x1:n.x+12,y1:n.y-12,x2:n.x-12,y2:n.y+12,stroke:"#0d1117","stroke-width":3}));
+      }
+      const lbl = el("text",{x:n.x,y:n.y-2,"text-anchor":"middle","font-family":"ui-monospace,monospace","font-size":13,"font-weight":"bold",fill:"#0d1117"});
+      lbl.textContent = name(n.id);
+      g.appendChild(lbl);
+      const role = el("text",{x:n.x,y:n.y+11,"text-anchor":"middle","font-family":"ui-monospace,monospace","font-size":8,fill:"#0d1117"});
+      role.textContent = "t"+n.term;
+      g.appendChild(role);
+
+      // role label outside
+      const ro = el("text",{x:n.x, y:n.y-34,"text-anchor":"middle","font-family":"system-ui","font-size":11,fill:COL.text});
+      ro.textContent = n.alive ? n.role.toUpperCase() : "DEAD";
+      g.appendChild(ro);
+
+      // log boxes
+      const boxW=14, boxH=14, gap=3;
+      const maxShow=6;
+      const shown = n.log.slice(-maxShow);
+      const totalW = shown.length*(boxW+gap)-gap;
+      let lx = n.x - totalW/2;
+      const ly = n.y + 30;
+      shown.forEach(e=>{
+        const c = e.committed ? COL.commit : COL.repl;
+        g.appendChild(el("rect",{x:lx,y:ly,width:boxW,height:boxH,rx:2,fill:c,opacity:n.alive?1:0.45,stroke:"#0d1117","stroke-width":0.5}));
+        const t = el("text",{x:lx+boxW/2,y:ly+boxH-3.5,"text-anchor":"middle","font-family":"ui-monospace,monospace","font-size":9,"font-weight":"bold",fill:"#0d1117"});
+        t.textContent = e.cmd;
+        g.appendChild(t);
+        lx += boxW+gap;
+      });
+      if(n.log.length>maxShow){
+        g.appendChild(el("text",{x:n.x - totalW/2 - 6, y:ly+boxH-3,"text-anchor":"end","font-family":"ui-monospace,monospace","font-size":9,fill:COL.muted}));
+      }
+
+      svg.appendChild(g);
+    });
+
+    // commit index summary (bottom)
+    if(leaderId>=0){
+      const committed = nodes[leaderId].log.filter(e=>e.committed).length;
+      const total = nodes[leaderId].log.length;
+      const cap = el("text",{x:360,y:408,"text-anchor":"middle","font-family":"ui-monospace,monospace","font-size":11,fill:COL.muted});
+      cap.textContent = "leader log: "+total+" entries, "+committed+" committed";
+      svg.appendChild(cap);
+    }
+  }
+
+  // ---- loop ----
+  function frame(now){
+    const dt = Math.min(now - lastTime, 50);
+    lastTime = now;
+    if(playing){
+      tick(dt*speedMul);
+    }
+    render();
+    requestAnimationFrame(frame);
+  }
+
+  // ---- controls ----
+  const btnPlay=document.getElementById("btnPlay");
+  const btnStep=document.getElementById("btnStep");
+  const btnReset=document.getElementById("btnReset");
+  const btnCmd=document.getElementById("btnCmd");
+  const btnKill=document.getElementById("btnKill");
+  const speed=document.getElementById("speed");
+
+  btnPlay.addEventListener("click",()=>{
+    playing=!playing;
+    btnPlay.textContent = playing?"Pause":"Play";
+  });
+  btnStep.addEventListener("click",()=>{
+    playing=false; btnPlay.textContent="Play";
+    tick(420*speedMul); render();
+  });
+  btnReset.addEventListener("click",()=>{ reset(); playing=true; btnPlay.textContent="Pause"; });
+  btnCmd.addEventListener("click",()=>{ appendCommand(); render(); });
+  btnKill.addEventListener("click",()=>{
+    if(leaderId<0){ setNarration("No current leader to kill. Wait for an election to finish."); return; }
+    const id=leaderId;
+    nodes[id].alive=false;
+    nodes[id].role="follower";
+    leaderId=-1;
+    election=null;
+    setNarration("<b>Leader "+name(id)+" killed.</b> Its heartbeats stop; survivors will time out and a new election begins in a higher term. Committed entries (purple) survive on the majority.");
+    render();
+  });
+  speed.addEventListener("input",()=>{ speedMul=parseFloat(speed.value); });
+
+  reset();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

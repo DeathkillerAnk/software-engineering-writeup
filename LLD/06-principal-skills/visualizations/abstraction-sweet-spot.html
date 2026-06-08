@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Abstraction Sweet Spot — LLD 06</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --ink:#e2e8f0; --muted:#94a3b8; --line:#475569;
+    --ok:#34d399; --bad:#f87171; --accent:#34d399;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5;padding:24px}
+  h1{font-size:1.35rem;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 18px;font-size:.95rem}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px}
+  canvas{width:100%;height:240px;display:block}
+  .slider{width:100%;margin:14px 0 4px}
+  .axis{display:flex;justify-content:space-between;font-size:.75rem;color:var(--muted);font-family:ui-monospace,monospace}
+  .verdict{margin-top:16px;padding:12px 14px;border-radius:8px;font-size:.95rem;font-weight:600}
+  .verdict.bad{background:rgba(248,113,113,.12);color:var(--bad);border:1px solid rgba(248,113,113,.4)}
+  .verdict.ok{background:rgba(52,211,153,.12);color:var(--ok);border:1px solid rgba(52,211,153,.4)}
+  .code{font-family:ui-monospace,monospace;font-size:.78rem;background:#0b1220;border:1px solid var(--line);border-radius:8px;padding:12px;margin-top:14px;white-space:pre-wrap;color:var(--muted);min-height:96px}
+  .foot{color:var(--muted);font-size:.85rem;margin-top:22px;border-top:1px solid var(--line);padding-top:14px}
+  code{background:#0b1220;padding:1px 6px;border-radius:5px;font-size:.85em}
+</style>
+</head>
+<body>
+  <h1>The abstraction sweet spot</h1>
+  <p class="sub">LLD · 06 — drag the slider. Both too little and too much abstraction raise the cost to change. Principals aim for the dip.</p>
+
+  <div class="panel">
+    <canvas id="curve" width="800" height="240"></canvas>
+    <input type="range" min="0" max="100" value="50" class="slider" id="slider">
+    <div class="axis"><span>0 — none (copy-paste everywhere)</span><span>sweet spot</span><span>100 — everything abstracted</span></div>
+    <div class="verdict" id="verdict"></div>
+    <div class="code" id="code"></div>
+  </div>
+
+  <div class="foot">
+    <strong>Takeaway:</strong> abstraction is a <em>loan against complexity</em> — paid now in indirection for a benefit that
+    may never arrive. Under-abstract and every change means editing ten copies; over-abstract and every change means
+    navigating a maze. The dip isn't a fixed point — it's "abstract exactly where a second reason to change has already shown up."
+  </div>
+
+<script>
+(function(){
+  const c=document.getElementById('curve'), ctx=c.getContext('2d'),
+        slider=document.getElementById('slider'), verdict=document.getElementById('verdict'),
+        code=document.getElementById('code');
+  // cost(x) U-curve, x in 0..100, min near 50
+  function cost(x){ const t=(x-50)/50; return 0.15 + 0.85*t*t; } // 0.15 at center, 1.0 at ends
+
+  function draw(){
+    const W=c.width, H=c.height, padL=40, padB=28, padT=14;
+    ctx.clearRect(0,0,W,H);
+    // axes
+    ctx.strokeStyle='#475569'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(padL,padT); ctx.lineTo(padL,H-padB); ctx.lineTo(W-10,H-padB); ctx.stroke();
+    ctx.fillStyle='#94a3b8'; ctx.font='12px ui-monospace,monospace';
+    ctx.save(); ctx.translate(14,H/2); ctx.rotate(-Math.PI/2); ctx.fillText('cost to change',-40,0); ctx.restore();
+    // curve
+    ctx.strokeStyle='#818cf8'; ctx.lineWidth=2.5; ctx.beginPath();
+    for(let x=0;x<=100;x++){
+      const px=padL+(x/100)*(W-10-padL);
+      const py=padT+(1-cost(x))*(H-padB-padT);
+      x===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
+    }
+    ctx.stroke();
+    // sweet zone shading
+    const z1=padL+(35/100)*(W-10-padL), z2=padL+(65/100)*(W-10-padL);
+    ctx.fillStyle='rgba(52,211,153,.10)'; ctx.fillRect(z1,padT,z2-z1,H-padB-padT);
+    // marker
+    const x=+slider.value, px=padL+(x/100)*(W-10-padL), py=padT+(1-cost(x))*(H-padB-padT);
+    const good=x>=35&&x<=65;
+    ctx.fillStyle=good?'#34d399':'#f87171';
+    ctx.beginPath(); ctx.arc(px,py,7,0,7); ctx.fill();
+    ctx.strokeStyle='#0b1220'; ctx.lineWidth=2; ctx.stroke();
+  }
+  function update(){
+    const x=+slider.value;
+    draw();
+    if(x<35){
+      verdict.className='verdict bad';
+      verdict.innerHTML='🧱 <b>Under-abstracted.</b> Logic is copy-pasted; one change means editing every copy (shotgun surgery). Rigid.';
+      code.textContent='// the "discount" rule duplicated in 4 places\nif (type=="gold") price *= 0.9;   // checkout\nif (type=="gold") price *= 0.9;   // invoice\nif (type=="gold") price *= 0.9;   // email\nif (type=="gold") price *= 0.9;   // report   ← change one, miss three';
+    }else if(x>65){
+      verdict.className='verdict bad';
+      verdict.innerHTML='🌀 <b>Over-abstracted.</b> Six layers for two cases. To follow one call you open seven files. A maze.';
+      code.textContent='AbstractDiscountStrategyFactoryProvider\n  .getInstance()\n  .resolveFactory(ctx)\n  .createStrategy(policy)\n  .apply(visitor.visit(order));   // ...to multiply by 0.9';
+    }else{
+      verdict.className='verdict ok';
+      verdict.innerHTML='✅ <b>Sweet spot.</b> One <code>Discount</code> interface at the axis of change; everything else concrete. Cheap to change AND to read.';
+      code.textContent='interface Discount { BigDecimal applyTo(BigDecimal s); }\n// one seam, exactly where pricing varies.\n// new rule = new class. Nothing else moves.';
+    }
+  }
+  slider.addEventListener('input',update);
+  window.addEventListener('resize',draw);
+  update();
+})();
+</script>
+</body>
+</html>

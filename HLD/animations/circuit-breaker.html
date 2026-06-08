@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Circuit Breaker State Machine</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --border:#30363d;
+    --text:#e6edf3; --muted:#8b949e;
+    --accent:#58a6ff; --success:#3fb950; --warning:#d29922;
+    --danger:#f85149; --purple:#bc8cff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    line-height:1.5; padding:24px 16px;
+  }
+  .wrap{max-width:960px;margin:0 auto}
+  header h1{font-size:1.5rem;margin:0 0 8px}
+  header p{color:var(--muted);margin:0 0 20px;max-width:680px}
+  .stage{
+    background:var(--panel);border:1px solid var(--border);
+    border-radius:8px;padding:12px;margin-bottom:16px;
+  }
+  svg{width:100%;height:auto;display:block}
+  .controls{
+    display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+    background:var(--panel);border:1px solid var(--border);
+    border-radius:8px;padding:14px;margin-bottom:16px;
+  }
+  button{
+    background:#21262d;color:var(--text);border:1px solid var(--border);
+    border-radius:999px;padding:8px 16px;font-size:.9rem;cursor:pointer;
+    font-family:inherit;transition:background .15s,border-color .15s;
+  }
+  button:hover{background:#30363d;border-color:var(--accent)}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  button.primary{border-color:var(--accent)}
+  .toggle{
+    display:inline-flex;align-items:center;gap:8px;
+    font-size:.85rem;color:var(--muted);user-select:none;
+  }
+  .toggle .pill{
+    width:46px;height:24px;border-radius:999px;background:#3a2a2a;
+    border:1px solid var(--border);position:relative;transition:background .2s;
+  }
+  .toggle.healthy .pill{background:#13351f}
+  .toggle .knob{
+    position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;
+    background:var(--danger);transition:left .2s,background .2s;
+  }
+  .toggle.healthy .knob{left:24px;background:var(--success)}
+  .ctrl-group{display:flex;align-items:center;gap:8px;font-size:.85rem;color:var(--muted)}
+  .ctrl-group input[type=range]{accent-color:var(--accent);width:110px}
+  .narration{
+    background:var(--panel);border:1px solid var(--border);border-left:4px solid var(--accent);
+    border-radius:8px;padding:14px 16px;margin-bottom:16px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.92rem;min-height:48px;
+  }
+  .legend{
+    background:var(--panel);border:1px solid var(--border);border-radius:8px;
+    padding:14px 16px;margin-bottom:16px;
+  }
+  .legend h3,.tip h3{margin:0 0 10px;font-size:.95rem}
+  .legend-items{display:flex;flex-wrap:wrap;gap:14px}
+  .li{display:flex;align-items:center;gap:7px;font-size:.83rem;color:var(--muted)}
+  .swatch{width:14px;height:14px;border-radius:4px;flex:none}
+  .tip{
+    background:#161b22;border:1px dashed var(--purple);border-radius:8px;
+    padding:14px 16px;margin-bottom:16px;font-size:.9rem;color:var(--text);
+  }
+  .tip code{font-family:ui-monospace,Menlo,monospace;color:var(--purple)}
+  footer{border-top:1px solid var(--border);padding-top:14px;margin-top:8px;
+    display:flex;gap:20px;font-size:.85rem}
+  footer a{color:var(--accent);text-decoration:none}
+  footer a:hover{text-decoration:underline}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Circuit Breaker State Machine</h1>
+    <p>A caller sends requests through a circuit breaker to a flaky downstream service. Watch how the breaker
+       trips OPEN after too many failures to fail fast and shield the downstream, then probes with HALF-OPEN
+       before recovering to CLOSED.</p>
+  </header>
+
+  <div class="stage">
+    <svg viewBox="0 0 920 460" role="img" aria-label="Circuit breaker animation">
+      <defs>
+        <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L8,3 L0,6 Z" fill="#8b949e"/>
+        </marker>
+      </defs>
+
+      <!-- Actor boxes -->
+      <g id="callerBox">
+        <rect x="30" y="170" width="150" height="120" rx="10" fill="#161b22" stroke="#30363d" stroke-width="2"/>
+        <text x="105" y="200" text-anchor="middle" fill="#e6edf3" font-size="16" font-weight="600">Caller</text>
+        <text x="105" y="222" text-anchor="middle" fill="#8b949e" font-size="11" font-family="ui-monospace,Menlo,monospace">client app</text>
+        <text x="105" y="260" text-anchor="middle" fill="#8b949e" font-size="11">ok: <tspan id="okCount" fill="#3fb950">0</tspan></text>
+        <text x="105" y="278" text-anchor="middle" fill="#8b949e" font-size="11">fallback: <tspan id="fbCount" fill="#d29922">0</tspan></text>
+      </g>
+
+      <!-- Breaker -->
+      <g id="breakerBox">
+        <rect x="350" y="120" width="220" height="220" rx="12" fill="#161b22" stroke="#30363d" stroke-width="2"/>
+        <text x="460" y="148" text-anchor="middle" fill="#e6edf3" font-size="16" font-weight="600">Circuit Breaker</text>
+
+        <!-- state badge -->
+        <rect id="stateBadge" x="385" y="162" width="150" height="40" rx="8" fill="#13351f" stroke="#3fb950" stroke-width="2"/>
+        <text id="stateText" x="460" y="188" text-anchor="middle" fill="#3fb950" font-size="18" font-weight="700" font-family="ui-monospace,Menlo,monospace">CLOSED</text>
+
+        <!-- counters -->
+        <text x="460" y="228" text-anchor="middle" fill="#8b949e" font-size="12">
+          consecutive failures: <tspan id="failCount" fill="#f85149" font-weight="700">0</tspan> / <tspan id="threshText">3</tspan>
+        </text>
+        <text id="cooldownLine" x="460" y="250" text-anchor="middle" fill="#8b949e" font-size="12" opacity="0">
+          cooldown: <tspan id="cdText" fill="#d29922" font-weight="700">0.0s</tspan>
+        </text>
+
+        <!-- shield (drawn when OPEN) -->
+        <g id="shield" opacity="0">
+          <path d="M460 268 l46 16 v34 q0 36 -46 56 q-46 -20 -46 -56 v-34 z"
+                fill="rgba(248,81,73,0.12)" stroke="#f85149" stroke-width="2"/>
+          <text x="460" y="320" text-anchor="middle" fill="#f85149" font-size="11" font-weight="700">SHIELDED</text>
+        </g>
+        <g id="probe" opacity="0">
+          <text x="460" y="300" text-anchor="middle" fill="#d29922" font-size="11" font-weight="700">trial request...</text>
+        </g>
+      </g>
+
+      <!-- Downstream -->
+      <g id="downBox">
+        <rect x="740" y="170" width="150" height="120" rx="10" fill="#161b22" stroke="#30363d" stroke-width="2"/>
+        <text x="815" y="200" text-anchor="middle" fill="#e6edf3" font-size="16" font-weight="600">Downstream</text>
+        <text x="815" y="222" text-anchor="middle" fill="#8b949e" font-size="11" font-family="ui-monospace,Menlo,monospace">service</text>
+        <circle id="healthDot" cx="780" cy="258" r="8" fill="#3fb950"/>
+        <text id="healthLabel" x="795" y="262" text-anchor="start" fill="#3fb950" font-size="12" font-weight="600">healthy</text>
+        <text x="815" y="284" text-anchor="middle" fill="#8b949e" font-size="11">calls received: <tspan id="hitCount" fill="#58a6ff">0</tspan></text>
+      </g>
+
+      <!-- static wires -->
+      <line x1="180" y1="230" x2="350" y2="230" stroke="#30363d" stroke-width="2"/>
+      <line x1="570" y1="230" x2="740" y2="230" stroke="#30363d" stroke-width="2"/>
+      <text x="265" y="220" text-anchor="middle" fill="#8b949e" font-size="10" font-family="ui-monospace,Menlo,monospace">request</text>
+      <text x="655" y="220" text-anchor="middle" fill="#8b949e" font-size="10" font-family="ui-monospace,Menlo,monospace">forward</text>
+
+      <!-- moving packet -->
+      <g id="packet" opacity="0">
+        <circle r="11" fill="#58a6ff" stroke="#0d1117" stroke-width="2"/>
+      </g>
+      <!-- block X for shielded -->
+      <g id="blockX" opacity="0">
+        <line x1="620" y1="212" x2="640" y2="248" stroke="#f85149" stroke-width="4" stroke-linecap="round"/>
+        <line x1="640" y1="212" x2="620" y2="248" stroke="#f85149" stroke-width="4" stroke-linecap="round"/>
+      </g>
+    </svg>
+  </div>
+
+  <div class="controls">
+    <button id="playBtn" class="primary">Play</button>
+    <button id="stepBtn">Step (send 1 request)</button>
+    <button id="resetBtn">Reset</button>
+    <label class="toggle healthy" id="healthToggle">
+      <span>Downstream:</span>
+      <span class="pill"><span class="knob"></span></span>
+      <span id="healthToggleLabel">healthy</span>
+    </label>
+    <div class="ctrl-group">
+      <label for="threshSlider">Failure threshold</label>
+      <input type="range" id="threshSlider" min="2" max="6" step="1" value="3">
+      <span id="threshVal" class="mono">3</span>
+    </div>
+    <div class="ctrl-group">
+      <label for="cooldownSlider">Cooldown</label>
+      <input type="range" id="cooldownSlider" min="2" max="8" step="1" value="4">
+      <span id="cooldownVal" class="mono">4s</span>
+    </div>
+  </div>
+
+  <div class="narration" id="narration">Ready. The breaker is CLOSED. Press Step to send one request, or Play to stream requests.</div>
+
+  <div class="legend">
+    <h3>Legend</h3>
+    <div class="legend-items">
+      <div class="li"><span class="swatch" style="background:#3fb950"></span>CLOSED &mdash; traffic flows, failures counted</div>
+      <div class="li"><span class="swatch" style="background:#f85149"></span>OPEN &mdash; fail fast, downstream shielded</div>
+      <div class="li"><span class="swatch" style="background:#d29922"></span>HALF-OPEN &mdash; one trial request allowed</div>
+      <div class="li"><span class="swatch" style="background:#58a6ff"></span>Request packet in flight</div>
+      <div class="li"><span class="swatch" style="background:#bc8cff"></span>Fallback / immediate error to caller</div>
+    </div>
+  </div>
+
+  <div class="tip">
+    <h3>Try this</h3>
+    Set the downstream to <code>failing</code> and press <code>Play</code>. After the threshold is hit the breaker
+    trips OPEN &mdash; notice the <strong>calls received</strong> counter on the downstream stops increasing: it is
+    shielded. Now flip the downstream back to <code>healthy</code> and wait for the cooldown: the HALF-OPEN trial
+    request succeeds and the breaker closes again.
+  </div>
+
+  <footer>
+    <a href="./index.html">&larr; Back to gallery</a>
+    <a href="../02-distributed-systems/16-reliability-and-failure.md">Related writeup: Reliability &amp; Failure</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---- DOM refs ----
+  const $ = id => document.getElementById(id);
+  const svgNS = "http://www.w3.org/2000/svg";
+  const stateBadge = $("stateBadge"), stateText = $("stateText");
+  const failCountEl = $("failCount"), threshTextEl = $("threshText");
+  const cooldownLine = $("cooldownLine"), cdText = $("cdText");
+  const okCountEl = $("okCount"), fbCountEl = $("fbCount"), hitCountEl = $("hitCount");
+  const shield = $("shield"), probe = $("probe"), blockX = $("blockX");
+  const packet = $("packet"), packetCircle = packet.querySelector("circle");
+  const healthDot = $("healthDot"), healthLabel = $("healthLabel");
+  const narration = $("narration");
+  const playBtn = $("playBtn"), stepBtn = $("stepBtn"), resetBtn = $("resetBtn");
+  const healthToggle = $("healthToggle"), healthToggleLabel = $("healthToggleLabel");
+  const threshSlider = $("threshSlider"), threshVal = $("threshVal");
+  const cooldownSlider = $("cooldownSlider"), cooldownVal = $("cooldownVal");
+
+  // ---- colors ----
+  const C = {accent:"#58a6ff",success:"#3fb950",warning:"#d29922",danger:"#f85149",purple:"#bc8cff",muted:"#8b949e"};
+
+  // ---- model state ----
+  let cfg = {threshold:3, cooldownMs:4000};
+  let bs = "CLOSED";          // breaker state
+  let consecFailures = 0;
+  let openUntil = 0;          // timestamp when cooldown ends
+  let downstreamHealthy = true;
+  let counts = {ok:0, fallback:0, hits:0};
+
+  // animation / loop control
+  let playing = false;
+  let busy = false;           // a request is currently animating
+  let lastSend = 0;
+  const SEND_INTERVAL = 1300; // ms between auto requests
+  let rafId = null;
+
+  // ---- geometry for packet path ----
+  // path points: caller(180,230) -> breaker entry(350,230) -> breaker center(460,230)
+  //              -> breaker exit(570,230) -> downstream(740,230)
+  const P = {
+    callerOut:{x:180,y:230},
+    breakIn:{x:350,y:230},
+    breakCenter:{x:460,y:230},
+    breakOut:{x:570,y:230},
+    downIn:{x:740,y:230}
+  };
+
+  function lerp(a,b,t){return {x:a.x+(b.x-a.x)*t, y:a.y+(b.y-a.y)*t};}
+  function setPacket(pt,color,show){
+    packet.setAttribute("transform","translate("+pt.x+","+pt.y+")");
+    packetCircle.setAttribute("fill",color);
+    packet.setAttribute("opacity",show?"1":"0");
+  }
+
+  // ---- rendering of static-ish UI ----
+  function renderState(){
+    stateText.textContent = bs;
+    let col;
+    if(bs==="CLOSED") col=C.success;
+    else if(bs==="OPEN") col=C.danger;
+    else col=C.warning;
+    stateText.setAttribute("fill",col);
+    stateBadge.setAttribute("stroke",col);
+    stateBadge.setAttribute("fill", bs==="CLOSED"?"#13351f":bs==="OPEN"?"#3a1d1d":"#3a311a");
+
+    failCountEl.textContent = consecFailures;
+    failCountEl.setAttribute("fill", consecFailures>=cfg.threshold?C.danger:C.warning);
+    threshTextEl.textContent = cfg.threshold;
+
+    okCountEl.textContent = counts.ok;
+    fbCountEl.textContent = counts.fallback;
+    hitCountEl.textContent = counts.hits;
+
+    shield.setAttribute("opacity", bs==="OPEN"?"1":"0");
+    cooldownLine.setAttribute("opacity", bs==="OPEN"?"1":"0");
+
+    if(downstreamHealthy){
+      healthDot.setAttribute("fill",C.success);
+      healthLabel.setAttribute("fill",C.success);
+      healthLabel.textContent="healthy";
+    } else {
+      healthDot.setAttribute("fill",C.danger);
+      healthLabel.setAttribute("fill",C.danger);
+      healthLabel.textContent="failing";
+    }
+  }
+
+  function narrate(msg){ narration.textContent = msg; }
+
+  // ---- the core: handle one request through the breaker ----
+  // returns when animation done (uses callbacks via rAF tween helper)
+  function tween(durationMs, onFrame, onDone){
+    const start = performance.now();
+    function frame(now){
+      let t = (now-start)/durationMs;
+      if(t>1) t=1;
+      onFrame(t);
+      if(t<1){ requestAnimationFrame(frame); }
+      else if(onDone){ onDone(); }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function flashBadge(){
+    stateBadge.setAttribute("opacity","0.4");
+    setTimeout(()=>stateBadge.setAttribute("opacity","1"),140);
+  }
+
+  function sendRequest(){
+    if(busy) return;
+    busy = true;
+
+    // decide cooldown expiry first (may move OPEN->HALF-OPEN)
+    if(bs==="OPEN" && performance.now()>=openUntil){
+      bs="HALF-OPEN";
+      renderState();
+      flashBadge();
+      narrate("Cooldown elapsed -> breaker moves to HALF-OPEN. It will allow ONE trial request through.");
+    }
+
+    if(bs==="OPEN"){
+      // fail fast: packet stops at breaker, never reaches downstream
+      blockX.setAttribute("opacity","0");
+      setPacket(P.callerOut,C.accent,true);
+      narrate("Breaker is OPEN -> request fails fast at the breaker. Downstream is NOT called (shielded). Caller gets a fallback.");
+      tween(420,
+        t=>{ setPacket(lerp(P.callerOut,P.breakCenter,t),C.accent,true); },
+        ()=>{
+          // bounce back as fallback (purple)
+          setPacket(P.breakCenter,C.purple,true);
+          tween(420,
+            t=>{ setPacket(lerp(P.breakCenter,P.callerOut,t),C.purple,true); },
+            ()=>{
+              setPacket(P.callerOut,C.purple,false);
+              counts.fallback++;
+              renderState();
+              busy=false;
+            });
+        });
+      return;
+    }
+
+    // CLOSED or HALF-OPEN: request is allowed to reach downstream
+    const trial = (bs==="HALF-OPEN");
+    if(trial){ probe.setAttribute("opacity","1"); }
+    narrate(trial
+      ? "HALF-OPEN: sending the trial request to the downstream to see if it has recovered."
+      : "Breaker CLOSED: request passes through to the downstream service.");
+
+    setPacket(P.callerOut,C.accent,true);
+    // caller -> breaker -> downstream
+    tween(380, t=>{ setPacket(lerp(P.callerOut,P.breakOut,t),C.accent,true); }, ()=>{
+      tween(360, t=>{ setPacket(lerp(P.breakOut,P.downIn,t),C.accent,true); }, ()=>{
+        // downstream processes
+        counts.hits++;
+        renderState();
+        const success = downstreamHealthy;
+        const respColor = success?C.success:C.danger;
+        // response travels back
+        setPacket(P.downIn,respColor,true);
+        tween(360, t=>{ setPacket(lerp(P.downIn,P.breakOut,t),respColor,true); }, ()=>{
+          tween(380, t=>{ setPacket(lerp(P.breakOut,P.callerOut,t),respColor,true); }, ()=>{
+            setPacket(P.callerOut,respColor,false);
+            probe.setAttribute("opacity","0");
+            applyOutcome(trial, success);
+            busy=false;
+          });
+        });
+      });
+    });
+  }
+
+  function applyOutcome(trial, success){
+    if(trial){
+      // HALF-OPEN result
+      if(success){
+        bs="CLOSED"; consecFailures=0;
+        narrate("Trial request SUCCEEDED -> breaker resets to CLOSED. Normal traffic resumes.");
+      } else {
+        bs="OPEN"; consecFailures=cfg.threshold;
+        openUntil = performance.now()+cfg.cooldownMs;
+        narrate("Trial request FAILED -> breaker snaps back to OPEN for another cooldown period.");
+      }
+      flashBadge();
+      renderState();
+      return;
+    }
+    // CLOSED result
+    if(success){
+      counts.ok++;
+      consecFailures=0;
+      narrate("Request succeeded. Failure counter reset to 0. Breaker stays CLOSED.");
+    } else {
+      consecFailures++;
+      counts.fallback++; // caller still gets an error/fallback on a real failure
+      if(consecFailures>=cfg.threshold){
+        bs="OPEN";
+        openUntil=performance.now()+cfg.cooldownMs;
+        flashBadge();
+        narrate("Failure #"+consecFailures+" hit the threshold ("+cfg.threshold+") -> breaker TRIPS to OPEN. Further requests fail fast and shield the downstream.");
+      } else {
+        narrate("Request failed (#"+consecFailures+" of "+cfg.threshold+"). Counting consecutive failures; breaker still CLOSED.");
+      }
+    }
+    renderState();
+  }
+
+  // ---- main loop: drive cooldown countdown + auto-send ----
+  function loop(now){
+    // cooldown display & auto-transition awareness
+    if(bs==="OPEN"){
+      const remain = Math.max(0,(openUntil-now)/1000);
+      cdText.textContent = remain.toFixed(1)+"s";
+      cdText.setAttribute("fill", remain<=0?C.warning:C.danger);
+      // when cooldown elapses while idle, reflect readiness in narration once
+      if(remain<=0 && !busy && playing===false){
+        // leave state OPEN until a request probes it (lazy transition is correct)
+      }
+    }
+
+    if(playing && !busy && (now-lastSend)>=SEND_INTERVAL){
+      lastSend = now;
+      sendRequest();
+    }
+    rafId = requestAnimationFrame(loop);
+  }
+
+  // ---- controls ----
+  function setPlaying(p){
+    playing=p;
+    playBtn.textContent = p?"Pause":"Play";
+    playBtn.classList.toggle("primary", !p);
+    if(p) lastSend = performance.now()-SEND_INTERVAL; // send soon
+  }
+
+  playBtn.addEventListener("click", ()=> setPlaying(!playing));
+  stepBtn.addEventListener("click", ()=>{
+    if(playing) setPlaying(false);
+    sendRequest();
+  });
+  resetBtn.addEventListener("click", reset);
+
+  healthToggle.addEventListener("click", ()=>{
+    downstreamHealthy = !downstreamHealthy;
+    healthToggle.classList.toggle("healthy", downstreamHealthy);
+    healthToggleLabel.textContent = downstreamHealthy?"healthy":"failing";
+    renderState();
+    narrate(downstreamHealthy
+      ? "Downstream is now HEALTHY. New requests (and the next HALF-OPEN trial) will succeed."
+      : "Downstream is now FAILING. Requests reaching it will error; watch the breaker trip after the threshold.");
+  });
+
+  threshSlider.addEventListener("input", ()=>{
+    cfg.threshold = parseInt(threshSlider.value,10);
+    threshVal.textContent = cfg.threshold;
+    renderState();
+  });
+  cooldownSlider.addEventListener("input", ()=>{
+    cfg.cooldownMs = parseInt(cooldownSlider.value,10)*1000;
+    cooldownVal.textContent = cooldownSlider.value+"s";
+  });
+
+  function reset(){
+    setPlaying(false);
+    busy=false;
+    bs="CLOSED";
+    consecFailures=0;
+    openUntil=0;
+    counts={ok:0,fallback:0,hits:0};
+    setPacket(P.callerOut,C.accent,false);
+    blockX.setAttribute("opacity","0");
+    probe.setAttribute("opacity","0");
+    renderState();
+    narrate("Reset. Breaker is CLOSED. Press Step to send one request, or Play to stream requests.");
+  }
+
+  // init
+  cfg.threshold = parseInt(threshSlider.value,10);
+  cfg.cooldownMs = parseInt(cooldownSlider.value,10)*1000;
+  threshVal.textContent=cfg.threshold;
+  cooldownVal.textContent=cooldownSlider.value+"s";
+  renderState();
+  rafId = requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

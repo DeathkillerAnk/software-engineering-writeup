@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quorum Reads &amp; Writes (R + W &gt; N)</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --success: #3fb950;
+    --warning: #d29922;
+    --danger: #f85149;
+    --purple: #bc8cff;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 24px 18px 48px;
+  }
+  header h1 {
+    font-size: 1.6rem;
+    margin: 0 0 8px;
+  }
+  header p {
+    color: var(--muted);
+    margin: 0 0 20px;
+    max-width: 720px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  svg { width: 100%; height: auto; display: block; }
+  .verdict {
+    text-align: center;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 1.05rem;
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 14px;
+    border: 1px solid var(--border);
+    background: #0d1117;
+  }
+  .verdict.ok { color: var(--success); border-color: var(--success); }
+  .verdict.bad { color: var(--danger); border-color: var(--danger); }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 16px;
+    align-items: flex-end;
+  }
+  .btnrow { display: flex; gap: 10px; flex-wrap: wrap; }
+  button {
+    background: #21262d;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 8px 16px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background .15s, border-color .15s, transform .05s;
+  }
+  button:hover:not(:disabled) { background: #30363d; border-color: var(--accent); }
+  button:active:not(:disabled) { transform: translateY(1px); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  button.primary { border-color: var(--accent); color: var(--accent); }
+  button.warn { border-color: var(--warning); color: var(--warning); }
+  .slider-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.82rem;
+    min-width: 150px;
+  }
+  .slider-group label { color: var(--muted); }
+  .slider-group .val { color: var(--text); }
+  input[type=range] { accent-color: var(--accent); width: 150px; }
+  #narration {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.92rem;
+    background: #0d1117;
+    border-left: 3px solid var(--accent);
+    padding: 12px 14px;
+    border-radius: 0 8px 8px 0;
+    min-height: 1.4em;
+  }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 20px;
+    font-size: 0.85rem;
+  }
+  .legend .item { display: flex; align-items: center; gap: 8px; }
+  .swatch {
+    width: 16px; height: 16px; border-radius: 4px; flex: none;
+    border: 1px solid rgba(255,255,255,.15);
+  }
+  h2.sec { font-size: 0.95rem; color: var(--muted); margin: 0 0 10px; text-transform: uppercase; letter-spacing: .05em; }
+  .try {
+    background: rgba(188,140,255,.08);
+    border: 1px solid rgba(188,140,255,.35);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 0.9rem;
+  }
+  .try b { color: var(--purple); }
+  footer { margin-top: 24px; font-size: 0.9rem; color: var(--muted); }
+  footer a { color: var(--accent); text-decoration: none; margin-right: 18px; }
+  footer a:hover { text-decoration: underline; }
+  .node-label { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; fill: var(--text); }
+  .node-sub { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
+  .col-title { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; fill: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Quorum Reads &amp; Writes (R + W &gt; N)</h1>
+    <p>
+      Data is copied to <b>N</b> replicas. A write must be acknowledged by <b>W</b> of them; a read
+      must gather answers from <b>R</b> of them. When <b>R + W &gt; N</b>, the read set and the write
+      set are forced to share at least one node &mdash; so every read sees the freshest value.
+    </p>
+  </header>
+
+  <div id="verdict" class="verdict"></div>
+
+  <div class="panel">
+    <svg id="stage" viewBox="0 0 700 360" role="img" aria-label="Quorum replica visualization"></svg>
+  </div>
+
+  <div class="panel">
+    <h2 class="sec">Controls</h2>
+    <div class="controls">
+      <div class="btnrow">
+        <button id="btnWrite" class="primary">Write value</button>
+        <button id="btnRead" class="primary">Read value</button>
+        <button id="btnStep">Step</button>
+        <button id="btnPlay">Auto demo</button>
+        <button id="btnReset" class="warn">Reset</button>
+      </div>
+      <div class="slider-group">
+        <label>N (replicas): <span class="val" id="vN">3</span></label>
+        <input type="range" id="sN" min="1" max="7" value="3">
+      </div>
+      <div class="slider-group">
+        <label>W (write quorum): <span class="val" id="vW">2</span></label>
+        <input type="range" id="sW" min="1" max="7" value="2">
+      </div>
+      <div class="slider-group">
+        <label>R (read quorum): <span class="val" id="vR">2</span></label>
+        <input type="range" id="sR" min="1" max="7" value="2">
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2 class="sec">Narration</h2>
+    <div id="narration">Pick R, W, N then press &ldquo;Write value&rdquo; followed by &ldquo;Read value&rdquo;.</div>
+  </div>
+
+  <div class="panel">
+    <h2 class="sec">Legend</h2>
+    <div class="legend">
+      <div class="item"><span class="swatch" style="background:#21262d"></span> Replica node (idle)</div>
+      <div class="item"><span class="swatch" style="background:#d29922"></span> Contacted by the WRITE quorum</div>
+      <div class="item"><span class="swatch" style="background:#58a6ff"></span> Contacted by the READ quorum</div>
+      <div class="item"><span class="swatch" style="background:#3fb950"></span> Overlap node (in both quorums)</div>
+      <div class="item"><span class="swatch" style="background:#f85149"></span> Read returned a STALE value</div>
+      <div class="item"><span class="swatch" style="border-radius:50%;background:#bc8cff"></span> Holds latest version (v)</div>
+    </div>
+  </div>
+
+  <div class="panel try">
+    <b>Try this:</b> Set N=5, W=3, R=3 (sum 6 &gt; 5) and do a write then a read &mdash; an overlap node always
+    turns green and the read is fresh. Now drop R to 2 (sum 5 = N): run several reads and watch some land entirely
+    on the old nodes, returning a <b>stale</b> value. That single missing node is the whole point of R + W &gt; N.
+  </div>
+
+  <footer>
+    <a href="./index.html">&larr; Back to gallery</a>
+    <a href="../01-building-blocks/09-replication.md">Related writeup: Replication &rarr;</a>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var stage = document.getElementById("stage");
+  var SVGNS = "http://www.w3.org/2000/svg";
+  var W_VIEW = 700, H_VIEW = 360;
+
+  var sN = document.getElementById("sN");
+  var sW = document.getElementById("sW");
+  var sR = document.getElementById("sR");
+  var vN = document.getElementById("vN");
+  var vW = document.getElementById("vW");
+  var vR = document.getElementById("vR");
+  var verdictEl = document.getElementById("verdict");
+  var narr = document.getElementById("narration");
+
+  var btnWrite = document.getElementById("btnWrite");
+  var btnRead = document.getElementById("btnRead");
+  var btnStep = document.getElementById("btnStep");
+  var btnPlay = document.getElementById("btnPlay");
+  var btnReset = document.getElementById("btnReset");
+
+  // ---- state ----
+  var N = 3, Wq = 2, Rq = 2;
+  // version held by each node: 0 = old/initial value, 1+ = fresh write version
+  var version = [];
+  var freshVersion = 0;          // latest version that has been written
+  var writeSet = [];             // node indices contacted by last write
+  var readSet = [];              // node indices contacted by last read
+  var overlap = [];              // intersection nodes
+  var readResult = null;         // {value, fresh, staleNodes}
+  var phase = "idle";            // idle | written | read
+
+  // auto demo
+  var playing = false;
+  var rafId = null;
+  var lastTick = 0;
+  var demoStep = 0;
+
+  function setSliders() {
+    vN.textContent = N; vW.textContent = Wq; vR.textContent = Rq;
+    sN.value = N; sW.value = Wq; sR.value = Rq;
+    sW.max = N; sR.max = N;
+  }
+
+  function intersects() { return (Rq + Wq) > N; }
+
+  function updateVerdict() {
+    var sum = Rq + Wq;
+    if (intersects()) {
+      verdictEl.className = "verdict ok";
+      verdictEl.textContent = "R + W  =  " + Rq + " + " + Wq + "  =  " + sum + "   >   N (" + N + ")    ✓  quorums MUST overlap → reads are guaranteed fresh";
+    } else {
+      verdictEl.className = "verdict bad";
+      verdictEl.textContent = "R + W  =  " + Rq + " + " + Wq + "  =  " + sum + "   ≤   N (" + N + ")    ✗  no overlap guaranteed → a read can miss the write (stale)";
+    }
+  }
+
+  // choose k distinct random indices from 0..N-1
+  function pick(k) {
+    var idx = [];
+    for (var i = 0; i < N; i++) idx.push(i);
+    for (var j = idx.length - 1; j > 0; j--) {
+      var r = Math.floor(Math.random() * (j + 1));
+      var t = idx[j]; idx[j] = idx[r]; idx[r] = t;
+    }
+    return idx.slice(0, k).sort(function (a, b) { return a - b; });
+  }
+
+  function nodeCenter(i) {
+    // place nodes in a vertical column on the right area; coordinator on left
+    var top = 50, bottom = H_VIEW - 30;
+    var cy = N === 1 ? (top + bottom) / 2 : top + (bottom - top) * (i / (N - 1));
+    return { x: 470, y: cy };
+  }
+
+  // ---- actions ----
+  function doWrite() {
+    stopPlay();
+    freshVersion += 1;
+    writeSet = pick(Wq);
+    for (var i = 0; i < writeSet.length; i++) version[writeSet[i]] = freshVersion;
+    readSet = []; overlap = []; readResult = null;
+    phase = "written";
+    narrate("WRITE v" + freshVersion + " → coordinator sends to W=" + Wq + " node(s): " +
+      writeSet.map(nodeName).join(", ") + ". Those replicas now hold the latest version.");
+    render();
+  }
+
+  function doRead() {
+    stopPlay();
+    if (phase === "idle") {
+      narrate("Nothing written yet — press “Write value” first so there is a fresh version to find.");
+      return;
+    }
+    readSet = pick(Rq);
+    // overlap = nodes in both this read and the most recent write
+    overlap = readSet.filter(function (n) { return writeSet.indexOf(n) !== -1; });
+    // freshest version visible to the reader = max version among read nodes
+    var seen = -1, freshHolders = [];
+    for (var i = 0; i < readSet.length; i++) {
+      var v = version[readSet[i]];
+      if (v > seen) seen = v;
+    }
+    for (var k = 0; k < readSet.length; k++) {
+      if (version[readSet[k]] === seen) freshHolders.push(readSet[k]);
+    }
+    var fresh = (seen === freshVersion);
+    readResult = { value: seen, fresh: fresh };
+    phase = "read";
+
+    var msg;
+    if (fresh) {
+      if (overlap.length > 0) {
+        msg = "READ → contacts R=" + Rq + " node(s): " + readSet.map(nodeName).join(", ") +
+          ". Overlap with the write at " + overlap.map(nodeName).join(", ") +
+          " (green) returns v" + seen + " — FRESH ✓. Reader keeps the highest version.";
+      } else {
+        msg = "READ → contacts R=" + Rq + " node(s): " + readSet.map(nodeName).join(", ") +
+          ". They happen to include a freshly-written replica, so it reads v" + seen + " — FRESH ✓ (not guaranteed, just lucky).";
+      }
+    } else {
+      msg = "READ → contacts R=" + Rq + " node(s): " + readSet.map(nodeName).join(", ") +
+        ". None of them were in the write set, so the newest value seen is v" + (seen < 0 ? 0 : seen) +
+        " — STALE ✗. (Read-repair would later push v" + freshVersion + " back to the lagging nodes.)";
+    }
+    narrate(msg);
+    render();
+  }
+
+  function nodeName(i) { return "n" + (i + 1); }
+
+  function reset() {
+    stopPlay();
+    version = [];
+    for (var i = 0; i < N; i++) version.push(0);
+    freshVersion = 0;
+    writeSet = []; readSet = []; overlap = []; readResult = null;
+    phase = "idle";
+    narrate("Reset. All " + N + " replicas hold the initial value v0. Choose W and R, then write and read.");
+    render();
+  }
+
+  function narrate(t) { narr.textContent = t; }
+
+  // ---- rendering ----
+  function el(name, attrs) {
+    var e = document.createElementNS(SVGNS, name);
+    for (var k in attrs) if (attrs.hasOwnProperty(k)) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  function render() {
+    while (stage.firstChild) stage.removeChild(stage.firstChild);
+
+    // column titles
+    var coordTitle = el("text", { x: 110, y: 32, "class": "col-title", "text-anchor": "middle" });
+    coordTitle.textContent = "Coordinator";
+    stage.appendChild(coordTitle);
+
+    var repTitle = el("text", { x: 470, y: 32, "class": "col-title", "text-anchor": "middle" });
+    repTitle.textContent = "Replicas (N = " + N + ")";
+    stage.appendChild(repTitle);
+
+    // coordinator box
+    var cx = 110, cy = H_VIEW / 2;
+    var coord = el("rect", { x: cx - 55, y: cy - 26, width: 110, height: 52, rx: 8,
+      fill: "#0d1117", stroke: "#30363d", "stroke-width": 1.5 });
+    stage.appendChild(coord);
+    var cl = el("text", { x: cx, y: cy + 5, "class": "node-label", "text-anchor": "middle" });
+    cl.textContent = "client";
+    stage.appendChild(cl);
+
+    // draw edges first, then nodes
+    var i, c;
+    for (i = 0; i < N; i++) {
+      c = nodeCenter(i);
+      var inWrite = writeSet.indexOf(i) !== -1;
+      var inRead = readSet.indexOf(i) !== -1;
+      var edgeColor = "#30363d", edgeW = 1, dash = "";
+      if (inWrite && inRead) { edgeColor = "#3fb950"; edgeW = 2.5; }
+      else if (inWrite) { edgeColor = "#d29922"; edgeW = 2.2; }
+      else if (inRead) { edgeColor = "#58a6ff"; edgeW = 2.2; dash = "5 4"; }
+      var line = el("line", { x1: cx + 55, y1: cy, x2: c.x - 30, y2: c.y,
+        stroke: edgeColor, "stroke-width": edgeW });
+      if (dash) line.setAttribute("stroke-dasharray", dash);
+      stage.appendChild(line);
+    }
+
+    // nodes
+    for (i = 0; i < N; i++) {
+      c = nodeCenter(i);
+      var isWrite = writeSet.indexOf(i) !== -1;
+      var isRead = readSet.indexOf(i) !== -1;
+      var isOverlap = isWrite && isRead;
+      var isStaleHit = false;
+      if (readResult && !readResult.fresh && isRead) isStaleHit = true;
+
+      var fill = "#21262d", stroke = "#30363d", sw = 1.5;
+      if (isOverlap) { fill = "rgba(63,185,80,.22)"; stroke = "#3fb950"; sw = 2.5; }
+      else if (isWrite) { fill = "rgba(210,153,34,.18)"; stroke = "#d29922"; sw = 2.2; }
+      else if (isStaleHit) { fill = "rgba(248,81,73,.18)"; stroke = "#f85149"; sw = 2.2; }
+      else if (isRead) { fill = "rgba(88,166,255,.18)"; stroke = "#58a6ff"; sw = 2.2; }
+
+      var rect = el("rect", { x: c.x - 30, y: c.y - 20, width: 92, height: 40, rx: 8,
+        fill: fill, stroke: stroke, "stroke-width": sw });
+      stage.appendChild(rect);
+
+      var nm = el("text", { x: c.x - 14, y: c.y - 3, "class": "node-label" });
+      nm.textContent = nodeName(i);
+      stage.appendChild(nm);
+
+      // version label
+      var v = version[i];
+      var vColor = (v === freshVersion && freshVersion > 0) ? "#bc8cff" : "#8b949e";
+      var vt = el("text", { x: c.x - 14, y: c.y + 13, "class": "node-sub", fill: vColor });
+      vt.textContent = "v" + v + (v === freshVersion && freshVersion > 0 ? " ★" : "");
+      stage.appendChild(vt);
+
+      // latest-version dot
+      if (v === freshVersion && freshVersion > 0) {
+        var dot = el("circle", { cx: c.x + 52, cy: c.y, r: 5, fill: "#bc8cff" });
+        stage.appendChild(dot);
+      }
+    }
+
+    // status banner inside stage
+    var bannerText = "", bannerColor = "#8b949e";
+    if (phase === "read" && readResult) {
+      if (readResult.fresh) { bannerText = "Read returned v" + readResult.value + "  (FRESH ✓)"; bannerColor = "#3fb950"; }
+      else { bannerText = "Read returned v" + (readResult.value < 0 ? 0 : readResult.value) + "  (STALE ✗)"; bannerColor = "#f85149"; }
+    } else if (phase === "written") {
+      bannerText = "Wrote v" + freshVersion + " to W=" + Wq + " node(s). Now read.";
+      bannerColor = "#d29922";
+    }
+    if (bannerText) {
+      var bt = el("text", { x: W_VIEW / 2, y: H_VIEW - 8, "text-anchor": "middle",
+        "class": "node-label", fill: bannerColor });
+      bt.setAttribute("font-size", "14");
+      bt.textContent = bannerText;
+      stage.appendChild(bt);
+    }
+  }
+
+  // ---- auto demo ----
+  function stopPlay() {
+    playing = false;
+    btnPlay.textContent = "Auto demo";
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  }
+
+  function startPlay() {
+    playing = true;
+    btnPlay.textContent = "Pause demo";
+    demoStep = 0;
+    lastTick = 0;
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function tick(ts) {
+    if (!playing) return;
+    if (!lastTick) lastTick = ts;
+    if (ts - lastTick > 1600) {
+      lastTick = ts;
+      stepDemo();
+    }
+    rafId = requestAnimationFrame(tick);
+  }
+
+  function stepDemo() {
+    // alternate: write, read, read, read ...
+    var savedPlaying = playing;
+    if (demoStep % 4 === 0) { doWriteKeepPlay(); }
+    else { doReadKeepPlay(); }
+    playing = savedPlaying;
+    demoStep++;
+  }
+
+  // write/read variants that don't stop the demo
+  function doWriteKeepPlay() { var p = playing; doWrite(); playing = p; }
+  function doReadKeepPlay() { var p = playing; doRead(); playing = p; }
+
+  function manualStep() {
+    stopPlay();
+    if (phase === "idle" || phase === "read") doWrite();
+    else doRead();
+  }
+
+  // ---- events ----
+  sN.addEventListener("input", function () {
+    N = parseInt(sN.value, 10);
+    if (Wq > N) Wq = N;
+    if (Rq > N) Rq = N;
+    setSliders();
+    updateVerdict();
+    reset();
+  });
+  sW.addEventListener("input", function () {
+    Wq = Math.min(parseInt(sW.value, 10), N);
+    setSliders(); updateVerdict(); reset();
+  });
+  sR.addEventListener("input", function () {
+    Rq = Math.min(parseInt(sR.value, 10), N);
+    setSliders(); updateVerdict(); reset();
+  });
+
+  btnWrite.addEventListener("click", doWrite);
+  btnRead.addEventListener("click", doRead);
+  btnStep.addEventListener("click", manualStep);
+  btnReset.addEventListener("click", reset);
+  btnPlay.addEventListener("click", function () {
+    if (playing) stopPlay(); else startPlay();
+  });
+
+  // ---- init ----
+  setSliders();
+  updateVerdict();
+  reset();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Order State Machine — LLD 04</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --ink:#e2e8f0; --muted:#94a3b8; --line:#475569;
+    --ok:#34d399; --bad:#f87171; --accent:#22d3ee;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5;padding:24px}
+  h1{font-size:1.35rem;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 18px;font-size:.95rem}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px}
+  .states{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:center;margin-bottom:6px}
+  .state{border:2px solid var(--line);border-radius:999px;padding:10px 18px;font-family:ui-monospace,monospace;font-weight:700;font-size:.85rem;color:var(--muted);transition:all .4s}
+  .state.current{border-color:var(--accent);color:var(--accent);background:rgba(34,211,238,.12);box-shadow:0 0 0 4px rgba(34,211,238,.18);transform:scale(1.06)}
+  .state.done{border-color:var(--ok);color:var(--ok)}
+  .state.cancelled{border-color:var(--bad);color:var(--bad)}
+  .arrow{color:var(--muted)}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:20px}
+  button{background:#334155;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:9px 14px;font-size:.85rem;cursor:pointer;font-weight:600;font-family:ui-monospace,monospace}
+  button.reset{background:var(--accent);color:#0b1220;border:0;font-weight:700}
+  button:hover{filter:brightness(1.1)}
+  .log{font-family:ui-monospace,monospace;font-size:.82rem;color:var(--muted);margin-top:16px;background:#0b1220;border:1px solid var(--line);border-radius:8px;padding:9px 12px;min-height:38px}
+  .verdict{margin-top:12px;padding:11px 14px;border-radius:8px;font-size:.9rem;display:none}
+  .verdict.bad{display:block;background:rgba(248,113,113,.12);color:var(--bad);border:1px solid rgba(248,113,113,.4)}
+  .verdict.ok{display:block;background:rgba(52,211,153,.12);color:var(--ok);border:1px solid rgba(52,211,153,.4)}
+  .foot{color:var(--muted);font-size:.85rem;margin-top:22px;border-top:1px solid var(--line);padding-top:14px}
+  code{background:#0b1220;padding:1px 6px;border-radius:5px;font-size:.85em}
+</style>
+</head>
+<body>
+  <h1>Order state machine — illegal states are unreachable</h1>
+  <p class="sub">LLD · 04 — try the transitions. A valid one advances the order; an invalid one is rejected by the model itself.</p>
+
+  <div class="panel">
+    <div class="states" id="states"></div>
+    <div class="controls" id="controls"></div>
+    <div class="log" id="log"></div>
+    <div class="verdict" id="verdict"></div>
+  </div>
+
+  <div class="foot">
+    <strong>Takeaway:</strong> the order's methods <em>guard their own invariants</em>. <code>collect()</code> on a NEW order
+    can't succeed — there's no path for it. Compare with scattering <code>if (status == ...)</code> checks across a dozen call
+    sites: here the rule lives in <b>one</b> place, and the wrong transition is simply impossible.
+  </div>
+
+<script>
+(function(){
+  const order=['NEW','PAID','PREPARING','READY','COLLECTED'];
+  // transition -> {from:[...], to}
+  const T={
+    'pay':       {from:['NEW'], to:'PAID'},
+    'prepare':   {from:['PAID'], to:'PREPARING'},
+    'ready':     {from:['PREPARING'], to:'READY'},
+    'collect':   {from:['READY'], to:'COLLECTED'},
+    'cancel':    {from:['NEW','PAID'], to:'CANCELLED'},
+  };
+  let status='NEW';
+  const statesEl=document.getElementById('states'), controls=document.getElementById('controls'),
+        log=document.getElementById('log'), verdict=document.getElementById('verdict');
+
+  function renderStates(){
+    statesEl.innerHTML='';
+    order.forEach((s,i)=>{
+      const d=document.createElement('div'); d.className='state';
+      if(s===status) d.className+=' current';
+      else if(order.indexOf(s)<order.indexOf(status) && status!=='CANCELLED') d.className+=' done';
+      d.textContent=s; statesEl.appendChild(d);
+      if(i<order.length-1){ const a=document.createElement('span'); a.className='arrow'; a.textContent='→'; statesEl.appendChild(a); }
+    });
+    const a=document.createElement('span'); a.className='arrow'; a.textContent=' | ';
+    statesEl.appendChild(a);
+    const c=document.createElement('div'); c.className='state'+(status==='CANCELLED'?' current cancelled':' cancelled');
+    c.textContent='CANCELLED'; statesEl.appendChild(c);
+  }
+  function renderControls(){
+    controls.innerHTML='';
+    Object.keys(T).forEach(name=>{
+      const b=document.createElement('button'); b.textContent=name+'()';
+      b.onclick=()=>fire(name); controls.appendChild(b);
+    });
+    const r=document.createElement('button'); r.className='reset'; r.textContent='reset'; r.onclick=reset; controls.appendChild(r);
+  }
+  function fire(name){
+    const t=T[name];
+    if(t.from.includes(status)){
+      status=t.to; renderStates();
+      log.innerHTML='<code>'+name+'()</code> from a valid state → now <b style="color:var(--accent)">'+status+'</b>.';
+      verdict.className='verdict ok'; verdict.innerHTML='✅ Legal transition.';
+    }else{
+      renderStates();
+      log.innerHTML='<code>'+name+'()</code> attempted from <b>'+status+'</b>.';
+      verdict.className='verdict bad';
+      verdict.innerHTML='❌ <code>IllegalStateException</code> — <code>'+name+'()</code> is only allowed from <b>'+t.from.join(' / ')+'</b>. The model refuses to enter an illegal state.';
+    }
+  }
+  function reset(){ status='NEW'; renderStates(); verdict.className='verdict'; log.innerHTML='Fresh order in state <b style="color:var(--accent)">NEW</b>. Try a transition.'; }
+  renderControls(); reset();
+})();
+</script>
+</body>
+</html>

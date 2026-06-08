@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bloom Filter — Interactive</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --border:#30363d;
+    --text:#e6edf3; --muted:#8b949e;
+    --accent:#58a6ff; --success:#3fb950; --warning:#d29922;
+    --danger:#f85149; --purple:#bc8cff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    line-height:1.5;
+    padding:24px 16px 64px;
+  }
+  .wrap{max-width:960px;margin:0 auto}
+  h1{font-size:1.6rem;margin:0 0 8px}
+  header p{color:var(--muted);margin:0 0 20px;max-width:760px}
+  .stage{
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:8px; padding:18px; margin-bottom:16px;
+  }
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  svg{display:block;width:100%;height:auto}
+  .controls{
+    display:flex; flex-wrap:wrap; gap:10px; align-items:center;
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:8px; padding:14px; margin-bottom:16px;
+  }
+  button{
+    font:inherit; color:var(--text);
+    background:#1c2230; border:1px solid var(--border);
+    border-radius:999px; padding:8px 16px; cursor:pointer;
+    transition:background .15s,border-color .15s;
+  }
+  button:hover:not(:disabled){background:#262d3d;border-color:var(--accent)}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  button.primary{border-color:var(--accent)}
+  .ctrl-group{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  label{font-size:.85rem;color:var(--muted)}
+  input[type=text]{
+    font:inherit; color:var(--text); background:#0d1117;
+    border:1px solid var(--border); border-radius:6px;
+    padding:7px 10px; width:130px;
+  }
+  input[type=text]:focus{outline:none;border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .divider{width:1px;height:28px;background:var(--border);margin:0 2px}
+  #narration{
+    background:var(--panel); border:1px solid var(--border);
+    border-left:4px solid var(--accent); border-radius:8px;
+    padding:14px 16px; margin-bottom:16px; min-height:1.4em;
+    font-size:1rem;
+  }
+  .stats{
+    display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;
+  }
+  .stat{
+    flex:1;min-width:150px;
+    background:var(--panel);border:1px solid var(--border);
+    border-radius:8px;padding:12px 14px;
+  }
+  .stat .num{font-size:1.5rem;font-weight:600}
+  .stat .lbl{font-size:.78rem;color:var(--muted)}
+  .legend,.try,footer{
+    background:var(--panel);border:1px solid var(--border);
+    border-radius:8px;padding:14px 16px;margin-bottom:16px;
+  }
+  .legend h3,.try h3{margin:0 0 8px;font-size:.95rem}
+  .legend ul{margin:0;padding-left:18px;color:var(--muted);font-size:.88rem}
+  .legend li{margin:3px 0}
+  .swatch{display:inline-block;width:12px;height:12px;border-radius:3px;
+    vertical-align:middle;margin-right:6px;border:1px solid #0006}
+  .try{border-left:4px solid var(--purple)}
+  .try p{margin:0;color:var(--muted);font-size:.9rem}
+  footer{display:flex;gap:24px;font-size:.9rem;margin-bottom:0}
+  footer a{color:var(--accent);text-decoration:none}
+  footer a:hover{text-decoration:underline}
+  .hist{margin-top:10px;color:var(--muted);font-size:.82rem}
+  .pill{display:inline-block;background:#1c2230;border:1px solid var(--border);
+    border-radius:999px;padding:2px 9px;margin:2px;font-size:.8rem}
+  .quick{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  text{user-select:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Bloom Filter</h1>
+  <p>A Bloom filter is a tiny bit array plus <em>k</em> hash functions. Inserting an item flips <em>k</em> bits to 1. A query reports <strong>definitely not present</strong> if any of its bits is 0, or <strong>probably present</strong> if all are 1 — so false positives can happen, but false negatives never can.</p>
+</header>
+
+<!-- STAGE -->
+<div class="stage" id="stage"></div>
+
+<!-- NARRATION -->
+<div id="narration">Add some items, then query them. Watch which bits light up.</div>
+
+<!-- STATS -->
+<div class="stats">
+  <div class="stat"><div class="num" id="statItems">0</div><div class="lbl">items inserted</div></div>
+  <div class="stat"><div class="num" id="statFill">0%</div><div class="lbl">fill ratio (bits set / m)</div></div>
+  <div class="stat"><div class="num" id="statFP">0.0%</div><div class="lbl">est. false-positive rate</div></div>
+</div>
+
+<!-- CONTROLS -->
+<div class="controls">
+  <div class="ctrl-group">
+    <input type="text" id="itemInput" placeholder="type a word…" value="apple">
+    <button id="btnInsert" class="primary">Insert</button>
+    <button id="btnQuery">Query</button>
+  </div>
+  <div class="divider"></div>
+  <div class="ctrl-group">
+    <button id="btnPlay" class="primary">▶ Auto-insert</button>
+    <button id="btnStep">Step (insert next)</button>
+    <button id="btnReset">Reset</button>
+  </div>
+  <div class="divider"></div>
+  <div class="ctrl-group">
+    <label for="kSlider">hash functions k = <span id="kVal" class="mono">3</span></label>
+    <input type="range" id="kSlider" min="1" max="6" value="3" step="1">
+  </div>
+  <div class="ctrl-group">
+    <button id="btnFalsePos">Demo false positive</button>
+  </div>
+</div>
+
+<!-- LEGEND -->
+<div class="legend">
+  <h3>Legend</h3>
+  <ul>
+    <li><span class="swatch" style="background:#1c2230"></span><strong>Dark cell</strong> = bit is 0 (unset)</li>
+    <li><span class="swatch" style="background:#58a6ff"></span><strong>Blue cell</strong> = bit is 1 (set by some inserted item)</li>
+    <li><span class="swatch" style="background:#3fb950"></span><strong>Green pulse</strong> = bit just touched by an <em>insert</em> or a successful query (all bits 1 → probably present)</li>
+    <li><span class="swatch" style="background:#f85149"></span><strong>Red pulse</strong> = a queried bit found to be 0 → item is <em>definitely not present</em></li>
+    <li><span class="swatch" style="background:#d29922"></span><strong>Amber outline</strong> = a query whose bits were all set by <em>other</em> items → <em>false positive</em></li>
+  </ul>
+</div>
+
+<!-- TRY -->
+<div class="try">
+  <h3>Try this</h3>
+  <p>Set <strong>k = 1</strong> and insert just 3 or 4 words, then click <strong>“Demo false positive.”</strong> With few bits set it’s easy to find a never-inserted word whose single bit is already 1 — a false positive. Now raise k and add more items: the fill ratio climbs and so does the false-positive rate. There is a sweet spot for k; too many hashes fills the array too fast.</p>
+</div>
+
+<footer>
+  <a href="./index.html">← Back to gallery</a>
+  <a href="../00-foundations/03-storage-engines.md">Related writeup: Storage Engines →</a>
+</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- configuration ----------
+  var M = 32;                 // number of bits
+  var k = 3;                  // number of hash functions
+  var bits = new Array(M).fill(0);   // counts not needed; store 0/1
+  var inserted = [];          // list of inserted item strings (in order)
+  var insertedSet = Object.create(null);
+
+  // Sample words for auto-insert / stepping
+  var SAMPLE = ["apple","banana","cherry","delta","echo","fox","grape","hotel",
+                "india","juliet","kiwi","lemon","mango","nectar","orange","pear",
+                "quince","rose","sun","tiger","umbra","violet","willow","xenon",
+                "yam","zebra","alpha","bravo","cobalt","drift"];
+  var sampleIdx = 0;
+
+  // ---------- hashing (deterministic, browser-only) ----------
+  // FNV-1a base hash over (string + saltSeed), then derive k indices.
+  function fnv1a(str, seed){
+    var h = (2166136261 ^ seed) >>> 0;
+    for(var i=0;i<str.length;i++){
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619) >>> 0;
+    }
+    // extra mix
+    h ^= h >>> 13; h = Math.imul(h, 0x5bd1e995) >>> 0; h ^= h >>> 15;
+    return h >>> 0;
+  }
+  // Return array of k distinct-ish bit indices for an item.
+  function hashes(str, kk){
+    var out = [];
+    for(var i=0;i<kk;i++){
+      out.push(fnv1a(str, (i+1)*0x9e3779b1 >>> 0) % M);
+    }
+    return out;
+  }
+
+  // ---------- SVG stage build ----------
+  var stage = document.getElementById("stage");
+  var SVGNS = "http://www.w3.org/2000/svg";
+  var cellEls = [];      // rect per bit
+  var labelEls = [];     // bit value text per bit
+  var idxEls = [];       // index text per bit
+  var arrowGroup, hashLabel;
+
+  var COLS = 16, ROWS = 2;
+  var cellW = 52, cellH = 44, gapX = 6, gapY = 10;
+  var padL = 16, padT = 70;
+  var gridW = COLS*cellW + (COLS-1)*gapX;
+  var svgW = padL*2 + gridW;
+  var svgH = padT + ROWS*cellH + (ROWS-1)*gapY + 24;
+
+  var svg = document.createElementNS(SVGNS,"svg");
+  svg.setAttribute("viewBox","0 0 "+svgW+" "+svgH);
+  svg.setAttribute("role","img");
+  svg.setAttribute("aria-label","Bit array of "+M+" cells");
+  stage.appendChild(svg);
+
+  // top label area for current operation
+  hashLabel = document.createElementNS(SVGNS,"text");
+  hashLabel.setAttribute("x", padL);
+  hashLabel.setAttribute("y", 28);
+  hashLabel.setAttribute("fill", "#e6edf3");
+  hashLabel.setAttribute("font-family","ui-monospace,SFMono-Regular,Menlo,monospace");
+  hashLabel.setAttribute("font-size","15");
+  hashLabel.textContent = "bit array (m = "+M+")";
+  svg.appendChild(hashLabel);
+
+  var subLabel = document.createElementNS(SVGNS,"text");
+  subLabel.setAttribute("x", padL);
+  subLabel.setAttribute("y", 50);
+  subLabel.setAttribute("fill", "#8b949e");
+  subLabel.setAttribute("font-family","ui-monospace,SFMono-Regular,Menlo,monospace");
+  subLabel.setAttribute("font-size","12");
+  subLabel.textContent = "";
+  svg.appendChild(subLabel);
+
+  function cellXY(i){
+    var r = Math.floor(i/COLS), c = i%COLS;
+    var x = padL + c*(cellW+gapX);
+    var y = padT + r*(cellH+gapY);
+    return {x:x,y:y};
+  }
+
+  for(var i=0;i<M;i++){
+    var p = cellXY(i);
+    var g = document.createElementNS(SVGNS,"g");
+
+    var rect = document.createElementNS(SVGNS,"rect");
+    rect.setAttribute("x",p.x); rect.setAttribute("y",p.y);
+    rect.setAttribute("width",cellW); rect.setAttribute("height",cellH);
+    rect.setAttribute("rx","6");
+    rect.setAttribute("fill","#1c2230");
+    rect.setAttribute("stroke","#30363d");
+    rect.setAttribute("stroke-width","1.5");
+    g.appendChild(rect);
+    cellEls.push(rect);
+
+    var val = document.createElementNS(SVGNS,"text");
+    val.setAttribute("x",p.x+cellW/2); val.setAttribute("y",p.y+cellH/2+1);
+    val.setAttribute("text-anchor","middle");
+    val.setAttribute("dominant-baseline","middle");
+    val.setAttribute("fill","#8b949e");
+    val.setAttribute("font-family","ui-monospace,SFMono-Regular,Menlo,monospace");
+    val.setAttribute("font-size","17");
+    val.setAttribute("font-weight","600");
+    val.textContent="0";
+    g.appendChild(val);
+    labelEls.push(val);
+
+    var idx = document.createElementNS(SVGNS,"text");
+    idx.setAttribute("x",p.x+cellW/2); idx.setAttribute("y",p.y+cellH-3);
+    idx.setAttribute("text-anchor","middle");
+    idx.setAttribute("fill","#6b7280");
+    idx.setAttribute("font-family","ui-monospace,SFMono-Regular,Menlo,monospace");
+    idx.setAttribute("font-size","9");
+    idx.textContent=String(i);
+    g.appendChild(idx);
+    idxEls.push(idx);
+
+    svg.appendChild(g);
+  }
+
+  // ---------- rendering helpers ----------
+  function renderBits(){
+    for(var i=0;i<M;i++){
+      if(bits[i]===1){
+        cellEls[i].setAttribute("fill","#1f3a5f");
+        cellEls[i].setAttribute("stroke","#58a6ff");
+        labelEls[i].setAttribute("fill","#9ecbff");
+        labelEls[i].textContent="1";
+      } else {
+        cellEls[i].setAttribute("fill","#1c2230");
+        cellEls[i].setAttribute("stroke","#30363d");
+        labelEls[i].setAttribute("fill","#8b949e");
+        labelEls[i].textContent="0";
+      }
+    }
+  }
+
+  // transient pulse: temporarily color a cell, then revert to its base.
+  var pulseTimers = [];
+  function clearPulses(){
+    pulseTimers.forEach(function(t){clearTimeout(t);});
+    pulseTimers = [];
+    renderBits();
+  }
+  function pulse(idx, color, hold){
+    cellEls[idx].setAttribute("fill", color);
+    cellEls[idx].setAttribute("stroke", color);
+    cellEls[idx].setAttribute("stroke-width","3");
+    labelEls[idx].setAttribute("fill","#0d1117");
+    var t = setTimeout(function(){
+      cellEls[idx].setAttribute("stroke-width","1.5");
+      // revert: renderBits restores correct base look
+      if(bits[idx]===1){
+        cellEls[idx].setAttribute("fill","#1f3a5f");
+        cellEls[idx].setAttribute("stroke","#58a6ff");
+        labelEls[idx].setAttribute("fill","#9ecbff");
+      } else {
+        cellEls[idx].setAttribute("fill","#1c2230");
+        cellEls[idx].setAttribute("stroke","#30363d");
+        labelEls[idx].setAttribute("fill","#8b949e");
+      }
+    }, hold||900);
+    pulseTimers.push(t);
+  }
+
+  // ---------- stats ----------
+  var statItems = document.getElementById("statItems");
+  var statFill  = document.getElementById("statFill");
+  var statFP    = document.getElementById("statFP");
+
+  function setBitsCount(){
+    var c=0; for(var i=0;i<M;i++) c+=bits[i];
+    return c;
+  }
+  function updateStats(){
+    var n = inserted.length;
+    var setCount = setBitsCount();
+    var fill = setCount / M;
+    statItems.textContent = n;
+    statFill.textContent = Math.round(fill*100) + "% (" + setCount + "/" + M + ")";
+    // theoretical false-positive prob: (1 - e^(-k n / m))^k
+    var fp = Math.pow(1 - Math.exp(-k * n / M), k);
+    statFP.textContent = (fp*100).toFixed(1) + "%";
+    // color the FP stat
+    if(fp < 0.05) statFP.style.color = "var(--success)";
+    else if(fp < 0.25) statFP.style.color = "var(--warning)";
+    else statFP.style.color = "var(--danger)";
+  }
+
+  // ---------- narration ----------
+  var narr = document.getElementById("narration");
+  function say(html){ narr.innerHTML = html; }
+
+  // ---------- core operations ----------
+  function doInsert(item){
+    if(!item) return;
+    clearPulses();
+    var idxs = hashes(item, k);
+    var uniq = idxs.filter(function(v,i,a){return a.indexOf(v)===i;});
+    idxs.forEach(function(ix){ bits[ix]=1; });
+    if(!(item in insertedSet)){
+      insertedSet[item]=true;
+      inserted.push(item);
+    }
+    renderBits();
+    idxs.forEach(function(ix){ pulse(ix, "#3fb950", 1000); });
+    subLabel.textContent = "insert(\""+item+"\") → set bits [" + uniq.join(", ") + "]";
+    updateStats();
+    say('Inserted <strong class="mono">"'+esc(item)+'"</strong>. Hashed to bits <span class="mono">['+uniq.join(", ")+']</span> and set them all to <strong>1</strong> (green). Inserting only ever turns bits on — never off — which is why a previously inserted item can never later read as absent.');
+  }
+
+  function doQuery(item){
+    if(!item) return;
+    clearPulses();
+    var idxs = hashes(item, k);
+    var uniq = idxs.filter(function(v,i,a){return a.indexOf(v)===i;});
+    var allSet = uniq.every(function(ix){ return bits[ix]===1; });
+    subLabel.textContent = "query(\""+item+"\") → check bits [" + uniq.join(", ") + "]";
+
+    if(!allSet){
+      // find the zero bits, pulse them red
+      var zeros = uniq.filter(function(ix){return bits[ix]===0;});
+      uniq.forEach(function(ix){
+        pulse(ix, bits[ix]===1 ? "#3fb950" : "#f85149", 1400);
+      });
+      say('Query <strong class="mono">"'+esc(item)+'"</strong>: checked bits <span class="mono">['+uniq.join(", ")+']</span>. Bit(s) <span class="mono">['+zeros.join(", ")+']</span> are <strong style="color:var(--danger)">0</strong> → <strong style="color:var(--danger)">DEFINITELY NOT present.</strong> A 0 bit proves the item was never inserted (an insert would have set it). This is why <strong>false negatives are impossible.</strong>');
+    } else {
+      uniq.forEach(function(ix){ pulse(ix, "#3fb950", 1400); });
+      var wasInserted = (item in insertedSet);
+      if(wasInserted){
+        say('Query <strong class="mono">"'+esc(item)+'"</strong>: all bits <span class="mono">['+uniq.join(", ")+']</span> are <strong style="color:var(--success)">1</strong> → <strong style="color:var(--success)">PROBABLY present.</strong> This item really was inserted — a true positive.');
+      } else {
+        // false positive!
+        uniq.forEach(function(ix){
+          cellEls[ix].setAttribute("stroke","#d29922");
+          cellEls[ix].setAttribute("stroke-width","3");
+        });
+        say('Query <strong class="mono">"'+esc(item)+'"</strong>: all bits <span class="mono">['+uniq.join(", ")+']</span> are <strong style="color:var(--success)">1</strong> → reported <strong style="color:var(--warning)">PROBABLY present</strong> — but this word was <strong>never inserted!</strong> Its bits were all set by <em>other</em> items. This is a <strong style="color:var(--warning)">FALSE POSITIVE</strong> (amber). The filter never lies about absence, only about presence.');
+      }
+    }
+    updateStats();
+  }
+
+  function esc(s){
+    return String(s).replace(/[&<>"]/g,function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];
+    });
+  }
+
+  // ---------- false-positive finder ----------
+  // Search a large word pool for a never-inserted item whose k bits are all set.
+  var FP_POOL = SAMPLE.concat([
+    "frost","amber","quartz","copper","silver","onyx","ember","clay","slate",
+    "marble","ivory","jade","ruby","opal","pearl","topaz","coral","flint",
+    "maple","cedar","birch","aspen","spruce"," pine","elm","oak","fern",
+    "moss","reed","vine","thorn","petal","seed","root","bark","leaf",
+    "wolf","hawk","lynx","otter","raven","crane","heron","finch","wren",
+    "comet","nova","quasar","pulsar","meteor","nebula","cosmos","orbit"
+  ]);
+  function findFalsePositive(){
+    for(var i=0;i<FP_POOL.length;i++){
+      var w = FP_POOL[i].trim();
+      if(!w || (w in insertedSet)) continue;
+      var idxs = hashes(w, k);
+      var allSet = idxs.every(function(ix){ return bits[ix]===1; });
+      if(allSet) return w;
+    }
+    // also try random synthetic strings
+    for(var t=0;t<2000;t++){
+      var s = "fp_" + t.toString(36);
+      if(s in insertedSet) continue;
+      var ix2 = hashes(s, k);
+      if(ix2.every(function(ix){return bits[ix]===1;})) return s;
+    }
+    return null;
+  }
+
+  // ---------- UI wiring ----------
+  var itemInput = document.getElementById("itemInput");
+  var btnInsert = document.getElementById("btnInsert");
+  var btnQuery  = document.getElementById("btnQuery");
+  var btnPlay   = document.getElementById("btnPlay");
+  var btnStep   = document.getElementById("btnStep");
+  var btnReset  = document.getElementById("btnReset");
+  var btnFP     = document.getElementById("btnFalsePos");
+  var kSlider   = document.getElementById("kSlider");
+  var kVal      = document.getElementById("kVal");
+
+  btnInsert.addEventListener("click", function(){
+    doInsert(itemInput.value.trim());
+  });
+  btnQuery.addEventListener("click", function(){
+    doQuery(itemInput.value.trim());
+  });
+  itemInput.addEventListener("keydown", function(e){
+    if(e.key==="Enter") doInsert(itemInput.value.trim());
+  });
+
+  btnStep.addEventListener("click", function(){
+    nextSampleInsert();
+  });
+
+  function nextSampleInsert(){
+    // find next sample word not yet inserted
+    var guard=0;
+    while(guard<SAMPLE.length){
+      var w = SAMPLE[sampleIdx % SAMPLE.length];
+      sampleIdx++;
+      if(!(w in insertedSet)){ doInsert(w); return true; }
+      guard++;
+    }
+    say("All sample words are already inserted. Reset to start over, or type your own word.");
+    return false;
+  }
+
+  // auto-insert loop using requestAnimationFrame timing
+  var playing = false;
+  var lastTick = 0;
+  var INTERVAL = 850; // ms between auto inserts
+  function loop(ts){
+    if(!playing) return;
+    if(!lastTick) lastTick = ts;
+    if(ts - lastTick >= INTERVAL){
+      lastTick = ts;
+      var ok = nextSampleInsert();
+      if(!ok){ stopPlay(); return; }
+    }
+    requestAnimationFrame(loop);
+  }
+  function startPlay(){
+    playing = true; lastTick = 0;
+    btnPlay.textContent = "❚❚ Pause";
+    btnPlay.classList.add("primary");
+    requestAnimationFrame(loop);
+  }
+  function stopPlay(){
+    playing = false;
+    btnPlay.textContent = "▶ Auto-insert";
+  }
+  btnPlay.addEventListener("click", function(){
+    if(playing) stopPlay(); else startPlay();
+  });
+
+  btnReset.addEventListener("click", function(){
+    stopPlay();
+    clearPulses();
+    bits = new Array(M).fill(0);
+    inserted = [];
+    insertedSet = Object.create(null);
+    sampleIdx = 0;
+    renderBits();
+    subLabel.textContent = "";
+    updateStats();
+    say("Reset. The bit array is empty (all 0). Add some items, then query them.");
+  });
+
+  kSlider.addEventListener("input", function(){
+    k = parseInt(kSlider.value,10);
+    kVal.textContent = k;
+    // Changing k changes how hashes are computed; rebuild bits from inserted items
+    rebuildFromInserted();
+    updateStats();
+    say("Set <strong>k = "+k+"</strong> hash functions. Rebuilt the bit array by re-hashing the "+inserted.length+" inserted item(s) with the new k. Larger k sets more bits per item — better at low load, but fills the array faster.");
+  });
+
+  function rebuildFromInserted(){
+    clearPulses();
+    bits = new Array(M).fill(0);
+    inserted.forEach(function(it){
+      hashes(it, k).forEach(function(ix){ bits[ix]=1; });
+    });
+    renderBits();
+    subLabel.textContent = "";
+  }
+
+  btnFP.addEventListener("click", function(){
+    stopPlay();
+    if(inserted.length===0){
+      say("Insert a few items first — a false positive needs some bits to already be set by other items.");
+      return;
+    }
+    var w = findFalsePositive();
+    if(w===null){
+      say('No false positive found yet with k='+k+' and '+inserted.length+' item(s): too few bits are set. Insert more items (or lower k) so the array fills up, then try again — the false-positive rate rises with the fill ratio.');
+      return;
+    }
+    itemInput.value = w;
+    doQuery(w);  // will be detected as false positive (not in insertedSet)
+  });
+
+  // ---------- init ----------
+  renderBits();
+  updateStats();
+})();
+</script>
+</body>
+</html>

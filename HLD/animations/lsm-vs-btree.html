@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LSM-Tree vs B-Tree</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --border:#30363d;
+    --text:#e6edf3; --muted:#8b949e;
+    --accent:#58a6ff; --success:#3fb950; --warning:#d29922;
+    --danger:#f85149; --purple:#bc8cff;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    line-height:1.5; padding:24px 16px 60px;
+  }
+  .wrap{max-width:960px; margin:0 auto;}
+  header h1{font-size:1.6rem; margin:0 0 6px;}
+  header p{color:var(--muted); margin:0 0 18px; max-width:760px;}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+  .panel{
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:8px; padding:16px;
+  }
+  .stage-head{display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between; margin-bottom:10px;}
+  .mode-tabs{display:flex; gap:8px;}
+  button{
+    background:#1c2129; color:var(--text);
+    border:1px solid var(--border); border-radius:999px;
+    padding:8px 16px; font-size:0.9rem; cursor:pointer;
+    font-family:inherit; transition:background .15s,border-color .15s,color .15s;
+  }
+  button:hover{background:#262d38; border-color:#3d4754;}
+  button:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+  button.active{background:rgba(88,166,255,.18); border-color:var(--accent); color:var(--accent);}
+  button:disabled{opacity:.45; cursor:not-allowed;}
+  svg{display:block; width:100%; height:auto; background:#0b0f14; border:1px solid var(--border); border-radius:8px;}
+  .counters{display:flex; gap:12px; flex-wrap:wrap; margin-top:12px;}
+  .counter{
+    flex:1 1 180px; background:#11161d; border:1px solid var(--border);
+    border-radius:8px; padding:10px 12px;
+  }
+  .counter .lbl{font-size:.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:.05em;}
+  .counter .val{font-size:1.4rem; font-weight:600; font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+  .controls{display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:14px;}
+  .controls .grp{display:flex; align-items:center; gap:8px;}
+  .controls label{font-size:.85rem; color:var(--muted);}
+  input[type=range]{accent-color:var(--accent);}
+  #narration{
+    margin-top:14px; padding:12px 14px; min-height:46px;
+    background:#0f1620; border:1px solid var(--border); border-left:3px solid var(--accent);
+    border-radius:6px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.9rem;
+  }
+  .legend{display:flex; flex-wrap:wrap; gap:14px; margin-top:14px; font-size:.82rem; color:var(--muted);}
+  .legend .item{display:flex; align-items:center; gap:6px;}
+  .swatch{width:14px; height:14px; border-radius:3px; display:inline-block; border:1px solid rgba(255,255,255,.15);}
+  .trythis{margin-top:14px; font-size:.88rem; color:var(--text); background:rgba(188,140,255,.08);
+    border:1px solid rgba(188,140,255,.3); border-radius:6px; padding:10px 12px;}
+  .trythis b{color:var(--purple);}
+  footer{margin-top:22px; display:flex; gap:18px; font-size:.85rem;}
+  footer a{color:var(--accent); text-decoration:none;}
+  footer a:hover{text-decoration:underline;}
+  h2.sec{font-size:.95rem; color:var(--muted); margin:18px 0 8px; font-weight:600;}
+  .hint{font-size:.78rem; color:var(--muted); margin-top:4px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>LSM-Tree vs B-Tree</h1>
+  <p>Two storage engines, two philosophies. <b>LSM-Trees</b> batch writes in memory and append them sequentially, paying later with background compaction (write amplification). <b>B-Trees</b> update pages in place along one path, keeping reads cheap. Switch modes and write keys to watch each strategy pay its own bill.</p>
+</header>
+
+<div class="panel">
+  <div class="stage-head">
+    <div class="mode-tabs" role="tablist" aria-label="Storage engine mode">
+      <button id="modeLsm" class="active" role="tab" aria-selected="true">LSM-Tree (write-optimized)</button>
+      <button id="modeBtree" role="tab" aria-selected="false">B-Tree (read-optimized)</button>
+    </div>
+    <div class="mono" id="modeTag" style="color:var(--accent); font-size:.85rem;">SEQUENTIAL APPEND + COMPACT</div>
+  </div>
+
+  <svg id="stage" viewBox="0 0 920 420" role="img" aria-label="Storage engine animation"></svg>
+
+  <div class="counters">
+    <div class="counter">
+      <div class="lbl">Logical bytes written</div>
+      <div class="val" id="cLogical" style="color:var(--text)">0</div>
+    </div>
+    <div class="counter">
+      <div class="lbl">Physical bytes written</div>
+      <div class="val" id="cPhysical" style="color:var(--warning)">0</div>
+    </div>
+    <div class="counter">
+      <div class="lbl">Write amplification</div>
+      <div class="val" id="cWamp" style="color:var(--danger)">1.0&times;</div>
+    </div>
+    <div class="counter">
+      <div class="lbl">Read amplification (last read)</div>
+      <div class="val" id="cRamp" style="color:var(--success)">&mdash;</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="grp">
+      <button id="btnWrite">Write key</button>
+      <button id="btnRead">Read a key</button>
+    </div>
+    <div class="grp">
+      <button id="btnPlay">Auto-play</button>
+      <button id="btnStep">Step</button>
+      <button id="btnReset">Reset</button>
+    </div>
+    <div class="grp">
+      <label for="spd">Speed</label>
+      <input type="range" id="spd" min="0.4" max="3" step="0.1" value="1.2">
+    </div>
+    <div class="grp" id="bloomGrp">
+      <label for="bloom">Bloom filter</label>
+      <input type="checkbox" id="bloom" checked>
+    </div>
+  </div>
+
+  <div id="narration">Ready. Pick a mode and press <b>Write key</b> or <b>Auto-play</b>.</div>
+
+  <div class="legend" id="legend"></div>
+
+  <div class="trythis">
+    <b>Try this:</b> In LSM mode, hit <b>Auto-play</b> and watch the write-amp counter climb each time compaction rewrites old data into the next level &mdash; then switch to B-Tree and notice write-amp stays low while a read still only walks one path. Toggle the <b>Bloom filter</b> off and do a read for a missing key to see read-amp jump.
+  </div>
+</div>
+
+<footer>
+  <a href="./index.html">&larr; Back to gallery</a>
+  <a href="../00-foundations/03-storage-engines.md">Related writeup: Storage engines &rarr;</a>
+</footer>
+</div>
+
+<script>
+"use strict";
+(function(){
+  const SVG="http://www.w3.org/2000/svg";
+  const stage=document.getElementById("stage");
+  const C={ bg:"#0b0f14", panel:"#161b22", border:"#30363d", text:"#e6edf3",
+    muted:"#8b949e", accent:"#58a6ff", success:"#3fb950", warning:"#d29922",
+    danger:"#f85149", purple:"#bc8cff" };
+
+  // ---- DOM ----
+  const el={
+    modeLsm:document.getElementById("modeLsm"),
+    modeBtree:document.getElementById("modeBtree"),
+    modeTag:document.getElementById("modeTag"),
+    cLogical:document.getElementById("cLogical"),
+    cPhysical:document.getElementById("cPhysical"),
+    cWamp:document.getElementById("cWamp"),
+    cRamp:document.getElementById("cRamp"),
+    btnWrite:document.getElementById("btnWrite"),
+    btnRead:document.getElementById("btnRead"),
+    btnPlay:document.getElementById("btnPlay"),
+    btnStep:document.getElementById("btnStep"),
+    btnReset:document.getElementById("btnReset"),
+    spd:document.getElementById("spd"),
+    bloom:document.getElementById("bloom"),
+    bloomGrp:document.getElementById("bloomGrp"),
+    narration:document.getElementById("narration"),
+    legend:document.getElementById("legend"),
+  };
+
+  // ---- state ----
+  let mode="lsm";          // "lsm" | "btree"
+  let playing=false;
+  let logical=0, physical=0, lastRamp="—";
+  let keyCounter=0;
+  let anim=null;           // active animation object
+  let autoTimer=0;
+
+  // LSM model
+  const MEMTABLE_CAP=4;
+  let memtable=[];          // array of {k}
+  let levels=[[],[],[]];    // each level: array of SSTables; SSTable: {keys:[...]}
+  const LEVEL_CAP=[2,4,8];  // # of SSTables before compaction triggers
+
+  // B-Tree model: order-3 (max 2 keys per node before split-ish; we keep it simple/visual)
+  // We model a 2-level tree: 1 root, up to 3 leaves. Writes update a leaf page in place.
+  let btree={ root:{keys:[]}, leaves:[ {keys:[]},{keys:[]},{keys:[]} ] };
+
+  function rnd(n){return Math.floor(Math.random()*n);}
+  function nextKey(){ keyCounter++; return keyCounter; }
+
+  // ---------- SVG helpers ----------
+  function clear(){ while(stage.firstChild) stage.removeChild(stage.firstChild); }
+  function add(tag,attrs,parent){
+    const n=document.createElementNS(SVG,tag);
+    for(const k in attrs) n.setAttribute(k,attrs[k]);
+    (parent||stage).appendChild(n); return n;
+  }
+  function text(x,y,str,opts){
+    opts=opts||{};
+    const t=add("text",{x:x,y:y,fill:opts.fill||C.text,
+      "font-size":opts.size||12,"text-anchor":opts.anchor||"start",
+      "font-family":opts.mono?"ui-monospace,Menlo,monospace":"system-ui,sans-serif",
+      "font-weight":opts.weight||"normal"});
+    t.textContent=str; return t;
+  }
+  function rect(x,y,w,h,opts){
+    opts=opts||{};
+    return add("rect",{x:x,y:y,width:w,height:h,rx:opts.rx==null?5:opts.rx,
+      fill:opts.fill||C.panel,stroke:opts.stroke||C.border,
+      "stroke-width":opts.sw||1, opacity:opts.opacity==null?1:opts.opacity});
+  }
+
+  // ---------- layout drawing ----------
+  function draw(){
+    clear();
+    if(mode==="lsm") drawLsm(); else drawBtree();
+  }
+
+  // background section labels
+  function sectionLabel(x,y,str,color){ text(x,y,str,{fill:color||C.muted,size:12,weight:"600",mono:true}); }
+
+  function drawLsm(){
+    // Columns: memory write path | levels
+    sectionLabel(20,26,"WRITE PATH (sequential append)",C.accent);
+    // incoming write arrow target
+    rect(20,40,150,30,{fill:"#11161d",stroke:C.accent});
+    text(95,60,"new write",{anchor:"middle",fill:C.accent,size:12,mono:true});
+
+    // Memtable
+    sectionLabel(20,100,"MEMTABLE (in RAM, sorted)",C.purple);
+    rect(20,112,260,54,{fill:"rgba(188,140,255,.08)",stroke:C.purple});
+    for(let i=0;i<MEMTABLE_CAP;i++){
+      const cx=34+i*60;
+      const filled=i<memtable.length;
+      rect(cx,124,50,30,{fill:filled?"rgba(188,140,255,.35)":"#0d1117",stroke:C.purple,rx:4});
+      if(filled) text(cx+25,144,"k"+memtable[i].k,{anchor:"middle",fill:C.text,size:12,mono:true});
+    }
+    text(20,182,"capacity "+memtable.length+"/"+MEMTABLE_CAP+" — flushes to L0 when full",
+      {fill:C.muted,size:11,mono:true});
+
+    // Levels (disk)
+    sectionLabel(330,100,"DISK — LSM LEVELS (immutable SSTables)",C.warning);
+    const lvlY=[120,200,280];
+    const colors=[C.success,C.warning,C.danger];
+    for(let L=0;L<3;L++){
+      const y=lvlY[L];
+      text(330,y+18,"L"+L,{fill:colors[L],size:13,weight:"700",mono:true});
+      text(330,y+34,"cap "+LEVEL_CAP[L],{fill:C.muted,size:10,mono:true});
+      // baseline track
+      rect(370,y,520,46,{fill:"#0d1117",stroke:C.border,rx:6});
+      const tabs=levels[L];
+      let x=380;
+      for(let s=0;s<tabs.length;s++){
+        const w=Math.max(46, tabs[s].keys.length*16+18);
+        rect(x,y+8,w,30,{fill:"rgba(63,185,80,.12)",stroke:colors[L],rx:4,
+          opacity: (anim&&anim.dimSST&&anim.dimSST.L===L)?.4:1});
+        // bloom indicator dot
+        if(L>0||true){
+          add("circle",{cx:x+8,cy:y+15,r:3,fill: el.bloom.checked? C.accent : "#444"});
+        }
+        text(x+w/2+4,y+27,tabs[s].keys.map(k=>"k"+k).join(","),
+          {anchor:"middle",fill:C.text,size:10,mono:true});
+        x+=w+10;
+        if(x>860){ text(862,y+27,"…",{fill:C.muted,size:14}); break; }
+      }
+      if(tabs.length===0) text(630,y+27,"(empty)",{anchor:"middle",fill:C.muted,size:11,mono:true});
+    }
+
+    // bloom legend note
+    text(370,346,"● = bloom filter present (lets a read SKIP an SSTable that can't hold the key)",
+      {fill:C.muted,size:10});
+    text(20,346,"Reads probe memtable, then each level top→down.",{fill:C.muted,size:10});
+    text(20,362,"Compaction merges full levels downward → rewrites bytes → write amplification.",{fill:C.muted,size:10});
+
+    // overlay animation token (moving byte / probe)
+    if(anim&&anim.token){ drawToken(anim.token); }
+  }
+
+  function drawBtree(){
+    sectionLabel(20,26,"WRITE PATH (read-modify-write, in place)",C.accent);
+    rect(20,40,150,30,{fill:"#11161d",stroke:C.accent});
+    text(95,60,"new write",{anchor:"middle",fill:C.accent,size:12,mono:true});
+
+    sectionLabel(330,26,"B-TREE (one path, pages updated in place)",C.warning);
+
+    // root node
+    const rootX=420,rootY=80,rootW=180,rootH=44;
+    const rootHi = anim&&anim.path&&anim.path.indexOf("root")>=0;
+    rect(rootX,rootY,rootW,rootH,{fill:rootHi?"rgba(88,166,255,.25)":"rgba(88,166,255,.08)",
+      stroke:C.accent,sw:rootHi?2:1});
+    text(rootX+rootW/2,rootY-8,"ROOT (interior page)",{anchor:"middle",fill:C.accent,size:11,mono:true});
+    const rk=btree.root.keys;
+    // separators shown as the routing keys
+    text(rootX+rootW/2, rootY+28,
+      rk.length? rk.map(k=>"<k"+k+"≤").join("  ") : "(routes to leaves)",
+      {anchor:"middle",fill:C.text,size:12,mono:true});
+
+    // leaves
+    const leafY=220, leafW=200, gap=30;
+    const startX=(920-(leafW*3+gap*2))/2;
+    const colors=[C.success,C.purple,C.warning];
+    for(let i=0;i<3;i++){
+      const x=startX+i*(leafW+gap);
+      const hi = anim&&anim.path&&anim.path.indexOf("leaf"+i)>=0;
+      rect(x,leafY,leafW,60,{fill:hi?"rgba(63,185,80,.22)":"rgba(255,255,255,.03)",
+        stroke:colors[i],sw:hi?2:1});
+      text(x+leafW/2,leafY-8,"LEAF PAGE "+i,{anchor:"middle",fill:colors[i],size:11,mono:true});
+      const keys=btree.leaves[i].keys;
+      if(keys.length){
+        text(x+leafW/2,leafY+36,keys.map(k=>"k"+k).join(", "),
+          {anchor:"middle",fill:C.text,size:12,mono:true});
+      } else {
+        text(x+leafW/2,leafY+36,"(empty)",{anchor:"middle",fill:C.muted,size:11,mono:true});
+      }
+      // edge root -> leaf
+      const ex=x+leafW/2;
+      const hiEdge=hi&&rootHi;
+      add("line",{x1:rootX+rootW/2,y1:rootY+rootH,x2:ex,y2:leafY,
+        stroke:hiEdge?C.accent:C.border,"stroke-width":hiEdge?2.5:1.2});
+    }
+
+    text(20,330,"Write = find leaf (1 path) → modify that page in place → write the SAME page back.",{fill:C.muted,size:10});
+    text(20,346,"Read = walk root → exactly one leaf. No merging, no extra copies: write-amp stays near 1.",{fill:C.muted,size:10});
+    text(20,362,"Cost: random in-place page writes (vs LSM's friendly sequential appends).",{fill:C.muted,size:10});
+
+    if(anim&&anim.token){ drawToken(anim.token); }
+  }
+
+  function drawToken(tk){
+    add("circle",{cx:tk.x,cy:tk.y,r:tk.r||10,fill:tk.color,opacity:.9,
+      stroke:"#fff","stroke-width":1.2});
+    if(tk.label) text(tk.x,tk.y+4,tk.label,{anchor:"middle",fill:"#0d1117",size:10,weight:"700",mono:true});
+  }
+
+  // ---------- counters ----------
+  function refreshCounters(){
+    el.cLogical.textContent=logical;
+    el.cPhysical.textContent=physical;
+    const wamp = logical>0 ? (physical/logical) : 1;
+    el.cWamp.innerHTML=wamp.toFixed(1)+"&times;";
+    el.cWamp.style.color = wamp>=3?C.danger : wamp>=1.8?C.warning : C.success;
+    el.cRamp.textContent=lastRamp;
+  }
+
+  // ---------- narration ----------
+  function say(html){ el.narration.innerHTML=html; }
+
+  // ---------- animation engine ----------
+  // Each "action" is a sequence of phases; we tween a token between points.
+  let raf=0;
+  function animateToken(steps, onDone){
+    // steps: array of {from:{x,y}, to:{x,y}, dur, color, label, mid:fn}
+    let i=0, t0=null;
+    el.btnStep.disabled=true; el.btnWrite.disabled=true; el.btnRead.disabled=true;
+    function frame(ts){
+      if(t0==null) t0=ts;
+      const s=steps[i];
+      const speed=parseFloat(el.spd.value);
+      const dur=Math.max(60, (s.dur||500)/speed);
+      let p=(ts-t0)/dur; if(p>1)p=1;
+      const ease=p<.5?2*p*p:1-Math.pow(-2*p+2,2)/2;
+      anim={ token:{ x:s.from.x+(s.to.x-s.from.x)*ease,
+                     y:s.from.y+(s.to.y-s.from.y)*ease,
+                     color:s.color, label:s.label, r:s.r },
+             dimSST:s.dimSST, path:s.path };
+      draw();
+      if(p>=1){
+        if(s.onArrive) s.onArrive();
+        i++; t0=null;
+        if(i>=steps.length){
+          anim=null; draw();
+          el.btnStep.disabled=false; el.btnWrite.disabled=false; el.btnRead.disabled=false;
+          if(onDone) onDone();
+          return;
+        }
+      }
+      raf=requestAnimationFrame(frame);
+    }
+    raf=requestAnimationFrame(frame);
+  }
+
+  // ---------- LSM operations ----------
+  function lsmWrite(){
+    const k=nextKey();
+    logical+=1;
+    // 1) write lands in memtable (sequential, in RAM) -> +1 physical (WAL/append)
+    physical+=1;
+    say('Write <b>k'+k+'</b> → appended sequentially to the in-memory <b>memtable</b> (+1 physical byte, the cheap part).');
+    const steps=[
+      { from:{x:95,y:55}, to:{x:34+memtable.length*60+25, y:139}, dur:550,
+        color:C.purple, label:"k"+k,
+        onArrive:function(){
+          memtable.push({k:k});
+          memtable.sort((a,b)=>a.k-b.k);
+          refreshCounters();
+        }}
+    ];
+    // After landing, maybe flush
+    animateToken(steps, function(){
+      if(memtable.length>=MEMTABLE_CAP){ lsmFlush(); }
+    });
+  }
+
+  function lsmFlush(){
+    // memtable -> new SSTable at L0; sequential write of the batch -> physical += size
+    const keys=memtable.map(m=>m.k).sort((a,b)=>a-b);
+    const size=keys.length;
+    physical+=size;
+    say('Memtable full → <b>flushed sequentially</b> to a new immutable <b>SSTable on L0</b> ('+size+' keys, +'+size+' physical). This is the rewrite that starts write amplification.');
+    const steps=[
+      { from:{x:150,y:139}, to:{x:430, y:135}, dur:650,
+        color:C.success, label:"SST",
+        onArrive:function(){
+          levels[0].push({keys:keys});
+          memtable=[];
+          refreshCounters();
+        }}
+    ];
+    animateToken(steps, function(){
+      maybeCompact(0);
+    });
+  }
+
+  function maybeCompact(L){
+    if(L>=2) return;
+    if(levels[L].length<=LEVEL_CAP[L]) return;
+    // Compaction: merge ALL sstables of level L into ONE new sstable on L+1.
+    // This rewrites every byte in level L -> write amplification.
+    let merged=[];
+    let bytes=0;
+    for(const s of levels[L]){ merged=merged.concat(s.keys); bytes+=s.keys.length; }
+    merged=Array.from(new Set(merged)).sort((a,b)=>a-b);
+    physical+=bytes; // every byte rewritten down a level
+    say('<b>Compaction L'+L+'→L'+(L+1)+'</b>: '+bytes+' keys merged & <b>rewritten</b> one level down (+'+bytes+' physical). The same data is being written again — that is write amplification.');
+    const yFrom=120+L*80, yTo=120+(L+1)*80;
+    const steps=[
+      { from:{x:630,y:yFrom+23}, to:{x:630, y:yTo+23}, dur:750,
+        color:C.danger, label:"merge", dimSST:{L:L},
+        onArrive:function(){
+          levels[L]=[];
+          levels[L+1].push({keys:merged});
+          refreshCounters();
+        }}
+    ];
+    animateToken(steps, function(){
+      maybeCompact(L+1);
+    });
+  }
+
+  function lsmRead(){
+    // pick an existing key if any, else a missing one sometimes
+    const all=[];
+    memtable.forEach(m=>all.push(m.k));
+    levels.forEach(lv=>lv.forEach(s=>s.keys.forEach(k=>all.push(k))));
+    let target, exists;
+    if(all.length && Math.random()<0.7){ target=all[rnd(all.length)]; exists=true; }
+    else { target=nextKey()+1000; exists=false; } // a key that doesn't exist
+
+    let probes=0; let found=false;
+    const steps=[];
+    const useBloom=el.bloom.checked;
+
+    // probe memtable first
+    probes++;
+    const memHas=memtable.some(m=>m.k===target);
+    steps.push({ from:{x:95,y:55}, to:{x:150,y:139}, dur:420, color:C.accent, label:"?"+(target>1000?"x":target),
+      path:[], onArrive:function(){}});
+    if(memHas){ found=true; }
+
+    if(!found){
+      // probe each level top->down; bloom filter can skip SSTables that surely lack the key
+      const lvlY=[120,200,280];
+      outer:
+      for(let L=0;L<3;L++){
+        for(let s=0;s<levels[L].length;s++){
+          const sst=levels[L][s];
+          const canHave = sst.keys.indexOf(target)>=0;
+          if(useBloom && !canHave){
+            // bloom says "definitely not here" -> skip, NOT counted as a real disk probe
+            continue;
+          }
+          probes++;
+          steps.push({ from:{x:630,y:lvlY[Math.max(0,L-1)]+23}, to:{x:630,y:lvlY[L]+23},
+            dur:430, color:canHave?C.success:C.warning, label:"L"+L });
+          if(canHave){ found=true; break outer; }
+        }
+      }
+    }
+
+    lastRamp = probes + (found?" probes ✓":" probes ✗");
+    refreshCounters();
+    if(found){
+      say('Read <b>'+(exists?("k"+target):("missing key"))+'</b> → checked memtable then levels. Found after <b>'+probes+' probe(s)</b>.'+(useBloom?' Bloom filters skipped SSTables that can\'t contain it.':' (Bloom OFF: every SSTable was probed.)'));
+    } else {
+      say('Read a <b>missing key</b> → had to probe <b>'+probes+'</b> place(s) before concluding it is absent.'+(useBloom?' Bloom filters cut most disk hits.':' <b>Bloom OFF</b>: read amplification is worst-case.'));
+    }
+    animateToken(steps);
+  }
+
+  // ---------- B-Tree operations ----------
+  function btreeLeafFor(k){
+    // route by root keys (the routing keys are the max of leaf0, leaf1)
+    const r=btree.root.keys;
+    if(r.length<2){ // fallback: distribute by size
+      // place into the least-full leaf to keep visual balance
+      let idx=0,min=Infinity;
+      for(let i=0;i<3;i++){ if(btree.leaves[i].keys.length<min){min=btree.leaves[i].keys.length; idx=i;} }
+      return idx;
+    }
+    if(k<=r[0]) return 0;
+    if(k<=r[1]) return 1;
+    return 2;
+  }
+  function rebuildRoutingKeys(){
+    const maxOf=i=>{ const ks=btree.leaves[i].keys; return ks.length?Math.max.apply(null,ks):null; };
+    const m0=maxOf(0), m1=maxOf(1);
+    btree.root.keys=[];
+    if(m0!=null) btree.root.keys.push(m0);
+    if(m1!=null) btree.root.keys.push(m1);
+  }
+
+  function btreeWrite(){
+    const k=nextKey();
+    logical+=1;
+    const leaf=btreeLeafFor(k);
+    // read-modify-write a single page: +1 physical (the page rewrite)
+    physical+=1;
+    say('Write <b>k'+k+'</b> → traverse <b>root → leaf '+leaf+'</b> (one path), modify that page <b>in place</b>, write the same page back (+1 physical). Write-amp ≈ 1.');
+    const leafW=200,gap=30, startX=(920-(leafW*3+gap*2))/2;
+    const lx=startX+leaf*(leafW+gap)+leafW/2;
+    const steps=[
+      { from:{x:95,y:55}, to:{x:510,y:102}, dur:480, color:C.accent, label:"k"+k,
+        path:["root"] },
+      { from:{x:510,y:102}, to:{x:lx,y:250}, dur:520, color:C.success, label:"k"+k,
+        path:["root","leaf"+leaf],
+        onArrive:function(){
+          btree.leaves[leaf].keys.push(k);
+          btree.leaves[leaf].keys.sort((a,b)=>a-b);
+          // simple overflow handling: if a leaf grows large, spill highest to next leaf (visual only)
+          if(btree.leaves[leaf].keys.length>5 && leaf<2){
+            const moved=btree.leaves[leaf].keys.pop();
+            btree.leaves[leaf+1].keys.push(moved);
+            btree.leaves[leaf+1].keys.sort((a,b)=>a-b);
+          }
+          rebuildRoutingKeys();
+          refreshCounters();
+        }}
+    ];
+    animateToken(steps);
+  }
+
+  function btreeRead(){
+    // pick an existing key if possible
+    const all=[];
+    btree.leaves.forEach(lf=>lf.keys.forEach(k=>all.push(k)));
+    let target,exists;
+    if(all.length&&Math.random()<0.8){ target=all[rnd(all.length)]; exists=true; }
+    else { target=nextKey()+1000; exists=false; }
+    const leaf= exists? btree.leaves.findIndex(lf=>lf.keys.indexOf(target)>=0)
+                      : btreeLeafFor(target);
+    lastRamp="2 probes "+(exists?"✓":"✗");
+    refreshCounters();
+    say('Read <b>'+(exists?("k"+target):"missing key")+'</b> → root then exactly <b>one leaf</b>. Read amplification is fixed at the tree height ('+'2 probes'+') — '+(exists?"found.":"not present.")+' This is why B-Trees are read-optimized.');
+    const leafW=200,gap=30, startX=(920-(leafW*3+gap*2))/2;
+    const lx=startX+leaf*(leafW+gap)+leafW/2;
+    const steps=[
+      { from:{x:95,y:55}, to:{x:510,y:102}, dur:460, color:C.accent, label:"?", path:["root"] },
+      { from:{x:510,y:102}, to:{x:lx,y:250}, dur:500,
+        color:exists?C.success:C.warning, label:"?", path:["root","leaf"+leaf] }
+    ];
+    animateToken(steps);
+  }
+
+  // ---------- dispatch ----------
+  function doWrite(){ if(mode==="lsm") lsmWrite(); else btreeWrite(); }
+  function doRead(){ if(mode==="lsm") lsmRead(); else btreeRead(); }
+
+  // step: alternate write, occasionally read
+  let stepTick=0;
+  function step(){
+    stepTick++;
+    if(stepTick%4===0) doRead(); else doWrite();
+  }
+
+  // auto-play loop (event-driven: schedule next when idle)
+  function scheduleAuto(){
+    if(!playing) return;
+    if(el.btnWrite.disabled){ // busy animating
+      autoTimer=window.setTimeout(scheduleAuto, 90);
+      return;
+    }
+    step();
+    const speed=parseFloat(el.spd.value);
+    autoTimer=window.setTimeout(scheduleAuto, 700/speed + 400);
+  }
+
+  function setPlaying(on){
+    playing=on;
+    el.btnPlay.textContent= on? "Pause" : "Auto-play";
+    el.btnPlay.classList.toggle("active",on);
+    if(on) scheduleAuto(); else { window.clearTimeout(autoTimer); }
+  }
+
+  // ---------- mode switching ----------
+  function setMode(m){
+    mode=m;
+    const isLsm=(m==="lsm");
+    el.modeLsm.classList.toggle("active",isLsm);
+    el.modeBtree.classList.toggle("active",!isLsm);
+    el.modeLsm.setAttribute("aria-selected",isLsm);
+    el.modeBtree.setAttribute("aria-selected",!isLsm);
+    el.modeTag.textContent= isLsm? "SEQUENTIAL APPEND + COMPACT" : "IN-PLACE PAGE UPDATE";
+    el.bloomGrp.style.display= isLsm? "flex":"none";
+    reset(false);
+  }
+
+  function reset(resetMode){
+    setPlaying(false);
+    cancelAnimationFrame(raf);
+    anim=null;
+    logical=0; physical=0; lastRamp="—"; keyCounter=0; stepTick=0;
+    memtable=[]; levels=[[],[],[]];
+    btree={ root:{keys:[]}, leaves:[{keys:[]},{keys:[]},{keys:[]}] };
+    el.btnStep.disabled=false; el.btnWrite.disabled=false; el.btnRead.disabled=false;
+    refreshCounters();
+    say(mode==="lsm"
+      ? 'LSM mode. Writes append to the memtable; full memtables flush to L0; full levels compact downward (rewriting bytes).'
+      : 'B-Tree mode. Each write walks one path and rewrites a single page in place. Reads also follow one path.');
+    draw();
+  }
+
+  // ---------- legend ----------
+  function buildLegend(){
+    const items=[
+      [C.purple,"Memtable / B-tree leaf 1"],
+      [C.success,"SSTable / leaf page (data)"],
+      [C.warning,"Probe miss / mid level"],
+      [C.danger,"Compaction rewrite (write-amp!)"],
+      [C.accent,"Active read path / new write"],
+    ];
+    el.legend.innerHTML="";
+    items.forEach(([col,label])=>{
+      const d=document.createElement("div"); d.className="item";
+      const s=document.createElement("span"); s.className="swatch"; s.style.background=col;
+      const t=document.createElement("span"); t.textContent=label;
+      d.appendChild(s); d.appendChild(t); el.legend.appendChild(d);
+    });
+  }
+
+  // ---------- wire events ----------
+  el.modeLsm.onclick=()=>setMode("lsm");
+  el.modeBtree.onclick=()=>setMode("btree");
+  el.btnWrite.onclick=()=>{ setPlaying(false); doWrite(); };
+  el.btnRead.onclick=()=>{ setPlaying(false); doRead(); };
+  el.btnStep.onclick=()=>{ setPlaying(false); step(); };
+  el.btnPlay.onclick=()=> setPlaying(!playing);
+  el.btnReset.onclick=()=> reset(true);
+  el.bloom.onchange=()=>{ if(!el.btnWrite.disabled) draw(); };
+
+  // ---------- init ----------
+  buildLegend();
+  setMode("lsm");
+})();
+</script>
+</body>
+</html>

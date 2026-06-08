@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Token Bucket vs Leaky Bucket</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --border:#30363d;
+    --text:#e6edf3; --muted:#8b949e;
+    --accent:#58a6ff; --green:#3fb950; --amber:#d29922; --red:#f85149; --purple:#bc8cff;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    line-height:1.5;
+    padding:24px 16px 48px;
+  }
+  .wrap{max-width:960px;margin:0 auto;}
+  header h1{font-size:1.7rem;margin:0 0 8px;}
+  header p{color:var(--muted);margin:0 0 20px;max-width:760px;}
+  .stage-card{
+    background:var(--panel);border:1px solid var(--border);border-radius:8px;
+    padding:16px;margin-bottom:16px;
+  }
+  .mode-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;}
+  .mode-row .seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+  .mode-row .seg button{
+    background:transparent;border:none;color:var(--muted);
+    padding:8px 16px;cursor:pointer;font-size:.92rem;font-family:inherit;
+  }
+  .mode-row .seg button.active{background:#1f6feb33;color:var(--accent);font-weight:600;}
+  .mode-desc{color:var(--muted);font-size:.86rem;}
+  svg{width:100%;height:auto;display:block;}
+  text{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+
+  .controls{
+    display:flex;gap:10px;flex-wrap:wrap;align-items:center;
+    background:var(--panel);border:1px solid var(--border);border-radius:8px;
+    padding:14px 16px;margin-bottom:16px;
+  }
+  button.btn{
+    background:#21262d;color:var(--text);border:1px solid var(--border);
+    border-radius:999px;padding:8px 18px;cursor:pointer;font-size:.92rem;
+    font-family:inherit;transition:background .15s,border-color .15s;
+  }
+  button.btn:hover{background:#30363d;border-color:#8b949e;}
+  button.btn:active{transform:translateY(1px);}
+  button.btn.primary{background:#1f6feb;border-color:#1f6feb;color:#fff;}
+  button.btn.primary:hover{background:#388bfd;}
+  .slider-group{display:flex;flex-direction:column;gap:2px;min-width:170px;}
+  .slider-group label{font-size:.78rem;color:var(--muted);font-family:ui-monospace,monospace;}
+  .slider-group .val{color:var(--accent);}
+  input[type=range]{width:100%;accent-color:var(--accent);}
+  .spacer{flex:1;}
+
+  .stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;}
+  .stat{
+    flex:1;min-width:130px;background:var(--panel);border:1px solid var(--border);
+    border-radius:8px;padding:10px 14px;
+  }
+  .stat .k{font-size:.74rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+  .stat .v{font-size:1.4rem;font-weight:700;font-family:ui-monospace,monospace;}
+  .v.green{color:var(--green);} .v.red{color:var(--red);} .v.blue{color:var(--accent);} .v.amber{color:var(--amber);}
+
+  #narration{
+    background:#1c2333;border:1px solid #30406b;border-radius:8px;
+    padding:12px 16px;margin-bottom:16px;font-family:ui-monospace,monospace;
+    font-size:.92rem;color:var(--text);min-height:1.4em;
+  }
+  #narration .tag{color:var(--purple);}
+
+  .legend{
+    background:var(--panel);border:1px solid var(--border);border-radius:8px;
+    padding:14px 16px;margin-bottom:16px;
+  }
+  .legend h3,.try h3{margin:0 0 8px;font-size:.95rem;}
+  .legend .items{display:flex;flex-wrap:wrap;gap:14px;}
+  .legend .item{display:flex;align-items:center;gap:7px;font-size:.84rem;color:var(--muted);}
+  .legend .swatch{width:16px;height:16px;border-radius:4px;flex:none;}
+  .legend .dot{width:14px;height:14px;border-radius:50%;flex:none;}
+
+  .try{background:#15241b;border:1px solid #2c5234;border-radius:8px;padding:14px 16px;margin-bottom:24px;}
+  .try p{margin:0;color:#a8d8b3;font-size:.9rem;}
+  .try b{color:var(--green);}
+
+  footer{border-top:1px solid var(--border);padding-top:16px;display:flex;gap:20px;flex-wrap:wrap;}
+  footer a{color:var(--accent);text-decoration:none;font-size:.9rem;}
+  footer a:hover{text-decoration:underline;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Token Bucket vs Leaky Bucket</h1>
+    <p>Two classic rate-limiting algorithms, side by side. The <b>token bucket</b> lets traffic burst up to a stored capacity, then settles to a steady refill rate. The <b>leaky bucket</b> queues everything and drains at one strictly constant rate. Watch a burst of requests hit each and see which gets through.</p>
+  </header>
+
+  <div class="stage-card">
+    <div class="mode-row">
+      <div class="seg" role="tablist" aria-label="Algorithm">
+        <button id="modeToken" class="active" type="button">Token Bucket</button>
+        <button id="modeLeaky" type="button">Leaky Bucket</button>
+      </div>
+      <span class="mode-desc" id="modeDesc">Tokens accumulate while idle &rarr; bursts allowed up to capacity b.</span>
+    </div>
+    <svg id="stage" viewBox="0 0 900 360" role="img" aria-label="Rate limiter animation"></svg>
+  </div>
+
+  <div class="controls">
+    <button id="play" class="btn primary" type="button">Pause</button>
+    <button id="step" class="btn" type="button">Step</button>
+    <button id="reset" class="btn" type="button">Reset</button>
+    <button id="burst" class="btn" type="button">Send Burst (10)</button>
+    <div class="spacer"></div>
+    <div class="slider-group">
+      <label>Refill / drain rate r = <span class="val" id="rateVal">2.0</span> /s</label>
+      <input id="rate" type="range" min="0.5" max="6" step="0.5" value="2">
+    </div>
+    <div class="slider-group">
+      <label>Bucket capacity b = <span class="val" id="capVal">6</span></label>
+      <input id="cap" type="range" min="1" max="12" step="1" value="6">
+    </div>
+    <div class="slider-group">
+      <label>Arrival rate = <span class="val" id="arrVal">4.0</span> /s</label>
+      <input id="arr" type="range" min="0" max="12" step="0.5" value="4">
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="k">Accepted</div><div class="v green" id="accepted">0</div></div>
+    <div class="stat"><div class="k">Rejected / Dropped</div><div class="v red" id="rejected">0</div></div>
+    <div class="stat"><div class="k">Output rate (last 1s)</div><div class="v blue" id="outRate">0.0 /s</div></div>
+    <div class="stat"><div class="k" id="levelK">Tokens available</div><div class="v amber" id="level">6.0</div></div>
+  </div>
+
+  <div id="narration">Idle. Bucket full of tokens &mdash; ready to absorb a burst.</div>
+
+  <div class="legend">
+    <h3>Legend</h3>
+    <div class="items">
+      <span class="item"><span class="dot" style="background:#58a6ff"></span> Incoming request</span>
+      <span class="item"><span class="dot" style="background:#3fb950"></span> Accepted / served request</span>
+      <span class="item"><span class="dot" style="background:#f85149"></span> Rejected / dropped request</span>
+      <span class="item"><span class="swatch" style="background:#d29922"></span> Tokens (token bucket)</span>
+      <span class="item"><span class="swatch" style="background:#388bfd"></span> Queued water (leaky bucket)</span>
+    </div>
+  </div>
+
+  <div class="try">
+    <h3>Try this</h3>
+    <p>Set arrival rate high, click <b>Send Burst (10)</b> on the <b>Token Bucket</b> &mdash; many requests pass instantly by spending stored tokens. Then switch to <b>Leaky Bucket</b> and burst again: the output rate never exceeds r, and overflow is dropped. That difference &mdash; <b>tolerated bursts vs. perfectly smooth output</b> &mdash; is the whole point.</p>
+  </div>
+
+  <footer>
+    <a href="./index.html">&larr; Back to gallery</a>
+    <a href="../04-design-case-studies/22-url-shortener-rate-limiter-id-gen.md">Related writeup: URL shortener, rate limiter &amp; ID gen &rarr;</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const SVG_NS="http://www.w3.org/2000/svg";
+  const stage=document.getElementById("stage");
+
+  // ---- DOM ----
+  const els={
+    play:document.getElementById("play"),
+    step:document.getElementById("step"),
+    reset:document.getElementById("reset"),
+    burst:document.getElementById("burst"),
+    rate:document.getElementById("rate"), rateVal:document.getElementById("rateVal"),
+    cap:document.getElementById("cap"), capVal:document.getElementById("capVal"),
+    arr:document.getElementById("arr"), arrVal:document.getElementById("arrVal"),
+    accepted:document.getElementById("accepted"),
+    rejected:document.getElementById("rejected"),
+    outRate:document.getElementById("outRate"),
+    level:document.getElementById("level"), levelK:document.getElementById("levelK"),
+    narration:document.getElementById("narration"),
+    modeToken:document.getElementById("modeToken"),
+    modeLeaky:document.getElementById("modeLeaky"),
+    modeDesc:document.getElementById("modeDesc")
+  };
+
+  // ---- State ----
+  let mode="token";          // "token" | "leaky"
+  let running=true;
+  let r=2.0;                 // refill/drain rate (per sec)
+  let cap=6;                 // capacity b
+  let arrRate=4.0;           // arrival rate (per sec)
+
+  let tokens=cap;            // token bucket fill (fractional)
+  let queue=0;               // leaky bucket water level (fractional, in units of requests)
+  let drainCarry=0;          // fractional progress toward releasing a leaky unit
+
+  let accepted=0, rejected=0;
+  let arrivalCarry=0;        // fractional progress toward next arrival
+  let outputTimes=[];        // timestamps (sec) of accepted/served events for rolling rate
+
+  let particles=[];          // moving request dots
+  let simTime=0;             // seconds
+
+  // Geometry
+  const SRC_X=70, SRC_Y=180;          // source
+  const BUCKET_X=380, BUCKET_TOP=60, BUCKET_BOT=300, BUCKET_W=150;
+  const OUT_X=820, OUT_Y=180;         // sink
+
+  // ---- Build static scene ----
+  function buildScene(){
+    while(stage.firstChild) stage.removeChild(stage.firstChild);
+
+    // defs not needed; draw groups
+    addText(SRC_X,40,"Requests",{anchor:"middle",fill:"#8b949e",size:13});
+    addCircleOutline(SRC_X,SRC_Y,26,"#30363d");
+    addText(SRC_X,SRC_Y+5,"in",{anchor:"middle",fill:"#8b949e",size:13});
+
+    // arrow source -> bucket
+    addLine(SRC_X+28,SRC_Y,BUCKET_X-12,SRC_Y,"#30363d",1.5,"4 4");
+
+    // bucket container (drawn as group, refreshed)
+    bucketGroup=mk("g"); stage.appendChild(bucketGroup);
+    fluidGroup=mk("g"); stage.appendChild(fluidGroup);       // tokens or water
+    bucketFront=mk("g"); stage.appendChild(bucketFront);
+
+    // sink
+    addText(OUT_X,40,"Served",{anchor:"middle",fill:"#8b949e",size:13});
+    addCircleOutline(OUT_X,OUT_Y,26,"#30363d");
+    addText(OUT_X,OUT_Y+5,"out",{anchor:"middle",fill:"#8b949e",size:13});
+
+    // particle layer last (on top)
+    particleGroup=mk("g"); stage.appendChild(particleGroup);
+
+    labelGroup=mk("g"); stage.appendChild(labelGroup);
+  }
+
+  let bucketGroup,fluidGroup,bucketFront,particleGroup,labelGroup;
+
+  function mk(tag){return document.createElementNS(SVG_NS,tag);}
+  function addText(x,y,t,o){o=o||{};const e=mk("text");e.setAttribute("x",x);e.setAttribute("y",y);
+    e.setAttribute("text-anchor",o.anchor||"start");e.setAttribute("fill",o.fill||"#e6edf3");
+    e.setAttribute("font-size",o.size||12);if(o.weight)e.setAttribute("font-weight",o.weight);
+    e.textContent=t;stage.appendChild(e);return e;}
+  function addLine(x1,y1,x2,y2,c,w,dash){const e=mk("line");e.setAttribute("x1",x1);e.setAttribute("y1",y1);
+    e.setAttribute("x2",x2);e.setAttribute("y2",y2);e.setAttribute("stroke",c);e.setAttribute("stroke-width",w||1);
+    if(dash)e.setAttribute("stroke-dasharray",dash);stage.appendChild(e);return e;}
+  function addCircleOutline(cx,cy,rr,c){const e=mk("circle");e.setAttribute("cx",cx);e.setAttribute("cy",cy);
+    e.setAttribute("r",rr);e.setAttribute("fill","none");e.setAttribute("stroke",c);e.setAttribute("stroke-width",1.5);
+    stage.appendChild(e);return e;}
+
+  // Draw the bucket walls + fluid. Fill fraction f in [0,1]; color depends on mode.
+  function drawBucket(){
+    clear(bucketGroup); clear(fluidGroup); clear(bucketFront); clear(labelGroup);
+    const left=BUCKET_X, right=BUCKET_X+BUCKET_W, top=BUCKET_TOP, bot=BUCKET_BOT;
+
+    // walls (U shape)
+    const wall=mk("path");
+    wall.setAttribute("d",`M${left} ${top} L${left} ${bot} L${right} ${bot} L${right} ${top}`);
+    wall.setAttribute("fill","none");wall.setAttribute("stroke","#484f58");wall.setAttribute("stroke-width",3);
+    wall.setAttribute("stroke-linejoin","round");
+    bucketGroup.appendChild(wall);
+
+    // capacity ticks
+    for(let i=0;i<=cap;i++){
+      const y=bot-(bot-top)*(i/cap);
+      const tick=mk("line");tick.setAttribute("x1",right);tick.setAttribute("y1",y);
+      tick.setAttribute("x2",right+8);tick.setAttribute("y2",y);
+      tick.setAttribute("stroke","#30363d");tick.setAttribute("stroke-width",1);
+      bucketGroup.appendChild(tick);
+    }
+
+    // fluid level
+    const f = mode==="token" ? (tokens/cap) : (queue/cap);
+    const fc = Math.max(0,Math.min(1,f));
+    const fluidH=(bot-top)*fc;
+    const fy=bot-fluidH;
+
+    if(mode==="token"){
+      // tokens drawn as discrete amber coins stacked
+      const whole=Math.floor(tokens+1e-9);
+      const frac=tokens-whole;
+      const coinR=Math.min(14, (BUCKET_W-30)/4);
+      const perRow=Math.max(1,Math.floor((BUCKET_W-20)/(coinR*2+6)));
+      const rowH=coinR*2+6;
+      for(let i=0;i<whole;i++){
+        const row=Math.floor(i/perRow), col=i%perRow;
+        const cx=left+14+coinR+col*(coinR*2+6);
+        const cy=bot-12-coinR-row*rowH;
+        coin(cx,cy,coinR,1);
+      }
+      // fractional (partial accumulating) token
+      if(frac>0.02 && whole<cap){
+        const row=Math.floor(whole/perRow), col=whole%perRow;
+        const cx=left+14+coinR+col*(coinR*2+6);
+        const cy=bot-12-coinR-row*rowH;
+        coin(cx,cy,coinR,frac);
+      }
+    } else {
+      // water rectangle
+      const rect=mk("rect");
+      rect.setAttribute("x",left+3);rect.setAttribute("y",fy);
+      rect.setAttribute("width",BUCKET_W-6);rect.setAttribute("height",fluidH);
+      rect.setAttribute("fill","#388bfd");rect.setAttribute("opacity",0.55);
+      fluidGroup.appendChild(rect);
+      // surface line
+      if(fc>0){
+        const surf=mk("line");surf.setAttribute("x1",left+3);surf.setAttribute("y1",fy);
+        surf.setAttribute("x2",right-3);surf.setAttribute("y2",fy);
+        surf.setAttribute("stroke","#58a6ff");surf.setAttribute("stroke-width",2);
+        fluidGroup.appendChild(surf);
+      }
+      // hole + drip pipe at bottom (constant drain)
+      const pipe=mk("rect");pipe.setAttribute("x",(left+right)/2-6);pipe.setAttribute("y",bot);
+      pipe.setAttribute("width",12);pipe.setAttribute("height",14);pipe.setAttribute("fill","#484f58");
+      bucketFront.appendChild(pipe);
+    }
+
+    // overflow indicator when full and overflowing
+    // label
+    const lbl=mode==="token"?`b = ${cap} tokens`:`queue cap = ${cap}`;
+    const t=mk("text");t.setAttribute("x",(left+right)/2);t.setAttribute("y",top-12);
+    t.setAttribute("text-anchor","middle");t.setAttribute("fill","#8b949e");t.setAttribute("font-size",13);
+    t.setAttribute("font-family","ui-monospace,monospace");t.textContent=lbl;
+    labelGroup.appendChild(t);
+
+    // rate annotation
+    const rt=mk("text");rt.setAttribute("x",(left+right)/2);rt.setAttribute("y",bot+30);
+    rt.setAttribute("text-anchor","middle");rt.setAttribute("fill","#8b949e");rt.setAttribute("font-size",12);
+    rt.setAttribute("font-family","ui-monospace,monospace");
+    rt.textContent = mode==="token" ? `refill r = ${r.toFixed(1)}/s` : `leak r = ${r.toFixed(1)}/s`;
+    labelGroup.appendChild(rt);
+  }
+
+  function coin(cx,cy,rr,alpha){
+    const c=mk("circle");c.setAttribute("cx",cx);c.setAttribute("cy",cy);c.setAttribute("r",rr);
+    c.setAttribute("fill","#d29922");c.setAttribute("opacity",(0.35+0.65*alpha).toFixed(2));
+    c.setAttribute("stroke","#b07c19");c.setAttribute("stroke-width",1.2);
+    fluidGroup.appendChild(c);
+  }
+  function clear(g){if(g)while(g.firstChild)g.removeChild(g.firstChild);}
+
+  // ---- Particles ----
+  // A particle travels src->bucket, gets resolved (accept/reject), then exits.
+  function spawnRequest(){
+    particles.push({
+      x:SRC_X+28, y:SRC_Y,
+      vx:0, phase:"toBucket", color:"#58a6ff",
+      t:0, resolved:false, holdQueue:false
+    });
+  }
+
+  function resolveAtBucket(p){
+    p.resolved=true;
+    if(mode==="token"){
+      if(tokens>=1){
+        tokens-=1;
+        accepted++; outputTimes.push(simTime);
+        p.color="#3fb950"; p.phase="toOut";
+        narrate(`<span class="tag">[token]</span> Request spent 1 token (${tokens.toFixed(1)} left) &rarr; accepted.`);
+      }else{
+        rejected++;
+        p.color="#f85149"; p.phase="reject";
+        narrate(`<span class="tag">[token]</span> No tokens available &rarr; request rejected (throttled to rate r).`);
+      }
+    }else{
+      // leaky: enter queue if room (queue measured in request-units, capacity = cap)
+      if(queue+1<=cap+1e-9){
+        queue+=1;
+        p.color="#388bfd"; p.phase="enqueued"; p.holdQueue=true;
+        narrate(`<span class="tag">[leaky]</span> Request entered the queue (depth ${queue.toFixed(1)}/${cap}); will drain at constant r.`);
+      }else{
+        rejected++;
+        p.color="#f85149"; p.phase="reject";
+        narrate(`<span class="tag">[leaky]</span> Queue full &rarr; request dropped (overflow). Output stays smooth.`);
+      }
+    }
+  }
+
+  // when leaky bucket drains a unit, release one queued particle as served
+  function releaseLeaky(){
+    // find an enqueued particle, mark served
+    for(const p of particles){
+      if(p.holdQueue && p.phase==="enqueued"){
+        p.holdQueue=false; p.color="#3fb950"; p.phase="toOut";
+        accepted++; outputTimes.push(simTime);
+        return true;
+      }
+    }
+    // no particle to animate but queue had abstract water — still count
+    accepted++; outputTimes.push(simTime);
+    return false;
+  }
+
+  // ---- Simulation step ----
+  function simulate(dt){
+    simTime+=dt;
+
+    // arrivals (Poisson-ish deterministic spacing)
+    arrivalCarry+=arrRate*dt;
+    while(arrivalCarry>=1){arrivalCarry-=1;spawnRequest();}
+
+    // refill (token) or drain (leaky)
+    if(mode==="token"){
+      tokens=Math.min(cap,tokens+r*dt);
+    }else{
+      // constant drain: release floor of accumulated drain, respecting queue contents
+      drainCarry+=r*dt;
+      while(drainCarry>=1 && queue>=1-1e-9){
+        drainCarry-=1; queue=Math.max(0,queue-1);
+        releaseLeaky();
+      }
+      if(queue<1) drainCarry=Math.min(drainCarry,1); // don't bank drain on empty queue
+    }
+
+    // move particles
+    const speed=260; // px/s
+    for(const p of particles){
+      if(p.phase==="toBucket"){
+        p.x+=speed*dt;
+        if(p.x>=BUCKET_X-6 && !p.resolved){ p.x=BUCKET_X-6; resolveAtBucket(p); }
+      }else if(p.phase==="toOut"){
+        p.x+=speed*dt;
+      }else if(p.phase==="reject"){
+        // bounce up and fade
+        p.t+=dt; p.y=SRC_Y - 70*Math.min(1,p.t*2.2); p.x+= -30*dt;
+      }else if(p.phase==="enqueued"){
+        // sit at bucket mouth, drift to a "waiting" column
+        p.x=BUCKET_X-6;
+      }
+    }
+    // cull
+    particles=particles.filter(p=>{
+      if(p.phase==="toOut") return p.x<OUT_X+30;
+      if(p.phase==="reject") return p.t<1.0;
+      return true;
+    });
+
+    // prune rolling-rate window
+    const cutoff=simTime-1.0;
+    while(outputTimes.length && outputTimes[0]<cutoff) outputTimes.shift();
+  }
+
+  // ---- Render particles ----
+  function renderParticles(){
+    clear(particleGroup);
+    // arrange enqueued ones in a little waiting line near bucket mouth
+    let qi=0;
+    for(const p of particles){
+      let px=p.x, py=p.y;
+      if(p.phase==="enqueued"){
+        px=BUCKET_X-40; py=SRC_Y - 0 + (qi-( -0))*0; // stack vertically
+        py=SRC_Y; px=BUCKET_X-22-qi*16; qi++;
+      }
+      const c=mk("circle");
+      c.setAttribute("cx",px);c.setAttribute("cy",py);c.setAttribute("r",8);
+      c.setAttribute("fill",p.color);
+      if(p.phase==="reject"){c.setAttribute("opacity",Math.max(0,1-p.t).toFixed(2));}
+      particleGroup.appendChild(c);
+    }
+  }
+
+  // ---- Stats / narration ----
+  function updateStats(){
+    els.accepted.textContent=accepted;
+    els.rejected.textContent=rejected;
+    els.outRate.textContent=outputTimes.length.toFixed(1)+" /s";
+    if(mode==="token"){
+      els.levelK.textContent="Tokens available";
+      els.level.textContent=tokens.toFixed(1);
+    }else{
+      els.levelK.textContent="Queue depth";
+      els.level.textContent=queue.toFixed(1);
+    }
+    drawBucket();
+    renderParticles();
+  }
+
+  let narrationLock=0;
+  function narrate(html){
+    // throttle so rapid events don't flicker too fast
+    els.narration.innerHTML=html;
+  }
+
+  // ---- Loop ----
+  let last=performance.now();
+  function frame(now){
+    let dt=(now-last)/1000; last=now;
+    if(dt>0.05) dt=0.05; // clamp
+    if(running){ simulate(dt); }
+    updateStats();
+    requestAnimationFrame(frame);
+  }
+
+  // ---- Controls ----
+  function setMode(m){
+    mode=m;
+    els.modeToken.classList.toggle("active",m==="token");
+    els.modeLeaky.classList.toggle("active",m==="leaky");
+    if(m==="token"){
+      els.modeDesc.innerHTML="Tokens accumulate while idle &rarr; bursts allowed up to capacity b.";
+      narrate("Switched to <span class=\"tag\">Token Bucket</span>. Idle time stores tokens, enabling bursts up to b.");
+    }else{
+      els.modeDesc.innerHTML="Requests queue and leak out at a strictly constant rate r &rarr; no bursts.";
+      narrate("Switched to <span class=\"tag\">Leaky Bucket</span>. Output is smoothed to a constant rate; overflow is dropped.");
+    }
+    resetState(true);
+  }
+
+  function resetState(keepCounters){
+    if(!keepCounters){accepted=0;rejected=0;}
+    accepted=0;rejected=0;
+    tokens = mode==="token" ? cap : 0;
+    queue=0; drainCarry=0; arrivalCarry=0; outputTimes=[]; particles=[]; simTime=0; last=performance.now();
+    updateStats();
+  }
+
+  els.play.addEventListener("click",function(){
+    running=!running;
+    els.play.textContent=running?"Pause":"Play";
+  });
+  els.step.addEventListener("click",function(){
+    running=false; els.play.textContent="Play";
+    simulate(0.10); updateStats();
+    narrate(narration_step_note());
+  });
+  function narration_step_note(){
+    if(mode==="token") return `Stepped 0.1s. Tokens now ${tokens.toFixed(1)}/${cap}.`;
+    return `Stepped 0.1s. Queue depth ${queue.toFixed(1)}/${cap}.`;
+  }
+  els.reset.addEventListener("click",function(){
+    resetState(false);
+    narrate(mode==="token"
+      ? "Reset. Bucket full of tokens &mdash; ready to absorb a burst."
+      : "Reset. Queue empty &mdash; output will stay at constant rate r.");
+  });
+  els.burst.addEventListener("click",function(){
+    // inject 10 requests spaced very tightly
+    let delay=0;
+    for(let i=0;i<10;i++){
+      setTimeout(spawnRequest, delay);
+      delay+=40;
+    }
+    narrate(mode==="token"
+      ? "<span class=\"tag\">Burst!</span> 10 requests &mdash; token bucket lets them through until tokens run out."
+      : "<span class=\"tag\">Burst!</span> 10 requests &mdash; leaky bucket queues them and releases at rate r; overflow drops.");
+  });
+
+  els.rate.addEventListener("input",function(){
+    r=parseFloat(this.value); els.rateVal.textContent=r.toFixed(1);
+  });
+  els.cap.addEventListener("input",function(){
+    cap=parseInt(this.value,10); els.capVal.textContent=cap;
+    if(mode==="token") tokens=Math.min(tokens,cap);
+    queue=Math.min(queue,cap);
+    drawBucket();
+  });
+  els.arr.addEventListener("input",function(){
+    arrRate=parseFloat(this.value); els.arrVal.textContent=arrRate.toFixed(1);
+  });
+
+  els.modeToken.addEventListener("click",function(){setMode("token");});
+  els.modeLeaky.addEventListener("click",function(){setMode("leaky");});
+
+  // ---- Init ----
+  buildScene();
+  resetState(false);
+  els.play.textContent="Pause";
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

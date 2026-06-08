@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Race Condition — Seat Booking — LLD 04</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --ink:#e2e8f0; --muted:#94a3b8; --line:#475569;
+    --ok:#34d399; --bad:#f87171; --t1:#60a5fa; --t2:#f472b6;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5;padding:24px}
+  h1{font-size:1.35rem;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 16px;font-size:.95rem}
+  .toggle{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:18px}
+  .toggle button{background:#0b1220;color:var(--muted);border:0;padding:9px 16px;font-weight:700;cursor:pointer;font-size:.85rem}
+  .toggle button.active{background:var(--bad);color:#0b1220}
+  .toggle button.active.safe{background:var(--ok)}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px}
+  .seat{margin:0 auto 18px;width:120px;height:90px;border:2px solid var(--line);border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:ui-monospace,monospace;background:#0b1220;transition:all .4s}
+  .seat .who{font-size:.72rem;color:var(--muted);margin-top:4px}
+  .seat.booked{border-color:var(--ok)}
+  .seat.double{border-color:var(--bad);box-shadow:0 0 0 4px rgba(248,113,113,.3)}
+  .threads{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .thread{border:2px solid var(--line);border-radius:10px;padding:12px;background:#0b1220}
+  .thread.t1{border-color:var(--t1)} .thread.t2{border-color:var(--t2)}
+  .thread h3{margin:0 0 8px;font-size:.8rem;font-family:ui-monospace,monospace}
+  .thread.t1 h3{color:var(--t1)} .thread.t2 h3{color:var(--t2)}
+  .op{font-family:ui-monospace,monospace;font-size:.76rem;color:var(--muted);padding:3px 6px;border-radius:5px;margin:2px 0;opacity:.35;transition:all .3s}
+  .op.active{opacity:1;background:rgba(148,163,184,.15);color:var(--ink)}
+  .op.win{color:var(--ok)} .op.lose{color:var(--bad)}
+  .controls{display:flex;gap:8px;margin-top:18px}
+  button.act{background:var(--ink);color:#0b1220;border:0;border-radius:8px;padding:9px 16px;font-size:.85rem;cursor:pointer;font-weight:700}
+  button.act:disabled{opacity:.4;cursor:not-allowed}
+  .verdict{margin-top:14px;padding:11px 14px;border-radius:8px;font-size:.9rem;display:none}
+  .verdict.bad{display:block;background:rgba(248,113,113,.12);color:var(--bad);border:1px solid rgba(248,113,113,.4)}
+  .verdict.ok{display:block;background:rgba(52,211,153,.12);color:var(--ok);border:1px solid rgba(52,211,153,.4)}
+  .foot{color:var(--muted);font-size:.85rem;margin-top:22px;border-top:1px solid var(--line);padding-top:14px}
+  code{background:#0b1220;padding:1px 6px;border-radius:5px;font-size:.85em}
+</style>
+</head>
+<body>
+  <h1>Race condition — two people, one seat</h1>
+  <p class="sub">LLD · 04 — both threads run "check then book." Watch what happens with and without an atomic guard.</p>
+
+  <div class="toggle" id="toggle">
+    <button id="tNo" class="active">No guard (check-then-act)</button>
+    <button id="tCas">Atomic compareAndSet</button>
+  </div>
+
+  <div class="panel">
+    <div class="seat" id="seat"><div>Seat 12A</div><div class="who" id="seatWho">free</div></div>
+    <div class="threads">
+      <div class="thread t1"><h3>Thread A (Alice)</h3><div id="opsA"></div></div>
+      <div class="thread t2"><h3>Thread B (Bob)</h3><div id="opsB"></div></div>
+    </div>
+    <div class="controls"><button class="act" id="run">▶ run both threads (interleaved)</button></div>
+    <div class="verdict" id="verdict"></div>
+  </div>
+
+  <div class="foot">
+    <strong>Takeaway:</strong> <code>if (seat.isFree()) seat.book(me)</code> is two steps. Without a guard, both threads pass the
+    <code>isFree()</code> check before either books — and the seat is sold twice. <code>compareAndSet(FREE, me)</code> makes
+    check-and-book a <b>single atomic step</b>: exactly one thread wins. Shared mutable state needs a guard.
+  </div>
+
+<script>
+(function(){
+  let cas=false;
+  const seat=document.getElementById('seat'), seatWho=document.getElementById('seatWho'),
+        opsA=document.getElementById('opsA'), opsB=document.getElementById('opsB'),
+        verdict=document.getElementById('verdict'), runBtn=document.getElementById('run'),
+        tNo=document.getElementById('tNo'), tCas=document.getElementById('tCas');
+
+  function steps(){ return cas
+    ? ['compareAndSet(FREE, me)','(atomic: check+book together)','observe result']
+    : ['read seat == FREE ?','...(pause: other thread runs)','book(me)']; }
+
+  function reset(){
+    seat.className='seat'; seatWho.textContent='free';
+    const s=steps();
+    opsA.innerHTML=s.map(x=>'<div class="op">A: '+x+'</div>').join('');
+    opsB.innerHTML=s.map(x=>'<div class="op">B: '+x+'</div>').join('');
+    verdict.className='verdict'; runBtn.disabled=false;
+  }
+  function setMode(c){ cas=c; tNo.classList.toggle('active',!c); tCas.classList.toggle('active',c); tCas.classList.toggle('safe',c); reset(); }
+
+  async function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+  function light(col,i,cls){ const el=(col==='A'?opsA:opsB).children[i]; el.className='op active'+(cls?' '+cls:''); }
+
+  async function run(){
+    runBtn.disabled=true; reset(); runBtn.disabled=true;
+    let owner=null; // shared seat state
+    if(!cas){
+      // interleave to expose the race: A checks, B checks, A books, B books
+      light('A',0); await sleep(550);                  // A: free?
+      light('B',0); await sleep(550);                  // B: free?  (both saw FREE)
+      light('A',1); light('B',1); await sleep(550);
+      light('A',2,'win'); owner='Alice'; await sleep(550);  // A books
+      light('B',2,'win'); owner='Bob';  await sleep(400);   // B books too -> overwrite
+      seat.className='seat double'; seatWho.textContent='Alice AND Bob 😱';
+      verdict.className='verdict bad';
+      verdict.innerHTML='❌ <b>Double-booked.</b> Both passed <code>isFree()</code> before either booked. Two payments, one seat.';
+    }else{
+      light('A',0); light('B',0); await sleep(650);    // both attempt CAS
+      // exactly one wins atomically
+      light('A',1); light('B',1); await sleep(550);
+      owner='Alice';
+      light('A',2,'win'); light('B',2,'lose'); await sleep(400);
+      seat.className='seat booked'; seatWho.textContent='Alice ✓';
+      verdict.className='verdict ok';
+      verdict.innerHTML='✅ <b>Exactly one winner.</b> CAS made check+book atomic — Bob\'s compareAndSet failed and he\'s told to pick another seat.';
+    }
+    runBtn.disabled=false;
+  }
+  tNo.onclick=()=>setMode(false); tCas.onclick=()=>setMode(true); runBtn.onclick=run;
+  setMode(false);
+})();
+</script>
+</body>
+</html>

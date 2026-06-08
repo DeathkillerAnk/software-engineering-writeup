@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Retry Storms: Backoff + Jitter</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --border:#30363d;
+    --text:#e6edf3; --muted:#8b949e;
+    --accent:#58a6ff; --success:#3fb950; --warning:#d29922;
+    --danger:#f85149; --purple:#bc8cff;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    line-height:1.5; padding:24px 16px 60px;
+  }
+  .wrap{max-width:960px; margin:0 auto;}
+  header h1{font-size:1.6rem; margin:0 0 8px;}
+  header p{color:var(--muted); margin:0 0 20px; max-width:760px;}
+  .stage{
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:8px; padding:16px; margin-bottom:16px;
+  }
+  svg{display:block; width:100%; height:auto;}
+  .controls{
+    display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center;
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:8px; padding:14px 16px; margin-bottom:16px;
+  }
+  button{
+    font:inherit; color:var(--text); background:#1c2530;
+    border:1px solid var(--border); border-radius:999px;
+    padding:8px 16px; cursor:pointer; transition:background .15s,border-color .15s;
+  }
+  button:hover{background:#26313d; border-color:var(--accent);}
+  button:active{background:#30363d;}
+  button:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+  .ctl-group{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .ctl-group label{font-size:.85rem; color:var(--muted);}
+  .mode-toggle{display:inline-flex; border:1px solid var(--border); border-radius:999px; overflow:hidden;}
+  .mode-toggle button{border:none; border-radius:0; padding:8px 14px;}
+  .mode-toggle button.on{background:var(--accent); color:#0d1117; font-weight:600;}
+  input[type=range]{accent-color:var(--accent); width:130px;}
+  .val{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--text); font-size:.85rem; min-width:34px; display:inline-block;}
+  #narration{
+    background:#0b1f33; border:1px solid #1f4d7a; border-left:4px solid var(--accent);
+    border-radius:8px; padding:12px 16px; margin-bottom:16px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.92rem;
+    min-height:46px;
+  }
+  .legend{
+    display:flex; flex-wrap:wrap; gap:14px 22px;
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:8px; padding:14px 16px; margin-bottom:16px; font-size:.85rem;
+  }
+  .legend .item{display:flex; align-items:center; gap:8px;}
+  .swatch{width:14px; height:14px; border-radius:3px; flex:0 0 auto;}
+  .dot{width:12px; height:12px; border-radius:50%; flex:0 0 auto;}
+  .try{
+    background:#1b1430; border:1px solid #3b2a63; border-left:4px solid var(--purple);
+    border-radius:8px; padding:12px 16px; margin-bottom:16px; font-size:.92rem;
+  }
+  .try b{color:var(--purple);}
+  footer{color:var(--muted); font-size:.9rem; border-top:1px solid var(--border); padding-top:16px;}
+  footer a{color:var(--accent); text-decoration:none;}
+  footer a:hover{text-decoration:underline;}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Retry Storms: Backoff + Jitter</h1>
+  <p>An outage makes every client's request fail at the same instant. Watch how they retry: <b>fixed-interval</b> retries arrive in synchronized waves that keep crushing the recovering service, while <b>exponential backoff + full jitter</b> smears those retries across time so the service can breathe and recover.</p>
+</header>
+
+<div class="stage">
+  <svg id="svg" viewBox="0 0 920 520" role="img" aria-label="Retry storm simulation">
+    <!-- Clients column -->
+    <text x="20" y="26" fill="#8b949e" font-size="13" font-family="ui-monospace,monospace">CLIENTS</text>
+    <g id="clients"></g>
+
+    <!-- Service node -->
+    <text x="360" y="26" fill="#8b949e" font-size="13" font-family="ui-monospace,monospace">SERVICE</text>
+    <g id="serviceG">
+      <rect id="svcBox" x="360" y="40" width="170" height="120" rx="10" fill="#161b22" stroke="#30363d" stroke-width="2"/>
+      <text x="445" y="86" id="svcLabel" text-anchor="middle" fill="#e6edf3" font-size="15" font-weight="600">Service</text>
+      <text x="445" y="110" id="svcState" text-anchor="middle" fill="#3fb950" font-size="13" font-family="ui-monospace,monospace">UP</text>
+      <!-- capacity bar -->
+      <rect x="378" y="128" width="134" height="14" rx="7" fill="#0d1117" stroke="#30363d"/>
+      <rect id="loadBar" x="380" y="130" width="0" height="10" rx="5" fill="#3fb950"/>
+      <text x="445" y="178" id="capLabel" text-anchor="middle" fill="#8b949e" font-size="11" font-family="ui-monospace,monospace">load 0 / cap 6</text>
+    </g>
+
+    <!-- moving request packets layer -->
+    <g id="packets"></g>
+
+    <!-- Graph -->
+    <text x="600" y="26" fill="#8b949e" font-size="13" font-family="ui-monospace,monospace">LOAD OVER TIME (arrivals per tick)</text>
+    <g id="graphG">
+      <rect x="600" y="40" width="300" height="160" rx="8" fill="#0d1117" stroke="#30363d"/>
+      <!-- capacity line -->
+      <line id="capLine" x1="600" y1="120" x2="900" y2="120" stroke="#d29922" stroke-width="1.5" stroke-dasharray="5 4"/>
+      <text id="capText" x="896" y="115" text-anchor="end" fill="#d29922" font-size="10" font-family="ui-monospace,monospace">capacity</text>
+      <polyline id="loadCurve" fill="none" stroke="#58a6ff" stroke-width="2" points=""/>
+      <text x="606" y="196" fill="#8b949e" font-size="10" font-family="ui-monospace,monospace">time &#8594;</text>
+    </g>
+
+    <!-- timeline of retry scheduling per client -->
+    <text x="20" y="245" fill="#8b949e" font-size="13" font-family="ui-monospace,monospace">RETRY SCHEDULE (when each client fires)</text>
+    <g id="timelineG">
+      <rect x="20" y="258" width="880" height="234" rx="8" fill="#0d1117" stroke="#30363d"/>
+      <g id="timelineLanes"></g>
+      <line id="nowLine" x1="20" y1="258" x2="20" y2="492" stroke="#f85149" stroke-width="2"/>
+    </g>
+  </svg>
+</div>
+
+<div class="controls">
+  <button id="playBtn">Play</button>
+  <button id="stepBtn">Step</button>
+  <button id="resetBtn">Reset</button>
+  <div class="ctl-group" role="group" aria-label="Retry mode">
+    <label>Mode:</label>
+    <div class="mode-toggle">
+      <button id="modeFixed" class="on">Fixed interval</button>
+      <button id="modeJitter">Backoff + jitter</button>
+    </div>
+  </div>
+  <div class="ctl-group">
+    <label for="clientsR">Clients</label>
+    <input id="clientsR" type="range" min="6" max="24" step="1" value="14">
+    <span class="val" id="clientsV">14</span>
+  </div>
+  <div class="ctl-group">
+    <label for="capR">Capacity</label>
+    <input id="capR" type="range" min="2" max="12" step="1" value="6">
+    <span class="val" id="capV">6</span>
+  </div>
+  <div class="ctl-group">
+    <label for="speedR">Speed</label>
+    <input id="speedR" type="range" min="0.5" max="3" step="0.5" value="1">
+    <span class="val" id="speedV">1x</span>
+  </div>
+</div>
+
+<div id="narration">Press Play. An outage just failed every client's request at once&#8230;</div>
+
+<div class="legend">
+  <div class="item"><span class="dot" style="background:#8b949e"></span>Client idle / waiting to retry</div>
+  <div class="item"><span class="dot" style="background:#d29922"></span>Client retrying now (in flight)</div>
+  <div class="item"><span class="dot" style="background:#3fb950"></span>Request succeeded</div>
+  <div class="item"><span class="dot" style="background:#f85149"></span>Request rejected (service overloaded)</div>
+  <div class="item"><span class="swatch" style="background:#58a6ff"></span>Load curve (arrivals/tick)</div>
+  <div class="item"><span class="swatch" style="background:#d29922"></span>Service capacity threshold</div>
+</div>
+
+<div class="try">
+  <b>Try this:</b> Run <span class="mono">Fixed interval</span> first &#8212; watch the load curve spike <em>above</em> the amber capacity line in regular waves, knocking the service back DOWN each time. Then switch to <span class="mono">Backoff + jitter</span> and Reset: the retry-schedule lanes scatter, the spikes flatten below capacity, and the service stays UP and drains the queue.
+</div>
+
+<footer>
+  <a href="./index.html">&#8592; Back to gallery</a>
+  &nbsp;&middot;&nbsp;
+  <a href="../02-distributed-systems/16-reliability-and-failure.md">Related writeup: Reliability &amp; Failure &#8594;</a>
+</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var SVGNS = "http://www.w3.org/2000/svg";
+
+  // ----- DOM refs -----
+  var clientsG = document.getElementById("clients");
+  var packetsG = document.getElementById("packets");
+  var lanesG = document.getElementById("timelineLanes");
+  var nowLine = document.getElementById("nowLine");
+  var loadCurve = document.getElementById("loadCurve");
+  var capLine = document.getElementById("capLine");
+  var loadBar = document.getElementById("loadBar");
+  var capLabel = document.getElementById("capLabel");
+  var svcState = document.getElementById("svcState");
+  var svcBox = document.getElementById("svcBox");
+  var narration = document.getElementById("narration");
+
+  var playBtn = document.getElementById("playBtn");
+  var stepBtn = document.getElementById("stepBtn");
+  var resetBtn = document.getElementById("resetBtn");
+  var modeFixed = document.getElementById("modeFixed");
+  var modeJitter = document.getElementById("modeJitter");
+  var clientsR = document.getElementById("clientsR");
+  var capR = document.getElementById("capR");
+  var speedR = document.getElementById("speedR");
+  var clientsV = document.getElementById("clientsV");
+  var capV = document.getElementById("capV");
+  var speedV = document.getElementById("speedV");
+
+  // ----- geometry constants -----
+  var CLI_X = 70, CLI_Y0 = 50, CLI_DY = 0; // dy computed dynamically
+  var SVC_CX = 445, SVC_CY = 100;
+  var GX = 600, GY = 40, GW = 300, GH = 160; // graph box
+  var TL_X = 20, TL_Y = 258, TL_W = 880, TL_H = 234;
+  var TL_PAD = 10;
+  var TICKS_VISIBLE = 30;          // ticks shown across timeline / graph window
+  var TICK_DURATION_BASE = 600;    // ms per simulated tick at 1x
+
+  // ----- simulation state -----
+  var state;
+
+  function freshState(){
+    var n = parseInt(clientsR.value, 10);
+    var cap = parseInt(capR.value, 10);
+    return {
+      mode: modeFixed.classList.contains("on") ? "fixed" : "jitter",
+      nClients: n,
+      capacity: cap,
+      tick: 0,
+      running: false,
+      clients: makeClients(n),
+      loadHistory: [],     // arrivals per tick
+      successHistory: [],  // succeeded per tick
+      serviceUp: false,    // service starts DOWN (outage just happened)
+      recoverAtTick: 3,    // service comes back at this tick
+      packets: [],         // animated in-flight requests
+      consecutiveCalmTicks: 0
+    };
+  }
+
+  // fixed retry interval (in ticks)
+  var FIXED_INTERVAL = 4;
+  var BASE = 1;     // base backoff in ticks
+  var CAP_BACKOFF = 16; // max backoff ticks
+
+  function makeClients(n){
+    var arr = [];
+    for(var i=0;i<n;i++){
+      arr.push({
+        id:i,
+        done:false,
+        attempt:0,           // number of retries so far
+        nextRetryTick:0,     // all fail at tick 0 -> all want to retry around same time
+        status:"waiting"     // waiting | inflight | done | rejected
+      });
+    }
+    return arr;
+  }
+
+  // schedule the next retry for a client given mode
+  function scheduleRetry(c, mode){
+    c.attempt++;
+    if(mode === "fixed"){
+      // every client uses the same fixed interval -> synchronized waves
+      c.nextRetryTick = state.tick + FIXED_INTERVAL;
+    } else {
+      // exponential backoff with FULL JITTER:
+      // sleep = random_between(0, min(cap, base * 2^attempt))
+      var ceil = Math.min(CAP_BACKOFF, BASE * Math.pow(2, c.attempt));
+      var sleep = Math.random() * ceil; // full jitter -> desynchronizes
+      // ensure at least ~1 tick so things progress
+      sleep = Math.max(0.6, sleep);
+      c.nextRetryTick = state.tick + sleep;
+    }
+  }
+
+  // ----- rendering: clients column -----
+  function layoutClients(){
+    clientsG.innerHTML = "";
+    var n = state.nClients;
+    var top = 42, bottom = 470;
+    var dy = (bottom - top) / Math.max(1, n);
+    state._cliPos = [];
+    for(var i=0;i<n;i++){
+      var y = top + dy*i + dy*0.5;
+      state._cliPos.push({x:CLI_X, y:y});
+      var c = document.createElementNS(SVGNS,"circle");
+      c.setAttribute("cx", CLI_X);
+      c.setAttribute("cy", y);
+      c.setAttribute("r", Math.max(5, Math.min(10, dy*0.32)));
+      c.setAttribute("fill", "#8b949e");
+      c.setAttribute("stroke", "#0d1117");
+      c.setAttribute("stroke-width","1");
+      c.setAttribute("id","cli"+i);
+      clientsG.appendChild(c);
+    }
+  }
+
+  function clientColor(c){
+    if(c.status==="done") return "#3fb950";
+    if(c.status==="inflight") return "#d29922";
+    if(c.status==="rejected") return "#f85149";
+    return "#8b949e";
+  }
+
+  function paintClients(){
+    for(var i=0;i<state.nClients;i++){
+      var el = document.getElementById("cli"+i);
+      if(el) el.setAttribute("fill", clientColor(state.clients[i]));
+    }
+  }
+
+  // ----- timeline lanes (scheduled retry firing times) -----
+  function renderTimeline(){
+    lanesG.innerHTML = "";
+    var n = state.nClients;
+    var top = TL_Y + 6, bottom = TL_Y + TL_H - 6;
+    var dy = (bottom - top)/Math.max(1,n);
+    // map a tick value to x within timeline window [tick, tick+TICKS_VISIBLE]
+    var winStart = state.tick;
+    var winEnd = state.tick + TICKS_VISIBLE;
+    function tx(t){
+      var frac = (t - winStart)/(winEnd - winStart);
+      return TL_X + TL_PAD + frac*(TL_W - 2*TL_PAD);
+    }
+    for(var i=0;i<n;i++){
+      var ly = top + dy*i + dy*0.5;
+      var c = state.clients[i];
+      // lane baseline
+      var ln = document.createElementNS(SVGNS,"line");
+      ln.setAttribute("x1", TL_X+TL_PAD); ln.setAttribute("x2", TL_X+TL_W-TL_PAD);
+      ln.setAttribute("y1", ly); ln.setAttribute("y2", ly);
+      ln.setAttribute("stroke","#1c2733"); ln.setAttribute("stroke-width","1");
+      lanesG.appendChild(ln);
+
+      if(c.done){
+        var ok = document.createElementNS(SVGNS,"circle");
+        ok.setAttribute("cx", TL_X+TL_PAD); ok.setAttribute("cy", ly);
+        ok.setAttribute("r","3.5"); ok.setAttribute("fill","#3fb950");
+        lanesG.appendChild(ok);
+        continue;
+      }
+      // marker at scheduled retry tick
+      var t = c.nextRetryTick;
+      if(t >= winStart && t <= winEnd){
+        var x = tx(t);
+        var m = document.createElementNS(SVGNS,"rect");
+        var w = 6;
+        m.setAttribute("x", x - w/2); m.setAttribute("y", ly-7);
+        m.setAttribute("width", w); m.setAttribute("height", 14);
+        m.setAttribute("rx","2");
+        m.setAttribute("fill", state.mode==="fixed" ? "#58a6ff" : "#bc8cff");
+        m.setAttribute("opacity","0.9");
+        lanesG.appendChild(m);
+      }
+    }
+    nowLine.setAttribute("x1", TL_X+TL_PAD);
+    nowLine.setAttribute("x2", TL_X+TL_PAD);
+    nowLine.setAttribute("y1", TL_Y);
+    nowLine.setAttribute("y2", TL_Y+TL_H);
+  }
+
+  // ----- load graph -----
+  function renderGraph(){
+    var cap = state.capacity;
+    // y for a load value: 0 at bottom (GY+GH), scaled so capacity sits mid-ish
+    var maxLoad = Math.max(cap*2, state.nClients, 8);
+    function gy(v){ return GY + GH - 6 - (v/maxLoad)*(GH-12); }
+    function gx(idx, total){
+      var frac = total<=1 ? 0 : idx/(total-1);
+      return GX + 6 + frac*(GW-12);
+    }
+    // capacity threshold line
+    var capY = gy(cap);
+    capLine.setAttribute("y1", capY); capLine.setAttribute("y2", capY);
+    document.getElementById("capText").setAttribute("y", capY-4);
+
+    var hist = state.loadHistory;
+    var show = hist.slice(Math.max(0, hist.length - TICKS_VISIBLE));
+    if(show.length === 0){ loadCurve.setAttribute("points",""); return; }
+    var pts = [];
+    for(var i=0;i<show.length;i++){
+      pts.push(gx(i, Math.max(show.length, TICKS_VISIBLE)).toFixed(1) + "," + gy(show[i]).toFixed(1));
+    }
+    loadCurve.setAttribute("points", pts.join(" "));
+  }
+
+  // ----- service box -----
+  function paintService(load){
+    var cap = state.capacity;
+    capLabel.textContent = "load " + load + " / cap " + cap;
+    var frac = Math.min(1, load/cap);
+    loadBar.setAttribute("width", (132*Math.min(1, load/(cap)) ).toFixed(0));
+    var col = load > cap ? "#f85149" : (load > cap*0.7 ? "#d29922" : "#3fb950");
+    loadBar.setAttribute("fill", col);
+
+    if(!state.serviceUp){
+      svcState.textContent = "DOWN (outage)";
+      svcState.setAttribute("fill","#f85149");
+      svcBox.setAttribute("stroke","#f85149");
+    } else if(load > cap){
+      svcState.textContent = "OVERLOADED";
+      svcState.setAttribute("fill","#f85149");
+      svcBox.setAttribute("stroke","#f85149");
+    } else {
+      svcState.textContent = "UP";
+      svcState.setAttribute("fill","#3fb950");
+      svcBox.setAttribute("stroke","#30363d");
+    }
+  }
+
+  // ----- packet animation -----
+  function spawnPacket(cliIdx, accepted){
+    var p = state._cliPos[cliIdx];
+    if(!p) return;
+    var pk = document.createElementNS(SVGNS,"circle");
+    pk.setAttribute("r","4.5");
+    pk.setAttribute("cx", p.x); pk.setAttribute("cy", p.y);
+    pk.setAttribute("fill", "#d29922");
+    packetsG.appendChild(pk);
+    state.packets.push({
+      el:pk, fromX:p.x, fromY:p.y, toX:SVC_CX-95, toY:SVC_CY,
+      t:0, accepted:accepted, cliIdx:cliIdx, returned:false
+    });
+  }
+
+  function updatePackets(dt){
+    var speed = 2.2 * dt; // progress per second-ish
+    for(var i=state.packets.length-1;i>=0;i--){
+      var pk = state.packets[i];
+      pk.t += speed;
+      if(pk.t < 1){
+        var x = pk.fromX + (pk.toX-pk.fromX)*pk.t;
+        var y = pk.fromY + (pk.toY-pk.fromY)*pk.t;
+        pk.el.setAttribute("cx", x); pk.el.setAttribute("cy", y);
+      } else if(!pk.returned){
+        // arrived at service -> color outcome, send back
+        pk.returned = true;
+        pk.t = 0;
+        pk.el.setAttribute("fill", pk.accepted ? "#3fb950" : "#f85149");
+        var fx=pk.fromX, fy=pk.fromY;
+        pk.fromX = pk.toX; pk.fromY = pk.toY;
+        pk.toX = fx; pk.toY = fy;
+      } else {
+        if(pk.t < 1){
+          var x2 = pk.fromX + (pk.toX-pk.fromX)*pk.t;
+          var y2 = pk.fromY + (pk.toY-pk.fromY)*pk.t;
+          pk.el.setAttribute("cx", x2); pk.el.setAttribute("cy", y2);
+        } else {
+          if(pk.el.parentNode) pk.el.parentNode.removeChild(pk.el);
+          state.packets.splice(i,1);
+        }
+      }
+    }
+  }
+
+  // ----- one simulation tick -----
+  function doTick(){
+    state.tick++;
+
+    // service recovery
+    if(!state.serviceUp && state.tick >= state.recoverAtTick){
+      state.serviceUp = true;
+    }
+
+    // gather clients firing this tick (nextRetryTick has passed)
+    var firing = [];
+    for(var i=0;i<state.clients.length;i++){
+      var c = state.clients[i];
+      if(c.done) continue;
+      c.status = "waiting";
+      if(c.nextRetryTick <= state.tick){
+        firing.push(c);
+      }
+    }
+
+    var arrivals = firing.length;
+    state.loadHistory.push(arrivals);
+
+    // service processes up to capacity if up
+    var accepted = 0, rejected = 0;
+    if(state.serviceUp){
+      // overload behaviour: if arrivals exceed capacity, the EXCESS is rejected.
+      // also a heavy overload can knock the service back down.
+      var room = state.capacity;
+      for(var k=0;k<firing.length;k++){
+        var c2 = firing[k];
+        if(accepted < room){
+          c2.done = true;
+          c2.status = "done";
+          accepted++;
+          spawnPacket(c2.id, true);
+        } else {
+          c2.status = "rejected";
+          rejected++;
+          spawnPacket(c2.id, false);
+          scheduleRetry(c2, state.mode);
+        }
+      }
+      // big spike beyond ~2x capacity overwhelms it -> goes DOWN again
+      if(arrivals > state.capacity * 2){
+        state.serviceUp = false;
+        state.recoverAtTick = state.tick + 2; // takes time to come back
+      }
+    } else {
+      // service down: everyone who fired fails
+      for(var m=0;m<firing.length;m++){
+        firing[m].status = "rejected";
+        rejected++;
+        spawnPacket(firing[m].id, false);
+        scheduleRetry(firing[m], state.mode);
+      }
+    }
+    state.successHistory.push(accepted);
+
+    paintService(arrivals);
+    paintClients();
+    renderGraph();
+    renderTimeline();
+    narrate(arrivals, accepted, rejected);
+  }
+
+  // ----- narration -----
+  function narrate(arrivals, accepted, rejected){
+    var remaining = state.clients.filter(function(c){return !c.done;}).length;
+    var msg;
+    if(remaining === 0){
+      msg = "All clients succeeded. Service stayed healthy and the queue is fully drained. Total time: " + state.tick + " ticks (" +
+            (state.mode==="fixed"?"fixed interval":"backoff + jitter") + ").";
+      stop();
+    } else if(!state.serviceUp){
+      if(arrivals > state.capacity*2){
+        msg = "SPIKE: " + arrivals + " synchronized retries (cap " + state.capacity + ") overwhelmed the service → knocked it DOWN again. " +
+              rejected + " rejected, all reschedule together.";
+      } else {
+        msg = "Service is DOWN (recovering). " + arrivals + " retries fired this tick — all " + rejected + " failed and backed off. " + remaining + " clients left.";
+      }
+    } else {
+      if(arrivals > state.capacity){
+        msg = "Tick " + state.tick + ": " + arrivals + " retries arrived > capacity " + state.capacity + ". Accepted " + accepted + ", REJECTED " + rejected + " (overload spike). " + remaining + " left.";
+      } else {
+        msg = "Tick " + state.tick + ": " + arrivals + " retries arrived ≤ capacity " + state.capacity + ". All " + accepted + " accepted ✅. Service healthy. " + remaining + " clients remaining.";
+      }
+    }
+    narration.textContent = msg;
+  }
+
+  // ----- animation loop -----
+  var lastTs = 0, tickAccum = 0, rafId = null;
+  function loop(ts){
+    if(!lastTs) lastTs = ts;
+    var dt = (ts - lastTs)/1000;
+    lastTs = ts;
+    if(dt > 0.1) dt = 0.1; // clamp
+
+    updatePackets(dt);
+
+    if(state.running){
+      var speed = parseFloat(speedR.value);
+      var tickMs = TICK_DURATION_BASE / speed;
+      tickAccum += dt*1000;
+      if(tickAccum >= tickMs){
+        tickAccum = 0;
+        doTick();
+      }
+    }
+    rafId = requestAnimationFrame(loop);
+  }
+
+  // ----- controls -----
+  function play(){
+    if(allDone()) reset();
+    state.running = true;
+    playBtn.textContent = "Pause";
+  }
+  function stop(){
+    state.running = false;
+    playBtn.textContent = "Play";
+  }
+  function allDone(){
+    return state.clients.every(function(c){return c.done;});
+  }
+  function reset(){
+    stop();
+    state = freshState();
+    tickAccum = 0;
+    // clear packets layer
+    packetsG.innerHTML = "";
+    layoutClients();
+    paintClients();
+    paintService(0);
+    state.loadHistory = [];
+    renderGraph();
+    renderTimeline();
+    narration.textContent = state.mode === "fixed"
+      ? "Mode: FIXED INTERVAL. The outage just failed every client at once — they'll all retry every " + FIXED_INTERVAL + " ticks, in lockstep. Press Play."
+      : "Mode: BACKOFF + FULL JITTER. The outage failed every client at once — each picks a random wait, so retries scatter. Press Play.";
+  }
+
+  playBtn.addEventListener("click", function(){
+    if(state.running) stop(); else play();
+  });
+  stepBtn.addEventListener("click", function(){
+    stop();
+    if(!allDone()) doTick();
+  });
+  resetBtn.addEventListener("click", reset);
+
+  function setMode(m){
+    if(m==="fixed"){ modeFixed.classList.add("on"); modeJitter.classList.remove("on"); }
+    else { modeJitter.classList.add("on"); modeFixed.classList.remove("on"); }
+    reset();
+  }
+  modeFixed.addEventListener("click", function(){ setMode("fixed"); });
+  modeJitter.addEventListener("click", function(){ setMode("jitter"); });
+
+  clientsR.addEventListener("input", function(){ clientsV.textContent = clientsR.value; reset(); });
+  capR.addEventListener("input", function(){ capV.textContent = capR.value; reset(); });
+  speedR.addEventListener("input", function(){ speedV.textContent = speedR.value + "x"; });
+
+  // ----- init -----
+  state = freshState();
+  reset();
+  rafId = requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

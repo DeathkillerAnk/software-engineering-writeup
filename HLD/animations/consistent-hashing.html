@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Consistent Hashing</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --border:#30363d;
+    --text:#e6edf3; --muted:#8b949e;
+    --accent:#58a6ff; --success:#3fb950; --warning:#d29922;
+    --danger:#f85149; --purple:#bc8cff;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
+  .wrap{max-width:960px;margin:0 auto;padding:24px 18px 60px;}
+  header h1{font-size:1.7rem;margin:0 0 8px;}
+  header p{color:var(--muted);margin:0 0 18px;line-height:1.5;max-width:760px;}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:8px;}
+  .stage{padding:14px;display:flex;justify-content:center;align-items:center;}
+  svg{width:100%;height:auto;max-width:560px;display:block;touch-action:none;}
+  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+    padding:14px;margin-top:14px;}
+  button{background:#21262d;color:var(--text);border:1px solid var(--border);
+    border-radius:20px;padding:8px 14px;font-size:.86rem;cursor:pointer;
+    font-family:inherit;transition:background .15s,border-color .15s;}
+  button:hover{background:#30363d;border-color:#8b949e;}
+  button:active{transform:translateY(1px);}
+  button.warn{border-color:var(--warning);color:var(--warning);}
+  button.warn:hover{background:rgba(210,153,34,.15);}
+  button.danger{border-color:var(--danger);color:var(--danger);}
+  button.danger:hover{background:rgba(248,81,73,.15);}
+  .ctl-group{display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--muted);}
+  .ctl-group label{font-size:.82rem;color:var(--muted);}
+  input[type=range]{accent-color:var(--accent);cursor:pointer;width:120px;}
+  .toggle{display:flex;align-items:center;gap:6px;}
+  .narration{margin-top:14px;padding:14px 16px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:.9rem;line-height:1.5;border-left:3px solid var(--accent);min-height:1.5em;}
+  .stats{display:flex;gap:18px;flex-wrap:wrap;padding:14px;margin-top:14px;}
+  .stat{flex:1 1 160px;}
+  .stat .big{font-size:1.5rem;font-weight:700;font-family:ui-monospace,monospace;}
+  .stat .lbl{font-size:.74rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+  .remapped .big{color:var(--warning);}
+  .legend{display:flex;flex-wrap:wrap;gap:14px 22px;padding:14px;margin-top:14px;font-size:.82rem;}
+  .legend .item{display:flex;align-items:center;gap:8px;color:var(--muted);}
+  .sw{width:14px;height:14px;border-radius:50%;flex:none;}
+  .sw.sq{border-radius:3px;}
+  .tip{margin-top:14px;padding:12px 16px;font-size:.86rem;color:var(--muted);
+    background:rgba(88,166,255,.07);border:1px solid rgba(88,166,255,.25);border-radius:8px;}
+  .tip b{color:var(--accent);}
+  footer{margin-top:28px;display:flex;gap:18px;flex-wrap:wrap;font-size:.86rem;}
+  footer a{color:var(--accent);text-decoration:none;}
+  footer a:hover{text-decoration:underline;}
+  h2.section{font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;
+    margin:0 0 0;padding:14px 14px 0;}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Consistent Hashing</h1>
+    <p>Keys and servers both live on a circular hash ring. Each key is owned by the
+    next server clockwise. When you add or remove a server, only the keys in one slice
+    of the ring move &mdash; roughly 1/N of them &mdash; instead of nearly all keys, as
+    plain <span class="mono">hash(key) % N</span> would force.</p>
+  </header>
+
+  <div class="card stage">
+    <svg id="ring" viewBox="0 0 560 560" role="img" aria-label="Hash ring with server nodes and keys">
+      <circle cx="280" cy="280" r="200" fill="none" stroke="#30363d" stroke-width="2"/>
+      <g id="layer-arcs"></g>
+      <g id="layer-vnodes"></g>
+      <g id="layer-keys"></g>
+      <g id="layer-nodes"></g>
+      <g id="layer-labels"></g>
+    </svg>
+  </div>
+
+  <div class="card controls">
+    <button id="play">&#9654; Play</button>
+    <button id="step">Step</button>
+    <button id="reset">Reset</button>
+    <button id="add" class="warn">+ Add node</button>
+    <button id="remove" class="danger">&minus; Remove node</button>
+    <div class="ctl-group toggle">
+      <input type="checkbox" id="vtoggle" checked>
+      <label for="vtoggle">Virtual nodes</label>
+    </div>
+    <div class="ctl-group">
+      <label for="vcount">Vnodes/server: <span id="vcountval" class="mono">8</span></label>
+      <input type="range" id="vcount" min="1" max="24" value="8">
+    </div>
+    <button id="modn" class="warn">Show naive mod-N</button>
+  </div>
+
+  <div class="card narration" id="narration">Ready. Press Play to watch a server join, or use Add / Remove node.</div>
+
+  <div class="card stats">
+    <div class="stat"><div class="big mono" id="s-nodes">4</div><div class="lbl">Servers</div></div>
+    <div class="stat"><div class="big mono" id="s-keys">40</div><div class="lbl">Keys</div></div>
+    <div class="stat remapped"><div class="big mono" id="s-remap">0%</div><div class="lbl">Keys remapped (last change)</div></div>
+    <div class="stat"><div class="big mono" id="s-moved">0 / 40</div><div class="lbl">Keys that moved</div></div>
+  </div>
+
+  <div class="card">
+    <h2 class="section">Legend</h2>
+    <div class="legend">
+      <div class="item"><span class="sw sq" style="background:var(--accent)"></span>Server node (primary position)</div>
+      <div class="item"><span class="sw" style="background:var(--purple);width:10px;height:10px"></span>Virtual node (extra ring position for a server)</div>
+      <div class="item"><span class="sw" style="background:var(--muted)"></span>Key, colored by its owning server</div>
+      <div class="item"><span class="sw" style="background:var(--warning)"></span>Key that just moved (remapped)</div>
+      <div class="item"><span class="sw sq" style="background:#21262d;border:1px solid var(--border)"></span>Colored arc = the ring slice each server owns</div>
+    </div>
+  </div>
+
+  <div class="tip">
+    <b>Try this:</b> Set vnodes to 1 and watch how lopsided the colored arcs become &mdash;
+    one server can own a huge slice. Now bump vnodes up to 24: the arcs even out. Then hit
+    <b>Add node</b> and watch the &ldquo;keys remapped&rdquo; number stay near 1/N, then click
+    <b>Show naive mod-N</b> to see almost every key turn amber.
+  </div>
+
+  <footer>
+    <a href="./index.html">&larr; Back to gallery</a>
+    <a href="../01-building-blocks/05-load-balancing.md">Related writeup: Load Balancing &rarr;</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var SVGNS="http://www.w3.org/2000/svg";
+  var CX=280, CY=280, R=200, RING_MAX=360; // positions in degrees [0,360)
+  var COLORS=["#58a6ff","#3fb950","#d29922","#bc8cff","#f85149","#39c5cf","#db61a2","#e3b341"];
+
+  var layerArcs=document.getElementById("layer-arcs");
+  var layerVnodes=document.getElementById("layer-vnodes");
+  var layerKeys=document.getElementById("layer-keys");
+  var layerNodes=document.getElementById("layer-nodes");
+  var layerLabels=document.getElementById("layer-labels");
+  var narration=document.getElementById("narration");
+
+  // --- deterministic hash (FNV-1a) -> [0,360) ---
+  function hash(str){
+    var h=0x811c9dc5;
+    for(var i=0;i<str.length;i++){
+      h^=str.charCodeAt(i);
+      h=Math.imul(h,0x01000193);
+    }
+    h=h>>>0;
+    return (h/4294967296)*RING_MAX;
+  }
+
+  function posToXY(deg,radius){
+    // deg measured clockwise from top (12 o'clock)
+    var a=(deg/RING_MAX)*Math.PI*2 - Math.PI/2;
+    return {x:CX+Math.cos(a)*radius, y:CY+Math.sin(a)*radius};
+  }
+
+  // --- state ---
+  var nextNodeId=0;
+  var nodes=[];   // {id,name,color}
+  var keys=[];    // {id,name,deg,owner}
+  var vnodeCount=8;
+  var useVnodes=true;
+  var ringPoints=[]; // {deg,nodeId} sorted
+
+  function makeNode(){
+    var id=nextNodeId++;
+    return {id:id, name:"S"+id, color:COLORS[id%COLORS.length]};
+  }
+
+  function init(){
+    nextNodeId=0; nodes=[]; keys=[];
+    for(var i=0;i<4;i++) nodes.push(makeNode());
+    for(var k=0;k<40;k++){
+      var name="key-"+k;
+      keys.push({id:k,name:name,deg:hash(name),owner:null});
+    }
+    rebuildRing(); assignOwners(true);
+  }
+
+  function rebuildRing(){
+    ringPoints=[];
+    nodes.forEach(function(n){
+      if(useVnodes){
+        for(var v=0;v<vnodeCount;v++){
+          ringPoints.push({deg:hash(n.name+"#vn"+v), nodeId:n.id});
+        }
+      } else {
+        ringPoints.push({deg:hash(n.name+"#p"), nodeId:n.id});
+      }
+    });
+    ringPoints.sort(function(a,b){return a.deg-b.deg;});
+  }
+
+  function ownerFor(deg){
+    if(ringPoints.length===0) return null;
+    // first ring point with deg >= key deg (clockwise), wrap to first
+    for(var i=0;i<ringPoints.length;i++){
+      if(ringPoints[i].deg>=deg) return ringPoints[i].nodeId;
+    }
+    return ringPoints[0].nodeId;
+  }
+
+  // assign owners; returns array of key ids that changed owner
+  function assignOwners(silent){
+    var moved=[];
+    keys.forEach(function(k){
+      var o=ownerFor(k.deg);
+      if(!silent && o!==k.owner) moved.push(k.id);
+      k.owner=o;
+    });
+    return moved;
+  }
+
+  function nodeById(id){
+    for(var i=0;i<nodes.length;i++) if(nodes[i].id===id) return nodes[i];
+    return null;
+  }
+
+  // --- rendering ---
+  function clear(el){while(el.firstChild)el.removeChild(el.firstChild);}
+
+  function render(movedSet){
+    movedSet=movedSet||{};
+    clear(layerArcs);clear(layerVnodes);clear(layerKeys);clear(layerNodes);clear(layerLabels);
+
+    // ownership arcs: between consecutive ring points, the arc belongs to the
+    // ring point at the END of that span (next clockwise owner)
+    if(ringPoints.length>0){
+      for(var i=0;i<ringPoints.length;i++){
+        var start=ringPoints[i].deg;
+        var end=ringPoints[(i+1)%ringPoints.length].deg;
+        if(i===ringPoints.length-1) end+=RING_MAX; // wrap
+        var ownerNode=nodeById(ringPoints[(i+1)%ringPoints.length].nodeId);
+        var col=ownerNode?ownerNode.color:"#8b949e";
+        layerArcs.appendChild(arcPath(start,end,col));
+      }
+    }
+
+    // virtual nodes (small dots) when enabled
+    if(useVnodes){
+      ringPoints.forEach(function(p){
+        var node=nodeById(p.nodeId);
+        var xy=posToXY(p.deg,R);
+        var c=document.createElementNS(SVGNS,"circle");
+        c.setAttribute("cx",xy.x);c.setAttribute("cy",xy.y);
+        c.setAttribute("r",4);
+        c.setAttribute("fill",node?node.color:"#8b949e");
+        c.setAttribute("opacity","0.85");
+        layerVnodes.appendChild(c);
+      });
+    }
+
+    // keys
+    keys.forEach(function(k){
+      var xy=posToXY(k.deg,R);
+      var node=nodeById(k.owner);
+      var c=document.createElementNS(SVGNS,"circle");
+      c.setAttribute("cx",xy.x);c.setAttribute("cy",xy.y);
+      var isMoved=movedSet[k.id];
+      c.setAttribute("r",isMoved?6:4);
+      c.setAttribute("fill",isMoved?"#d29922":(node?node.color:"#8b949e"));
+      c.setAttribute("stroke",isMoved?"#d29922":"#0d1117");
+      c.setAttribute("stroke-width",isMoved?2:1);
+      if(isMoved){c.setAttribute("opacity","1");}
+      layerKeys.appendChild(c);
+    });
+
+    // primary server nodes (squares) + labels
+    nodes.forEach(function(n){
+      var pdeg=useVnodes?hash(n.name+"#vn0"):hash(n.name+"#p");
+      var xy=posToXY(pdeg,R);
+      var sz=11;
+      var rect=document.createElementNS(SVGNS,"rect");
+      rect.setAttribute("x",xy.x-sz/2);rect.setAttribute("y",xy.y-sz/2);
+      rect.setAttribute("width",sz);rect.setAttribute("height",sz);
+      rect.setAttribute("rx",2);
+      rect.setAttribute("fill",n.color);
+      rect.setAttribute("stroke","#0d1117");rect.setAttribute("stroke-width",1.5);
+      layerNodes.appendChild(rect);
+
+      var lxy=posToXY(pdeg,R+26);
+      var t=document.createElementNS(SVGNS,"text");
+      t.setAttribute("x",lxy.x);t.setAttribute("y",lxy.y);
+      t.setAttribute("fill",n.color);
+      t.setAttribute("font-size","13");
+      t.setAttribute("font-family","ui-monospace,monospace");
+      t.setAttribute("font-weight","700");
+      t.setAttribute("text-anchor","middle");
+      t.setAttribute("dominant-baseline","middle");
+      t.textContent=n.name;
+      layerLabels.appendChild(t);
+    });
+  }
+
+  function arcPath(startDeg,endDeg,color){
+    var inner=R-10, outer=R+10;
+    var a0=(startDeg/RING_MAX)*Math.PI*2 - Math.PI/2;
+    var a1=(endDeg/RING_MAX)*Math.PI*2 - Math.PI/2;
+    var large=(endDeg-startDeg)>180?1:0;
+    function pt(rad,ang){return (CX+Math.cos(ang)*rad)+" "+(CY+Math.sin(ang)*rad);}
+    var d="M "+pt(outer,a0)+
+          " A "+outer+" "+outer+" 0 "+large+" 1 "+pt(outer,a1)+
+          " L "+pt(inner,a1)+
+          " A "+inner+" "+inner+" 0 "+large+" 0 "+pt(inner,a0)+
+          " Z";
+    var p=document.createElementNS(SVGNS,"path");
+    p.setAttribute("d",d);
+    p.setAttribute("fill",color);
+    p.setAttribute("opacity","0.16");
+    return p;
+  }
+
+  // --- stats ---
+  function updateStats(movedCount){
+    document.getElementById("s-nodes").textContent=nodes.length;
+    document.getElementById("s-keys").textContent=keys.length;
+    if(movedCount===null){
+      document.getElementById("s-remap").textContent="0%";
+      document.getElementById("s-moved").textContent="0 / "+keys.length;
+    } else {
+      var pct=keys.length?Math.round((movedCount/keys.length)*100):0;
+      document.getElementById("s-remap").textContent=pct+"%";
+      document.getElementById("s-moved").textContent=movedCount+" / "+keys.length;
+    }
+  }
+
+  function setNarration(msg){narration.textContent=msg;}
+
+  // helper: list moved ids -> set
+  function toSet(arr){var s={};arr.forEach(function(id){s[id]=true;});return s;}
+
+  // --- operations ---
+  function doAdd(){
+    var n=makeNode();
+    nodes.push(n);
+    rebuildRing();
+    var moved=assignOwners(false);
+    render(toSet(moved));
+    updateStats(moved.length);
+    var pct=Math.round((moved.length/keys.length)*100);
+    setNarration("Added "+n.name+" ("+(useVnodes?vnodeCount+" vnodes":"1 position")+
+      "). It took ownership of the keys just counter-clockwise of its ring positions: "+
+      moved.length+" of "+keys.length+" keys moved ("+pct+"%). Every other key stayed put.");
+  }
+
+  function doRemove(){
+    if(nodes.length<=1){
+      setNarration("Can't remove the last server — the ring needs at least one node to own keys.");
+      return;
+    }
+    var n=nodes.pop();
+    rebuildRing();
+    var moved=assignOwners(false);
+    render(toSet(moved));
+    updateStats(moved.length);
+    var pct=Math.round((moved.length/keys.length)*100);
+    setNarration("Removed "+n.name+". Only the keys it owned re-home to the next server clockwise: "+
+      moved.length+" of "+keys.length+" keys moved ("+pct+"%). The rest of the ring is untouched.");
+  }
+
+  function doModN(){
+    // Simulate naive hash(key) % N reshuffle: compare N->N (no change in count)
+    // but show how many keys' owner index changes if the node SET shifts.
+    // We demonstrate adding a server under mod-N: bucket = hashInt % N.
+    var N=nodes.length;
+    if(N<1){return;}
+    function intHash(str){
+      var h=0x811c9dc5;
+      for(var i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,0x01000193);}
+      return h>>>0;
+    }
+    var moved=[];
+    keys.forEach(function(k){
+      var before=intHash(k.name)%N;
+      var after=intHash(k.name)%(N+1);
+      if(before!==after) moved.push(k.id);
+    });
+    // recolor keys by mod result to visualize the chaos, mark moved
+    var movedSet=toSet(moved);
+    clear(layerKeys);
+    keys.forEach(function(k){
+      var bucket=intHash(k.name)%(N+1);
+      var xy=posToXY(k.deg,R);
+      var c=document.createElementNS(SVGNS,"circle");
+      c.setAttribute("cx",xy.x);c.setAttribute("cy",xy.y);
+      var mv=movedSet[k.id];
+      c.setAttribute("r",mv?6:4);
+      c.setAttribute("fill",mv?"#d29922":COLORS[bucket%COLORS.length]);
+      c.setAttribute("stroke",mv?"#d29922":"#0d1117");
+      c.setAttribute("stroke-width",mv?2:1);
+      layerKeys.appendChild(c);
+    });
+    updateStats(moved.length);
+    var pct=Math.round((moved.length/keys.length)*100);
+    setNarration("NAIVE mod-N: growing from "+N+" to "+(N+1)+" servers changes hash(key) % N for "+
+      "almost every key — "+moved.length+" of "+keys.length+" remapped ("+pct+"%). "+
+      "That is a near-total reshuffle. This is exactly what consistent hashing avoids.");
+  }
+
+  // --- autoplay sequence ---
+  var playing=false, rafId=null, lastT=0, phase=0, stepQueue=[];
+  function buildSteps(){
+    return [
+      function(){doAdd();},
+      function(){doRemove();},
+      function(){doAdd();},
+      function(){doRemove();}
+    ];
+  }
+  var seqIdx=0, seqTimer=0;
+  function loop(t){
+    if(!playing)return;
+    if(!lastT)lastT=t;
+    var dt=t-lastT;
+    seqTimer+=dt;
+    lastT=t;
+    if(seqTimer>2200){
+      seqTimer=0;
+      var steps=buildSteps();
+      steps[seqIdx%steps.length]();
+      seqIdx++;
+    }
+    rafId=requestAnimationFrame(loop);
+  }
+  function play(){
+    if(playing){pause();return;}
+    playing=true;lastT=0;seqTimer=1600;
+    document.getElementById("play").innerHTML="&#10073;&#10073; Pause";
+    rafId=requestAnimationFrame(loop);
+  }
+  function pause(){
+    playing=false;
+    if(rafId)cancelAnimationFrame(rafId);
+    document.getElementById("play").innerHTML="&#9654; Play";
+  }
+  function step(){
+    pause();
+    var steps=buildSteps();
+    steps[seqIdx%steps.length]();
+    seqIdx++;
+  }
+
+  function reset(){
+    pause();seqIdx=0;
+    init();
+    render({});
+    updateStats(null);
+    setNarration("Reset. 4 servers, 40 keys. Each key belongs to the next server clockwise on the ring.");
+  }
+
+  // --- wire controls ---
+  document.getElementById("play").addEventListener("click",play);
+  document.getElementById("step").addEventListener("click",step);
+  document.getElementById("reset").addEventListener("click",reset);
+  document.getElementById("add").addEventListener("click",function(){pause();doAdd();});
+  document.getElementById("remove").addEventListener("click",function(){pause();doRemove();});
+  document.getElementById("modn").addEventListener("click",function(){pause();doModN();});
+
+  document.getElementById("vtoggle").addEventListener("change",function(e){
+    useVnodes=e.target.checked;
+    document.getElementById("vcount").disabled=!useVnodes;
+    rebuildRing();assignOwners(true);render({});updateStats(null);
+    setNarration(useVnodes
+      ? "Virtual nodes ON. Each server hashes to "+vnodeCount+" ring positions, so its ownership is spread into many small slices — a smoother, more even key distribution."
+      : "Virtual nodes OFF. Each server occupies a single ring position. Notice how uneven the colored arcs can be — some servers own far more keys than others.");
+  });
+
+  document.getElementById("vcount").addEventListener("input",function(e){
+    vnodeCount=parseInt(e.target.value,10);
+    document.getElementById("vcountval").textContent=vnodeCount;
+    if(useVnodes){rebuildRing();assignOwners(true);render({});updateStats(null);
+      setNarration("Vnodes per server set to "+vnodeCount+". More virtual nodes → smaller, more numerous slices → a more balanced load across servers.");
+    }
+  });
+
+  // init
+  init();render({});updateStats(null);
+  setNarration("4 servers, 40 keys. Each key belongs to the next server clockwise on the ring. Add or remove a server and watch how few keys move.");
+})();
+</script>
+</body>
+</html>

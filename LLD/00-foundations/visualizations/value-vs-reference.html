@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Value vs Reference Semantics — LLD 00</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --ink:#e2e8f0; --muted:#94a3b8;
+    --ref:#f59e0b; --val:#38bdf8; --ok:#34d399; --bad:#f87171; --line:#475569;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.5;padding:24px}
+  h1{font-size:1.4rem;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 24px;font-size:.95rem}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  @media(max-width:780px){.grid{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;position:relative;min-height:340px}
+  .panel h2{margin:0 0 2px;font-size:1.05rem}
+  .tag{display:inline-block;font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:999px;text-transform:uppercase;letter-spacing:.04em}
+  .tag.ref{background:rgba(245,158,11,.15);color:var(--ref)}
+  .tag.val{background:rgba(56,189,248,.15);color:var(--val)}
+  .stage{position:relative;height:200px;margin:18px 0 10px}
+  .var{position:absolute;width:56px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-family:ui-monospace,monospace;background:#0b1220;border:2px solid var(--line)}
+  .box{position:absolute;border-radius:12px;padding:10px 14px;background:#0b1220;border:2px solid var(--line);
+    transition:all .55s cubic-bezier(.4,0,.2,1);min-width:120px;text-align:center}
+  .box .title{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  .box .body{font-family:ui-monospace,monospace;font-size:1.15rem;margin-top:4px}
+  .box.ref{border-color:var(--ref)}
+  .box.val{border-color:var(--val)}
+  .box.flash{box-shadow:0 0 0 4px rgba(248,113,113,.5);border-color:var(--bad)}
+  .box.newflash{box-shadow:0 0 0 4px rgba(52,211,153,.5);border-color:var(--ok)}
+  svg.wires{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+  .wire{stroke:var(--line);stroke-width:2;fill:none;transition:stroke .4s}
+  .wire.ref{stroke:var(--ref)}
+  .wire.val{stroke:var(--val)}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  button{background:#334155;color:var(--ink);border:1px solid var(--line);border-radius:8px;
+    padding:8px 14px;font-size:.85rem;cursor:pointer;font-weight:600}
+  button:hover{background:#475569}
+  button.primary{background:var(--ref);color:#0b1220;border-color:var(--ref)}
+  button.primary.val{background:var(--val)}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .log{font-family:ui-monospace,monospace;font-size:.82rem;color:var(--muted);margin-top:12px;
+    min-height:42px;background:#0b1220;border-radius:8px;padding:8px 12px;border:1px solid var(--line)}
+  .verdict{margin-top:14px;font-size:.9rem;padding:10px 12px;border-radius:8px}
+  .verdict.bad{background:rgba(248,113,113,.12);color:var(--bad);border:1px solid rgba(248,113,113,.4)}
+  .verdict.ok{background:rgba(52,211,153,.12);color:var(--ok);border:1px solid rgba(52,211,153,.4)}
+  .foot{color:var(--muted);font-size:.85rem;margin-top:22px;border-top:1px solid var(--line);padding-top:14px}
+  code{background:#0b1220;padding:1px 6px;border-radius:5px;font-size:.85em}
+</style>
+</head>
+<body>
+  <h1>Value vs. Reference semantics</h1>
+  <p class="sub">LLD · 00-foundations — why immutability makes sharing safe. Click the buttons and watch what each model does.</p>
+
+  <div class="grid">
+    <!-- LEFT: mutable / reference -->
+    <div class="panel">
+      <span class="tag ref">Mutable object · reference</span>
+      <h2>ShoppingCart cart</h2>
+      <div class="stage" id="refStage">
+        <svg class="wires" id="refWires"></svg>
+        <div class="var" id="refA" style="left:10px;top:30px">a</div>
+        <div class="var" id="refB" style="left:10px;top:120px">b</div>
+        <div class="box ref" id="refBox" style="right:14px;top:70px">
+          <div class="title">🧰 Cart object</div>
+          <div class="body" id="refItems">[ ]</div>
+        </div>
+      </div>
+      <div class="controls">
+        <button id="refAlias">b = a;</button>
+        <button class="primary" id="refAdd" disabled>b.add("📦");</button>
+        <button id="refReset">reset</button>
+      </div>
+      <div class="log" id="refLog">Two variables. <code>b = a</code> makes them point at the <em>same</em> object.</div>
+      <div class="verdict bad" id="refVerdict" style="display:none"></div>
+    </div>
+
+    <!-- RIGHT: immutable / value -->
+    <div class="panel">
+      <span class="tag val">Immutable value</span>
+      <h2>Money a, b</h2>
+      <div class="stage" id="valStage">
+        <svg class="wires" id="valWires"></svg>
+        <div class="var" id="valA" style="left:10px;top:20px">a</div>
+        <div class="var" id="valB" style="left:10px;top:90px">b</div>
+        <div class="var" id="valC" style="left:10px;top:160px">c</div>
+        <div class="box val" id="valBoxA" style="left:120px;top:14px"><div class="title">💵 Money</div><div class="body">$5</div></div>
+        <div class="box val" id="valBoxB" style="left:120px;top:84px"><div class="title">💵 Money</div><div class="body">$5</div></div>
+      </div>
+      <div class="controls">
+        <button class="primary val" id="valAdd">c = a.plus(b);</button>
+        <button id="valReset">reset</button>
+      </div>
+      <div class="log" id="valLog">Two <code>$5</code> values. There is nothing to mutate.</div>
+      <div class="verdict ok" id="valVerdict" style="display:none"></div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <strong>The takeaway:</strong> with a <span style="color:var(--ref)">mutable object</span>, aliasing means a change through
+    <code>b</code> is visible through <code>a</code> — "spooky action at a distance." With an
+    <span style="color:var(--val)">immutable value</span>, "modifying" returns a <em>new</em> value; the originals never change, so
+    sharing is always safe. <em>This is the whole reason immutability simplifies code.</em>
+  </div>
+
+<script>
+(function(){
+  /* ---------- helpers ---------- */
+  function wire(svg, fromEl, toEl, cls){
+    const s=svg.getBoundingClientRect();
+    const f=fromEl.getBoundingClientRect(), t=toEl.getBoundingClientRect();
+    const x1=f.right-s.left, y1=f.top-s.top+f.height/2;
+    const x2=t.left-s.left, y2=t.top-s.top+t.height/2;
+    const mx=(x1+x2)/2;
+    const p=document.createElementNS("http://www.w3.org/2000/svg","path");
+    p.setAttribute("d",`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`);
+    p.setAttribute("class","wire "+(cls||""));
+    svg.appendChild(p);
+  }
+
+  /* ---------- LEFT: reference ---------- */
+  const refWires=document.getElementById('refWires');
+  const refA=document.getElementById('refA'), refB=document.getElementById('refB');
+  const refBox=document.getElementById('refBox'), refItems=document.getElementById('refItems');
+  const refLog=document.getElementById('refLog'), refVerdict=document.getElementById('refVerdict');
+  const btnAlias=document.getElementById('refAlias'), btnAdd=document.getElementById('refAdd'), btnRReset=document.getElementById('refReset');
+  let aliased=false, items=[];
+
+  function drawRef(){
+    refWires.innerHTML='';
+    wire(refWires, refA, refBox, 'ref');
+    if(aliased) wire(refWires, refB, refBox, 'ref');
+  }
+  function refResetFn(){
+    aliased=false; items=[]; refItems.textContent='[ ]';
+    btnAdd.disabled=true; btnAlias.disabled=false;
+    refVerdict.style.display='none';
+    refLog.innerHTML='Two variables. <code>b = a</code> makes them point at the <em>same</em> object.';
+    drawRef();
+  }
+  btnAlias.onclick=function(){
+    aliased=true; btnAlias.disabled=true; btnAdd.disabled=false;
+    refLog.innerHTML='<code>b = a</code> — now <b style="color:var(--ref)">a</b> and <b style="color:var(--ref)">b</b> are aliases of ONE cart.';
+    drawRef();
+  };
+  btnAdd.onclick=function(){
+    items.push('📦'); refItems.textContent='[ '+items.join(' ')+' ]';
+    refBox.classList.add('flash'); setTimeout(()=>refBox.classList.remove('flash'),650);
+    refLog.innerHTML='<code>b.add("📦")</code> mutated the shared object…';
+    refVerdict.style.display='block';
+    refVerdict.innerHTML='⚠️ <b>a sees it too.</b> <code>a.getItems()</code> → [ '+items.join(' ')+' ]. You changed <code>a</code> without touching <code>a</code>.';
+  };
+  btnRReset.onclick=refResetFn;
+
+  /* ---------- RIGHT: value ---------- */
+  const valWires=document.getElementById('valWires');
+  const valA=document.getElementById('valA'), valB=document.getElementById('valB'), valC=document.getElementById('valC');
+  const valBoxA=document.getElementById('valBoxA'), valBoxB=document.getElementById('valBoxB');
+  const valLog=document.getElementById('valLog'), valVerdict=document.getElementById('valVerdict');
+  const btnVAdd=document.getElementById('valAdd'), btnVReset=document.getElementById('valReset');
+  let valBoxC=null;
+
+  function drawVal(){
+    valWires.innerHTML='';
+    wire(valWires, valA, valBoxA, 'val');
+    wire(valWires, valB, valBoxB, 'val');
+    if(valBoxC) wire(valWires, valC, valBoxC, 'val');
+  }
+  function valResetFn(){
+    if(valBoxC){ valBoxC.remove(); valBoxC=null; }
+    valVerdict.style.display='none'; btnVAdd.disabled=false;
+    valLog.innerHTML='Two <code>$5</code> values. There is nothing to mutate.';
+    drawVal();
+  }
+  btnVAdd.onclick=function(){
+    btnVAdd.disabled=true;
+    valBoxC=document.createElement('div');
+    valBoxC.className='box val newflash';
+    valBoxC.style.left='120px'; valBoxC.style.top='154px';
+    valBoxC.innerHTML='<div class="title">💵 NEW Money</div><div class="body">$10</div>';
+    document.getElementById('valStage').appendChild(valBoxC);
+    drawVal();
+    valLog.innerHTML='<code>a.plus(b)</code> built a <b style="color:var(--ok)">brand-new</b> <code>$10</code> and returned it as <code>c</code>.';
+    valVerdict.style.display='block';
+    valVerdict.innerHTML='✅ <b>a and b are untouched</b> — still <code>$5</code> each. No aliasing bug is possible.';
+    setTimeout(()=>valBoxC&&valBoxC.classList.remove('newflash'),900);
+  };
+  btnVReset.onclick=valResetFn;
+
+  /* init after layout */
+  window.addEventListener('load', ()=>{ drawRef(); drawVal(); });
+  window.addEventListener('resize', ()=>{ drawRef(); drawVal(); });
+  drawRef(); drawVal();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decorator pattern — LLD 02</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --ink:#e2e8f0; --muted:#94a3b8; --line:#475569;
+    --ok:#34d399; --bad:#f87171; --accent:#fbbf24;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5;padding:24px}
+  h1{font-size:1.35rem;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 18px;font-size:.95rem}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px;min-height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .wrap{border:2px solid var(--accent);border-radius:14px;padding:14px;position:relative;transition:all .4s;background:rgba(251,191,36,.05)}
+  .wrap.pop{animation:pop .45s cubic-bezier(.4,0,.2,1)}
+  @keyframes pop{0%{transform:scale(.85);opacity:.4}100%{transform:scale(1);opacity:1}}
+  .label{position:absolute;top:-10px;left:14px;background:var(--panel);padding:0 8px;font-family:ui-monospace,monospace;font-size:.74rem;color:var(--accent)}
+  .core{border:2px solid var(--ok);border-radius:12px;padding:16px 22px;background:#0b1220;font-family:ui-monospace,monospace;color:var(--ok);text-align:center}
+  .readout{margin-top:18px;text-align:center}
+  .readout .desc{font-family:ui-monospace,monospace;font-size:.95rem}
+  .readout .total{font-size:1.8rem;font-weight:800;margin-top:6px;color:var(--accent)}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px;justify-content:center}
+  button{background:#334155;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:9px 14px;font-size:.85rem;cursor:pointer;font-weight:600}
+  button.add{background:var(--accent);color:#0b1220;border:0;font-weight:700}
+  button:hover{filter:brightness(1.08)}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .log{font-family:ui-monospace,monospace;font-size:.8rem;color:var(--muted);margin-top:14px;background:#0b1220;border:1px solid var(--line);border-radius:8px;padding:9px 12px;min-height:38px}
+  .foot{color:var(--muted);font-size:.85rem;margin-top:22px;border-top:1px solid var(--line);padding-top:14px}
+  code{background:#0b1220;padding:1px 6px;border-radius:5px;font-size:.85em}
+</style>
+</head>
+<body>
+  <h1>Decorator — compose behavior at runtime</h1>
+  <p class="sub">LLD · 02 — each add-on <em>wraps</em> the drink and delegates inward. Cost &amp; description build up with no new subclasses.</p>
+
+  <div class="panel">
+    <div id="stack"></div>
+    <div class="readout">
+      <div class="desc" id="desc"></div>
+      <div class="total" id="total"></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="add" data-name="Milk" data-price="0.30">+ Milk ($0.30)</button>
+    <button class="add" data-name="Whip" data-price="0.50">+ Whip ($0.50)</button>
+    <button class="add" data-name="Sugar" data-price="0.10">+ Sugar ($0.10)</button>
+    <button id="remove">remove last</button>
+    <button id="reset">reset</button>
+  </div>
+  <div class="log" id="log"></div>
+
+  <div class="foot">
+    <strong>Takeaway:</strong> the code is literally <code id="expr"></code> — nested wrappers, each one a tiny class that
+    delegates to the thing it wraps. No <code>EspressoWithMilkAndWhipAndSugar</code> class exists. Responsibility is added
+    <em>at runtime</em> by composition, which is why N add-ons need N classes, not 2ᴺ.
+  </div>
+
+<script>
+(function(){
+  const stack=document.getElementById('stack'), descEl=document.getElementById('desc'),
+        totalEl=document.getElementById('total'), log=document.getElementById('log'),
+        exprEl=document.getElementById('expr'), removeBtn=document.getElementById('remove'),
+        resetBtn=document.getElementById('reset');
+  const BASE={name:'Espresso',price:1.99};
+  let layers=[]; // add-ons applied outward
+
+  function render(animateTop){
+    // build nested boxes from the inside out
+    let html='<div class="core">☕ '+BASE.name+'<br>$'+BASE.price.toFixed(2)+'</div>';
+    layers.forEach((l,i)=>{
+      const top=(animateTop && i===layers.length-1)?' pop':'';
+      html='<div class="wrap'+top+'"><span class="label">'+l.name+' (+$'+l.price.toFixed(2)+')</span>'+html+'</div>';
+    });
+    stack.innerHTML=html;
+
+    const total=BASE.price+layers.reduce((s,l)=>s+l.price,0);
+    const desc=BASE.name+layers.map(l=>', '+l.name).join('');
+    descEl.textContent='"'+desc+'"';
+    totalEl.textContent='$'+total.toFixed(2);
+
+    let expr='new Espresso()';
+    layers.forEach(l=>{ expr='new '+l.name+'('+expr+')'; });
+    exprEl.textContent=expr;
+    removeBtn.disabled=layers.length===0;
+  }
+
+  document.querySelectorAll('button.add').forEach(b=>{
+    b.onclick=()=>{
+      layers.push({name:b.dataset.name, price:parseFloat(b.dataset.price)});
+      render(true);
+      log.innerHTML='Wrapped with <code>'+b.dataset.name+'</code> → it adds $'+b.dataset.price+' and ", '+b.dataset.name+'" by delegating to the inner beverage.';
+    };
+  });
+  removeBtn.onclick=()=>{ const l=layers.pop(); render(false); log.innerHTML=l?'Unwrapped <code>'+l.name+'</code>. The inner object is untouched — that\'s the point of wrapping.':''; };
+  resetBtn.onclick=()=>{ layers=[]; render(false); log.innerHTML='Just an <code>Espresso</code>. Add wrappers to compose behavior.'; };
+  resetBtn.onclick();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>HLD Interactive Animations</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --border:#30363d; --text:#e6edf3; --muted:#8b949e;
+    --blue:#58a6ff; --green:#3fb950; --amber:#d29922; --red:#f85149; --purple:#bc8cff;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    line-height:1.5; padding:0 16px 64px;
+  }
+  .wrap{max-width:1080px; margin:0 auto}
+  header{padding:48px 0 8px}
+  h1{font-size:30px; margin:0 0 6px}
+  .sub{color:var(--muted); max-width:70ch; margin:0 0 4px}
+  .home{display:inline-block; margin:14px 0 0; color:var(--blue); text-decoration:none; font-size:14px}
+  .home:hover{text-decoration:underline}
+  .note{
+    background:var(--panel); border:1px solid var(--border); border-left:3px solid var(--amber);
+    border-radius:8px; padding:12px 16px; margin:24px 0 8px; color:var(--muted); font-size:14px;
+  }
+  .note b{color:var(--text)}
+  h2{font-size:15px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted);
+     margin:36px 0 14px; padding-bottom:8px; border-bottom:1px solid var(--border)}
+  .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px}
+  a.card{
+    display:block; background:var(--panel); border:1px solid var(--border); border-radius:8px;
+    padding:16px 16px 14px; text-decoration:none; color:inherit; transition:border-color .15s, transform .15s;
+  }
+  a.card:hover{border-color:var(--blue); transform:translateY(-2px)}
+  .card .tag{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11px; color:var(--purple)}
+  .card h3{margin:6px 0 6px; font-size:17px}
+  .card h3 .play{color:var(--green)}
+  .card p{margin:0; color:var(--muted); font-size:13.5px}
+  footer{margin-top:48px; color:var(--muted); font-size:13px; border-top:1px solid var(--border); padding-top:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>▶ HLD Interactive Animations</h1>
+    <p class="sub">Twenty self-contained, offline visualizations for the hardest-to-picture ideas in this curriculum. Each opens in your browser with no install or internet — play, step, drag, and break them.</p>
+    <a class="home" href="../README.md">← Back to the curriculum index</a>
+  </header>
+
+  <div class="note">
+    <b>How to use these.</b> Don't just watch — <b>predict first</b>. Before you press play, guess what will happen; before you remove a node or inject a partition, guess the outcome. The gap between your guess and what the animation does is exactly where the learning is. Each animation links to its companion writeup at the bottom.
+  </div>
+
+  <h2>Storage &amp; data structures</h2>
+  <div class="grid">
+    <a class="card" href="lsm-vs-btree.html"><div class="tag">storage-engines</div><h3><span class="play">▶</span> LSM-Tree vs B-Tree</h3><p>Watch writes flow into a memtable, flush to SSTables, and get rewritten by compaction (write amplification) — versus a B-tree's in-place updates. See why one is write-optimized and the other read-optimized.</p></a>
+    <a class="card" href="bloom-filter.html"><div class="tag">storage-engines</div><h3><span class="play">▶</span> Bloom Filter</h3><p>Insert items, set bits with k hashes, and watch a false positive appear — while seeing why false negatives are impossible. The probabilistic membership test behind every LSM read.</p></a>
+  </div>
+
+  <h2>Scaling &amp; distribution</h2>
+  <div class="grid">
+    <a class="card" href="consistent-hashing.html"><div class="tag">load-balancing</div><h3><span class="play">▶</span> Consistent Hashing</h3><p>Add and remove nodes on the ring and watch only ~1/N of keys remap — then hit the naive mod-N button and watch almost everything reshuffle. Toggle virtual nodes.</p></a>
+    <a class="card" href="load-balancing.html"><div class="tag">load-balancing</div><h3><span class="play">▶</span> Load Balancing Algorithms</h3><p>Round-robin vs least-connections vs power-of-two-choices, with live load bars. See how two random probes get you a near-flat distribution with no global state.</p></a>
+    <a class="card" href="cache-stampede.html"><div class="tag">caching</div><h3><span class="play">▶</span> Cache Stampede &amp; Mitigation</h3><p>A hot key's TTL expires and every client hammers the DB at once. Toggle single-flight and jitter and watch the DB-load spike collapse to a single fetch.</p></a>
+    <a class="card" href="sharding-rebalance.html"><div class="tag">partitioning</div><h3><span class="play">▶</span> Partitioning &amp; Rebalancing</h3><p>Spread data across shards, add a node and watch a slice rebalance, and flip on a hot key to see one shard melt. Hash vs range partitioning, and the timestamp hotspot.</p></a>
+  </div>
+
+  <h2>Replication &amp; consistency</h2>
+  <div class="grid">
+    <a class="card" href="replication-failover.html"><div class="tag">replication</div><h3><span class="play">▶</span> Replication &amp; Failover</h3><p>Writes flow leader → followers with adjustable lag. Kill the leader under async replication and watch acknowledged-but-unreplicated writes vanish. Compare sync.</p></a>
+    <a class="card" href="quorum.html"><div class="tag">replication</div><h3><span class="play">▶</span> Quorum Reads &amp; Writes</h3><p>Drag R, W, and N. When R + W &gt; N the read and write quorums must overlap — watch the intersecting node guarantee a fresh read, and watch stale reads appear when they don't.</p></a>
+    <a class="card" href="cap-partition.html"><div class="tag">consistency</div><h3><span class="play">▶</span> CAP: C vs A in a Partition</h3><p>Inject a network partition and choose: CP (the minority rejects writes, going unavailable) or AP (both sides accept and diverge, then reconcile). The trade-off exists <em>only</em> during the partition.</p></a>
+    <a class="card" href="mvcc-isolation.html"><div class="tag">transactions</div><h3><span class="play">▶</span> Isolation Anomalies &amp; MVCC</h3><p>Step two transactions through a lost update and a write skew. Switch to snapshot isolation (write skew survives!) and serializable (one aborts). The subtlety that trips everyone up.</p></a>
+    <a class="card" href="vector-clocks.html"><div class="tag">time-ordering</div><h3><span class="play">▶</span> Vector Clocks &amp; Causality</h3><p>Fire events and pass messages across three processes; pick any two events and learn whether one happened-before the other or they're concurrent — the thing Lamport clocks can't tell you.</p></a>
+  </div>
+
+  <h2>Coordination &amp; consensus</h2>
+  <div class="grid">
+    <a class="card" href="raft.html"><div class="tag">consensus</div><h3><span class="play">▶</span> Raft: Election &amp; Replication</h3><p>Five nodes, randomized timeouts, terms, and votes. Watch a candidate win a majority, replicate its log, then kill the leader and watch a fresh election. The marquee one.</p></a>
+    <a class="card" href="saga-vs-2pc.html"><div class="tag">transactions</div><h3><span class="play">▶</span> 2PC vs Saga</h3><p>Crash the coordinator mid-2PC and watch participants block forever holding locks. Then run a saga, fail a step, and watch compensations unwind in reverse — with no isolation.</p></a>
+  </div>
+
+  <h2>Reliability</h2>
+  <div class="grid">
+    <a class="card" href="circuit-breaker.html"><div class="tag">reliability</div><h3><span class="play">▶</span> Circuit Breaker</h3><p>Closed → Open → Half-Open. Make the downstream fail, watch the breaker trip and fail fast (shielding the downstream), then probe and recover.</p></a>
+    <a class="card" href="backoff-jitter.html"><div class="tag">reliability</div><h3><span class="play">▶</span> Retry Storms: Backoff + Jitter</h3><p>An outage ends and everyone retries at once, re-toppling the service in synchronized waves. Turn on exponential backoff with full jitter and watch the load smooth out.</p></a>
+  </div>
+
+  <h2>Messaging, rate limiting &amp; app patterns</h2>
+  <div class="grid">
+    <a class="card" href="log-vs-queue.html"><div class="tag">messaging</div><h3><span class="play">▶</span> Log vs Queue</h3><p>A queue hands each message to one consumer and deletes it; a partitioned log retains messages and lets independent consumer groups read at their own offsets and replay. Order is per-partition only.</p></a>
+    <a class="card" href="token-bucket.html"><div class="tag">rate-limiting</div><h3><span class="play">▶</span> Token vs Leaky Bucket</h3><p>Tokens drip in up to a capacity; a burst drains them, then throttles to the refill rate. Flip to a leaky bucket and watch a strictly constant output rate instead.</p></a>
+    <a class="card" href="rate-limit-windows.html"><div class="tag">rate-limiting</div><h3><span class="play">▶</span> Rate-Limiting Windows</h3><p>Cluster requests around a window boundary and watch a fixed window let through 2× the limit — then watch a sliding window correctly reject them.</p></a>
+    <a class="card" href="feed-fanout.html"><div class="tag">news-feed</div><h3><span class="play">▶</span> Feed Fan-out: Push vs Pull</h3><p>Post as a normal user (push to followers) then as a celebrity (write explosion!). Switch to pull (cheap writes, costly reads) and see why real systems go hybrid.</p></a>
+    <a class="card" href="quadtree-geo.html"><div class="tag">geo-search</div><h3><span class="play">▶</span> Spatial Indexing: Quadtree</h3><p>Scatter points and watch cells subdivide where it's dense. Run a "find nearby" query that touches a handful of cells instead of scanning everything. Compare a naive uniform grid.</p></a>
+  </div>
+
+  <footer>
+    Part of the <a href="../README.md" style="color:var(--blue)">HLD curriculum</a>. Every animation is a single offline HTML file — open it directly, or link to it from its companion writeup. Built to be broken: change the inputs and see what happens.
+  </footer>
+</div>
+</body>
+</html>

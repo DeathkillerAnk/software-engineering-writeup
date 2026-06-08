@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Vector Clocks &amp; Causality</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --success: #3fb950;
+    --warning: #d29922;
+    --danger: #f85149;
+    --purple: #bc8cff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 24px 18px 48px;
+  }
+  header h1 {
+    font-size: 1.6rem;
+    margin: 0 0 8px;
+  }
+  header p {
+    color: var(--muted);
+    margin: 0 0 20px;
+    max-width: 760px;
+  }
+  .stage-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    overflow-x: auto;
+  }
+  svg { display: block; width: 100%; height: auto; }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin: 16px 0;
+  }
+  button {
+    background: #21262d;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 8px 16px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  button:hover { background: #30363d; border-color: #8b949e; }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.primary { border-color: var(--accent); color: var(--accent); }
+  .control-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 4px 14px;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .control-group input[type="range"] { width: 110px; accent-color: var(--accent); }
+  #narration {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.9rem;
+    min-height: 48px;
+    margin-bottom: 8px;
+  }
+  #compareBox {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.9rem;
+  }
+  #compareBox .verdict { font-size: 1.05rem; font-weight: 600; }
+  .legend, .trythis {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+  }
+  .legend h2, .trythis h2 { font-size: 0.95rem; margin: 0 0 10px; }
+  .legend ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; }
+  .legend li { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--muted); }
+  .swatch { width: 16px; height: 16px; border-radius: 4px; flex: none; border: 1px solid var(--border); }
+  .swatch.circle { border-radius: 50%; }
+  .trythis p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--purple); }
+  footer {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 20px;
+    font-size: 0.9rem;
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+
+  /* SVG element classes */
+  .ev-circle { cursor: pointer; transition: stroke 0.15s, r 0.12s; }
+  .ev-circle:hover { stroke: var(--text); }
+  .ev-circle.sel { stroke: var(--warning); stroke-width: 4; }
+  .ev-vec { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; pointer-events: none; }
+  .lifeline { stroke: var(--border); stroke-width: 2; }
+  .plabel { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; font-weight: 600; }
+  .msg-arrow { stroke: var(--purple); stroke-width: 2; fill: none; }
+  .msg-arrow.hl { stroke: var(--warning); stroke-width: 3; }
+  .ev-label { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; fill: var(--muted); pointer-events: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Vector Clocks &amp; Causality</h1>
+    <p>
+      Three processes (P1, P2, P3) run top-to-bottom. Each local event, send, and receive
+      updates a per-process <em>vector clock</em>. Click any two events and the tool tells you whether
+      one <strong>happened-before</strong> the other, or whether they are truly <strong>concurrent</strong> &mdash;
+      the distinction a single scalar Lamport timestamp cannot capture.
+    </p>
+  </header>
+
+  <div class="stage-card">
+    <svg id="svg" viewBox="0 0 720 560" role="img" aria-label="Vector clock timelines"></svg>
+  </div>
+
+  <div class="controls">
+    <button id="play" class="primary">Play</button>
+    <button id="step">Step</button>
+    <button id="reset">Reset</button>
+    <div class="control-group">
+      <label for="speed">Speed</label>
+      <input type="range" id="speed" min="0.4" max="3" step="0.1" value="1" />
+    </div>
+    <button id="clearSel">Clear selection</button>
+  </div>
+
+  <div id="narration">Press Play or Step to begin. Events appear in causal order.</div>
+
+  <div id="compareBox">
+    <span class="verdict" id="verdict" style="color:var(--muted)">Click two events to compare them.</span>
+    <div id="verdictDetail" style="color:var(--muted); margin-top:6px;"></div>
+  </div>
+
+  <div class="legend">
+    <h2>Legend</h2>
+    <ul>
+      <li><span class="swatch circle" style="background:var(--accent)"></span> P1 event</li>
+      <li><span class="swatch circle" style="background:var(--success)"></span> P2 event</li>
+      <li><span class="swatch circle" style="background:var(--warning)"></span> P3 event</li>
+      <li><span class="swatch" style="background:var(--purple)"></span> Message (send &rarr; receive)</li>
+      <li><span class="swatch" style="background:transparent;border-color:var(--warning)"></span> Selected event (amber ring)</li>
+      <li><span class="swatch circle" style="background:#21262d"></span> Vector shown as <code>[P1,P2,P3]</code></li>
+    </ul>
+  </div>
+
+  <div class="trythis">
+    <h2>Try this</h2>
+    <p>
+      Run the whole scenario, then click <strong>a1</strong> (P1's first event) and <strong>c1</strong> (P3's first event).
+      Neither vector dominates the other, so they are <em>concurrent</em> &mdash; no message chain links them.
+      Now compare <strong>a1</strong> with the event on P2 that <em>received</em> P1's message: it strictly dominates,
+      so it provably happened-after.
+    </p>
+  </div>
+
+  <footer>
+    <a href="./index.html">&larr; Back to gallery</a>
+    <a href="../02-distributed-systems/14-time-clocks-ordering.md">Related writeup: Time, Clocks &amp; Ordering</a>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var SVG_NS = "http://www.w3.org/2000/svg";
+  var svg = document.getElementById("svg");
+  var narration = document.getElementById("narration");
+  var verdictEl = document.getElementById("verdict");
+  var verdictDetail = document.getElementById("verdictDetail");
+
+  var COLORS = ["#58a6ff", "#3fb950", "#d29922"]; // P1, P2, P3
+  var PROC_X = [150, 360, 570];
+  var TOP = 70;
+  var ROW_H = 58;
+  var EVENT_R = 11;
+
+  // Scenario definition (causal order). Each step is processed in array order.
+  // types: "local", "send" (msgId), "recv" (msgId)
+  // The vectors are computed live by the engine; we only declare structure.
+  var SCENARIO = [
+    { id: "a1", proc: 0, type: "local" },
+    { id: "b1", proc: 1, type: "local" },
+    { id: "a2", proc: 0, type: "send", msg: "m1", to: 1 },
+    { id: "c1", proc: 2, type: "local" },
+    { id: "b2", proc: 1, type: "recv", msg: "m1", from: 0 },
+    { id: "b3", proc: 1, type: "send", msg: "m2", to: 2 },
+    { id: "c2", proc: 2, type: "recv", msg: "m2", from: 1 },
+    { id: "a3", proc: 0, type: "local" },
+    { id: "c3", proc: 2, type: "send", msg: "m3", to: 0 },
+    { id: "a4", proc: 0, type: "recv", msg: "m3", from: 2 }
+  ];
+
+  // Engine state
+  var clocks;          // current vector clock per process [3][3]
+  var events;          // revealed events with computed vectors
+  var rowOfProc;       // next vertical slot index per process
+  var pendingSend;     // msgId -> {fromProc, vector, rowY}
+  var stepIndex;       // next scenario step to reveal
+  var selected;        // up to 2 event ids
+  var playing = false;
+  var rafId = null;
+  var lastTick = 0;
+  var STEP_MS = 1100;
+  var speed = 1;
+
+  function vecStr(v) { return "[" + v.join(",") + "]"; }
+
+  function resetState() {
+    clocks = [[0,0,0],[0,0,0],[0,0,0]];
+    events = {};
+    rowOfProc = [0,0,0];
+    pendingSend = {};
+    stepIndex = 0;
+    selected = [];
+    playing = false;
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    verdictEl.textContent = "Click two events to compare them.";
+    verdictEl.style.color = "var(--muted)";
+    verdictDetail.textContent = "";
+    narration.textContent = "Press Play or Step to begin. Events appear in causal order.";
+    document.getElementById("play").textContent = "Play";
+    render();
+  }
+
+  // Reveal the next scenario step, computing its vector correctly.
+  function advance() {
+    if (stepIndex >= SCENARIO.length) {
+      playing = false;
+      document.getElementById("play").textContent = "Play";
+      narration.textContent = "Scenario complete. Click two events to test causality vs. concurrency.";
+      render();
+      return false;
+    }
+    var s = SCENARIO[stepIndex];
+    var p = s.proc;
+    var note = "";
+
+    if (s.type === "local") {
+      clocks[p][p] += 1;
+      note = "P" + (p+1) + " local event " + s.id + ": increment own component -> " + vecStr(clocks[p]) + ".";
+    } else if (s.type === "send") {
+      clocks[p][p] += 1; // increment before attaching
+      pendingSend[s.msg] = { vector: clocks[p].slice() };
+      note = "P" + (p+1) + " sends " + s.msg + " (" + s.id + "): increment own, then attach vector " +
+             vecStr(clocks[p]) + " to the message.";
+    } else if (s.type === "recv") {
+      var incoming = pendingSend[s.msg] ? pendingSend[s.msg].vector : [0,0,0];
+      // element-wise max
+      for (var i = 0; i < 3; i++) {
+        clocks[p][i] = Math.max(clocks[p][i], incoming[i]);
+      }
+      // then increment own
+      clocks[p][p] += 1;
+      note = "P" + (p+1) + " receives " + s.msg + " (" + s.id + "): take element-wise max with " +
+             vecStr(incoming) + ", then increment own -> " + vecStr(clocks[p]) + ".";
+    }
+
+    var row = rowOfProc[p];
+    rowOfProc[p] += 1;
+    var y = TOP + row * ROW_H + 20;
+
+    events[s.id] = {
+      id: s.id,
+      proc: p,
+      type: s.type,
+      vector: clocks[p].slice(),
+      x: PROC_X[p],
+      y: y,
+      msg: s.msg || null,
+      from: (typeof s.from === "number") ? s.from : null,
+      to: (typeof s.to === "number") ? s.to : null
+    };
+
+    narration.textContent = note;
+    stepIndex += 1;
+    render();
+    return true;
+  }
+
+  // Find the receive event matching a send msg id (for arrows)
+  function findRecvFor(msg) {
+    for (var k in events) {
+      if (events.hasOwnProperty(k) && events[k].type === "recv" && events[k].msg === msg) return events[k];
+    }
+    return null;
+  }
+  function findSendFor(msg) {
+    for (var k in events) {
+      if (events.hasOwnProperty(k) && events[k].type === "send" && events[k].msg === msg) return events[k];
+    }
+    return null;
+  }
+
+  function el(tag, attrs) {
+    var e = document.createElementNS(SVG_NS, tag);
+    for (var a in attrs) { if (attrs.hasOwnProperty(a)) e.setAttribute(a, attrs[a]); }
+    return e;
+  }
+
+  function render() {
+    // clear
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+    // arrowhead marker
+    var defs = el("defs", {});
+    var marker = el("marker", { id: "arrow", viewBox: "0 0 10 10", refX: "9", refY: "5",
+      markerWidth: "7", markerHeight: "7", orient: "auto-start-reverse" });
+    marker.appendChild(el("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: "#bc8cff" }));
+    defs.appendChild(marker);
+    var markerHl = el("marker", { id: "arrowHl", viewBox: "0 0 10 10", refX: "9", refY: "5",
+      markerWidth: "7", markerHeight: "7", orient: "auto-start-reverse" });
+    markerHl.appendChild(el("path", { d: "M 0 0 L 10 5 L 0 10 z", fill: "#d29922" }));
+    defs.appendChild(markerHl);
+    svg.appendChild(defs);
+
+    // lifelines + headers
+    for (var p = 0; p < 3; p++) {
+      svg.appendChild(el("line", { class: "lifeline", x1: PROC_X[p], y1: TOP - 28, x2: PROC_X[p], y2: 540 }));
+      var hdr = el("text", { class: "plabel", x: PROC_X[p], y: TOP - 38, "text-anchor": "middle", fill: COLORS[p] });
+      hdr.textContent = "P" + (p + 1);
+      svg.appendChild(hdr);
+    }
+
+    // message arrows (under events)
+    var msgIds = ["m1", "m2", "m3"];
+    for (var mi = 0; mi < msgIds.length; mi++) {
+      var snd = findSendFor(msgIds[mi]);
+      var rcv = findRecvFor(msgIds[mi]);
+      if (snd && rcv) {
+        var hl = (selected.indexOf(snd.id) > -1 && selected.indexOf(rcv.id) > -1);
+        var line = el("line", {
+          class: "msg-arrow" + (hl ? " hl" : ""),
+          x1: snd.x + (rcv.x > snd.x ? EVENT_R : -EVENT_R),
+          y1: snd.y,
+          x2: rcv.x + (rcv.x > snd.x ? -EVENT_R - 6 : EVENT_R + 6),
+          y2: rcv.y,
+          "marker-end": hl ? "url(#arrowHl)" : "url(#arrow)"
+        });
+        svg.appendChild(line);
+      }
+    }
+
+    // events
+    for (var key in events) {
+      if (!events.hasOwnProperty(key)) continue;
+      var ev = events[key];
+      var g = el("g", {});
+      var isSel = selected.indexOf(ev.id) > -1;
+
+      var circle = el("circle", {
+        class: "ev-circle" + (isSel ? " sel" : ""),
+        cx: ev.x, cy: ev.y, r: EVENT_R,
+        fill: COLORS[ev.proc],
+        stroke: isSel ? "#d29922" : "#0d1117",
+        "stroke-width": isSel ? 4 : 2
+      });
+      circle.addEventListener("click", (function (id) {
+        return function () { toggleSelect(id); };
+      })(ev.id));
+      g.appendChild(circle);
+
+      // event id label (small, above-left)
+      var lbl = el("text", {
+        class: "ev-label",
+        x: ev.x,
+        y: ev.y - EVENT_R - 5,
+        "text-anchor": "middle"
+      });
+      lbl.textContent = ev.id;
+      g.appendChild(lbl);
+
+      // vector label to the side that doesn't collide with neighbor lifeline
+      var sideRight = (ev.proc !== 2);
+      var vx = sideRight ? ev.x + EVENT_R + 8 : ev.x - EVENT_R - 8;
+      var vec = el("text", {
+        class: "ev-vec",
+        x: vx,
+        y: ev.y + 4,
+        "text-anchor": sideRight ? "start" : "end",
+        fill: isSel ? "#d29922" : "#e6edf3"
+      });
+      vec.textContent = vecStr(ev.vector);
+      g.appendChild(vec);
+
+      svg.appendChild(g);
+    }
+  }
+
+  // Causality comparison using vector clocks.
+  // A -> B (A happens-before B) iff A <= B componentwise AND A != B.
+  function compareVectors(a, b) {
+    var aLeB = true, bLeA = true, eq = true;
+    for (var i = 0; i < 3; i++) {
+      if (a[i] > b[i]) aLeB = false;
+      if (b[i] > a[i]) bLeA = false;
+      if (a[i] !== b[i]) eq = false;
+    }
+    if (eq) return "equal";
+    if (aLeB) return "a_before_b"; // a <= b and not equal
+    if (bLeA) return "b_before_a";
+    return "concurrent";
+  }
+
+  function updateVerdict() {
+    if (selected.length < 2) {
+      verdictEl.textContent = selected.length === 1
+        ? "Selected " + selected[0] + ". Click one more event to compare."
+        : "Click two events to compare them.";
+      verdictEl.style.color = "var(--muted)";
+      verdictDetail.textContent = "";
+      render();
+      return;
+    }
+    var e1 = events[selected[0]];
+    var e2 = events[selected[1]];
+    var res = compareVectors(e1.vector, e2.vector);
+    var s1 = selected[0] + " " + vecStr(e1.vector);
+    var s2 = selected[1] + " " + vecStr(e2.vector);
+
+    if (res === "equal") {
+      verdictEl.textContent = "Same event.";
+      verdictEl.style.color = "var(--muted)";
+      verdictDetail.textContent = "These are identical vectors.";
+    } else if (res === "a_before_b") {
+      verdictEl.textContent = selected[0] + "  → (happens-before)  " + selected[1];
+      verdictEl.style.color = "var(--accent)";
+      verdictDetail.textContent = s1 + "  ≤  " + s2 +
+        " componentwise (and not equal), so " + selected[0] + " causally precedes " + selected[1] + ".";
+    } else if (res === "b_before_a") {
+      verdictEl.textContent = selected[1] + "  → (happens-before)  " + selected[0];
+      verdictEl.style.color = "var(--accent)";
+      verdictDetail.textContent = s2 + "  ≤  " + s1 +
+        " componentwise (and not equal), so " + selected[1] + " causally precedes " + selected[0] + ".";
+    } else {
+      verdictEl.textContent = selected[0] + "  ∥  " + selected[1] + "   (CONCURRENT)";
+      verdictEl.style.color = "var(--warning)";
+      verdictDetail.textContent = "Neither vector dominates the other (" + s1 + " vs " + s2 +
+        "). No chain of messages links them — a scalar Lamport timestamp would hide this.";
+    }
+    render();
+  }
+
+  function toggleSelect(id) {
+    var idx = selected.indexOf(id);
+    if (idx > -1) {
+      selected.splice(idx, 1);
+    } else {
+      selected.push(id);
+      if (selected.length > 2) selected.shift();
+    }
+    updateVerdict();
+  }
+
+  // Animation loop
+  function loop(ts) {
+    if (!playing) return;
+    if (!lastTick) lastTick = ts;
+    var elapsed = ts - lastTick;
+    if (elapsed >= STEP_MS / speed) {
+      lastTick = ts;
+      var more = advance();
+      if (!more) return;
+    }
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function play() {
+    if (stepIndex >= SCENARIO.length) return;
+    playing = true;
+    lastTick = 0;
+    document.getElementById("play").textContent = "Pause";
+    rafId = requestAnimationFrame(loop);
+  }
+  function pause() {
+    playing = false;
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    document.getElementById("play").textContent = "Play";
+  }
+
+  // Wire up controls
+  document.getElementById("play").addEventListener("click", function () {
+    if (playing) pause(); else play();
+  });
+  document.getElementById("step").addEventListener("click", function () {
+    pause();
+    advance();
+  });
+  document.getElementById("reset").addEventListener("click", resetState);
+  document.getElementById("clearSel").addEventListener("click", function () {
+    selected = [];
+    updateVerdict();
+  });
+  document.getElementById("speed").addEventListener("input", function (e) {
+    speed = parseFloat(e.target.value);
+  });
+
+  resetState();
+})();
+</script>
+</body>
+</html>

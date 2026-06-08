@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CAP: Choosing C vs A During a Partition</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --border:#30363d;
+    --text:#e6edf3; --muted:#8b949e;
+    --accent:#58a6ff; --green:#3fb950; --amber:#d29922; --red:#f85149; --purple:#bc8cff;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    line-height:1.5;
+  }
+  .wrap{max-width:960px; margin:0 auto; padding:24px 16px 48px;}
+  header h1{font-size:1.5rem; margin:0 0 8px;}
+  header p{color:var(--muted); margin:0 0 20px; max-width:760px;}
+  .stage{
+    background:var(--panel); border:1px solid var(--border); border-radius:8px;
+    padding:12px; margin-bottom:16px;
+  }
+  svg{display:block; width:100%; height:auto;}
+  .controls{
+    display:flex; flex-wrap:wrap; gap:10px; align-items:center;
+    margin-bottom:16px;
+  }
+  button{
+    background:#21262d; color:var(--text); border:1px solid var(--border);
+    border-radius:999px; padding:8px 16px; font-size:.9rem; cursor:pointer;
+    font-family:inherit; transition:background .15s,border-color .15s;
+  }
+  button:hover:not(:disabled){background:#30363d; border-color:var(--accent);}
+  button:disabled{opacity:.45; cursor:not-allowed;}
+  button.primary{border-color:var(--accent); color:var(--accent);}
+  .toggle-group{
+    display:flex; align-items:center; gap:8px; background:#21262d;
+    border:1px solid var(--border); border-radius:999px; padding:4px 6px 4px 12px;
+  }
+  .toggle-group span{font-size:.85rem; color:var(--muted);}
+  .seg{display:flex; border:1px solid var(--border); border-radius:999px; overflow:hidden;}
+  .seg button{border:none; border-radius:0; padding:6px 14px;}
+  .seg button.active{background:var(--accent); color:#0d1117; font-weight:600;}
+  .narration{
+    background:var(--panel); border:1px solid var(--border); border-left:4px solid var(--accent);
+    border-radius:8px; padding:14px 16px; margin-bottom:16px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.9rem;
+    min-height:48px;
+  }
+  .legend{
+    background:var(--panel); border:1px solid var(--border); border-radius:8px;
+    padding:14px 16px; margin-bottom:16px;
+    display:flex; flex-wrap:wrap; gap:12px 22px;
+  }
+  .legend h2{font-size:.95rem; margin:0 0 6px; width:100%;}
+  .legend .item{display:flex; align-items:center; gap:8px; font-size:.82rem; color:var(--muted);}
+  .swatch{width:16px; height:16px; border-radius:4px; flex:none; border:1px solid var(--border);}
+  .dot{width:14px; height:14px; border-radius:50%; flex:none;}
+  .try{
+    background:rgba(188,140,255,.08); border:1px solid var(--purple); border-radius:8px;
+    padding:12px 16px; margin-bottom:16px; font-size:.88rem;
+  }
+  .try b{color:var(--purple);}
+  footer{border-top:1px solid var(--border); padding-top:16px; display:flex; gap:24px; flex-wrap:wrap;}
+  footer a{color:var(--accent); text-decoration:none; font-size:.88rem;}
+  footer a:hover{text-decoration:underline;}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+  label{font-size:.85rem; color:var(--muted);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>CAP: Choosing C vs A During a Partition</h1>
+    <p>A 3-replica cluster serves reads and writes. While the network is healthy, it is both Consistent and Available at once. CAP only forces a choice <b>during a network partition</b> &mdash; CP rejects writes on the cut-off side to stay consistent; AP keeps accepting writes everywhere and diverges, then must reconcile a conflict when the network heals.</p>
+  </header>
+
+  <div class="stage">
+    <svg id="svg" viewBox="0 0 900 420" role="img" aria-label="Cluster of replicas with partition visualization">
+      <!-- partition shading groups drawn under nodes -->
+      <g id="partitionShade"></g>
+      <line id="cutLine" x1="450" y1="40" x2="450" y2="380" stroke="#f85149" stroke-width="3" stroke-dasharray="10 8" opacity="0"/>
+      <text id="cutLabel" x="450" y="28" text-anchor="middle" fill="#f85149" font-size="14" font-family="ui-monospace,monospace" opacity="0">PARTITION</text>
+      <g id="links"></g>
+      <g id="nodes"></g>
+      <g id="client"></g>
+    </svg>
+  </div>
+
+  <div class="controls">
+    <button id="play" class="primary">Play</button>
+    <button id="step">Step</button>
+    <button id="reset">Reset</button>
+    <button id="partitionBtn">Inject Partition</button>
+    <button id="healBtn" disabled>Heal Partition</button>
+    <div class="toggle-group">
+      <span>Mode during partition</span>
+      <div class="seg" id="modeSeg">
+        <button data-mode="CP" class="active">CP (Consistent)</button>
+        <button data-mode="AP">AP (Available)</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="narration" id="narration">Cluster healthy. All replicas agree on x = 1. Both Consistency and Availability hold &mdash; CAP says nothing here.</div>
+
+  <div class="legend">
+    <h2>Legend</h2>
+    <div class="item"><span class="dot" style="background:#3fb950"></span> Replica reachable / agrees</div>
+    <div class="item"><span class="dot" style="background:#d29922"></span> Replica isolated (minority side)</div>
+    <div class="item"><span class="dot" style="background:#f85149"></span> Rejecting requests (unavailable)</div>
+    <div class="item"><span class="dot" style="background:#bc8cff"></span> Accepting writes but diverged</div>
+    <div class="item"><span class="swatch" style="background:rgba(88,166,255,.12)"></span> Majority side</div>
+    <div class="item"><span class="swatch" style="background:rgba(210,153,34,.12)"></span> Minority side</div>
+    <div class="item"><span style="color:#f85149;font-family:ui-monospace,monospace">- - -</span> Severed network link</div>
+  </div>
+
+  <div class="try">
+    <b>Try this:</b> Inject the partition once in <b>CP</b> mode and watch the minority node refuse a write to protect consistency. Then Reset, switch to <b>AP</b>, inject again, and let both sides accept writes &mdash; when you Heal, the two values collide and must be reconciled. The trade-off you just felt did <em>not</em> exist before the partition.
+  </div>
+
+  <footer>
+    <a href="./index.html">&larr; Back to gallery</a>
+    <a href="../02-distributed-systems/12-consistency-and-cap.md">Related writeup: Consistency &amp; CAP</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var SVG_NS = "http://www.w3.org/2000/svg";
+  var nodesG = document.getElementById("nodes");
+  var linksG = document.getElementById("links");
+  var clientG = document.getElementById("client");
+  var shadeG = document.getElementById("partitionShade");
+  var cutLine = document.getElementById("cutLine");
+  var cutLabel = document.getElementById("cutLabel");
+  var narration = document.getElementById("narration");
+
+  var playBtn = document.getElementById("play");
+  var stepBtn = document.getElementById("step");
+  var resetBtn = document.getElementById("reset");
+  var partitionBtn = document.getElementById("partitionBtn");
+  var healBtn = document.getElementById("healBtn");
+  var modeSeg = document.getElementById("modeSeg");
+
+  // Node layout. Left side = majority (2 nodes), right side = minority (1 node).
+  var NODES = [
+    {id:"A", x:300, y:140, side:"L"},
+    {id:"B", x:300, y:300, side:"L"},
+    {id:"C", x:620, y:220, side:"R"}
+  ];
+  var LINKS = [
+    {a:"A", b:"B"},
+    {a:"A", b:"C"},
+    {a:"B", b:"C"}
+  ];
+
+  var COL = {green:"#3fb950", amber:"#d29922", red:"#f85149", purple:"#bc8cff", accent:"#58a6ff", muted:"#8b949e"};
+
+  // ---- state ----
+  var mode = "CP";
+  var partitioned = false;
+  var healed = false;       // after AP heal, conflict shown
+  var nodeEl = {};          // id -> {circle, label, val}
+  var nodeState = {};       // id -> {value, color, statusText}
+  var writeCounter = 1;     // value already at x=1
+
+  function el(tag, attrs){
+    var e = document.createElementNS(SVG_NS, tag);
+    for(var k in attrs){ e.setAttribute(k, attrs[k]); }
+    return e;
+  }
+
+  function build(){
+    linksG.innerHTML = ""; nodesG.innerHTML = ""; clientG.innerHTML = ""; shadeG.innerHTML = "";
+    nodeEl = {}; nodeState = {};
+
+    // links
+    LINKS.forEach(function(l){
+      var na = NODES.filter(function(n){return n.id===l.a;})[0];
+      var nb = NODES.filter(function(n){return n.id===l.b;})[0];
+      var line = el("line",{x1:na.x,y1:na.y,x2:nb.x,y2:nb.y,stroke:"#30363d","stroke-width":3});
+      line.dataset.a = l.a; line.dataset.b = l.b;
+      linksG.appendChild(line);
+    });
+
+    // nodes
+    NODES.forEach(function(n){
+      var g = el("g",{});
+      var c = el("circle",{cx:n.x,cy:n.y,r:42,fill:"#161b22",stroke:COL.green,"stroke-width":3});
+      var idt = el("text",{x:n.x,y:n.y-8,"text-anchor":"middle",fill:"#e6edf3","font-size":20,"font-family":"system-ui","font-weight":"700"});
+      idt.textContent = "Node "+n.id;
+      idt.setAttribute("font-size","15");
+      var val = el("text",{x:n.x,y:n.y+16,"text-anchor":"middle",fill:COL.green,"font-size":18,"font-family":"ui-monospace,monospace","font-weight":"700"});
+      val.textContent = "x=1";
+      var status = el("text",{x:n.x,y:n.y+62,"text-anchor":"middle",fill:COL.muted,"font-size":12,"font-family":"ui-monospace,monospace"});
+      status.textContent = "";
+      g.appendChild(c); g.appendChild(idt); g.appendChild(val); g.appendChild(status);
+      nodesG.appendChild(g);
+      nodeEl[n.id] = {circle:c, val:val, status:status};
+      nodeState[n.id] = {value:1};
+    });
+  }
+
+  function renderNode(id, color, valText, status){
+    nodeEl[id].circle.setAttribute("stroke", color);
+    nodeEl[id].val.setAttribute("fill", color);
+    nodeEl[id].val.textContent = valText;
+    nodeEl[id].status.textContent = status || "";
+    nodeEl[id].status.setAttribute("fill", color);
+  }
+
+  function setLinks(active){
+    Array.prototype.forEach.call(linksG.children, function(line){
+      var crossing = (line.dataset.a==="C" || line.dataset.b==="C");
+      if(active && crossing){
+        line.setAttribute("stroke", COL.red);
+        line.setAttribute("stroke-dasharray","8 8");
+        line.setAttribute("opacity","0.45");
+      } else {
+        line.setAttribute("stroke", "#30363d");
+        line.removeAttribute("stroke-dasharray");
+        line.setAttribute("opacity","1");
+      }
+    });
+  }
+
+  function showPartitionVisual(on){
+    cutLine.setAttribute("opacity", on?"0.9":"0");
+    cutLabel.setAttribute("opacity", on?"1":"0");
+    shadeG.innerHTML = "";
+    if(on){
+      var left = el("rect",{x:40,y:40,width:380,height:340,rx:10,fill:"rgba(88,166,255,0.10)",stroke:"#58a6ff","stroke-width":1,"stroke-dasharray":"4 6"});
+      var right = el("rect",{x:480,y:40,width:380,height:340,rx:10,fill:"rgba(210,153,34,0.10)",stroke:"#d29922","stroke-width":1,"stroke-dasharray":"4 6"});
+      var lt = el("text",{x:230,y:62,"text-anchor":"middle",fill:"#58a6ff","font-size":13,"font-family":"ui-monospace,monospace"});
+      lt.textContent = "MAJORITY (2 of 3)";
+      var rt = el("text",{x:670,y:62,"text-anchor":"middle",fill:"#d29922","font-size":13,"font-family":"ui-monospace,monospace"});
+      rt.textContent = "MINORITY (1 of 3)";
+      shadeG.appendChild(left); shadeG.appendChild(right); shadeG.appendChild(lt); shadeG.appendChild(rt);
+    }
+    setLinks(on);
+  }
+
+  function say(html){ narration.innerHTML = html; }
+
+  // ----- step machine -----
+  // Steps differ by phase. We build a step list dynamically.
+  var steps = [];
+  var stepIdx = -1;
+  var playing = false;
+  var rafTimer = null;
+
+  function buildSteps(){
+    steps = [];
+    if(!partitioned){
+      // healthy phase
+      steps.push(function(){
+        renderNode("A",COL.green,"x=1","reachable");
+        renderNode("B",COL.green,"x=1","reachable");
+        renderNode("C",COL.green,"x=1","reachable");
+        say("Cluster healthy. A client writes x=1; the value replicates to all three replicas. <b>Consistency and Availability both hold</b> &mdash; CAP is silent when there is no partition.");
+      });
+      steps.push(function(){
+        renderNode("A",COL.green,"x=1","read ok");
+        renderNode("B",COL.green,"x=1","read ok");
+        renderNode("C",COL.green,"x=1","read ok");
+        say("Any replica answers reads with the same value (x=1). No trade-off is needed. Click <b>Inject Partition</b> to cut Node C off from A and B.");
+      });
+    } else if(partitioned && !healed){
+      // partition active, depends on mode
+      if(mode==="CP"){
+        steps.push(function(){
+          renderNode("A",COL.green,"x=1","majority");
+          renderNode("B",COL.green,"x=1","majority");
+          renderNode("C",COL.amber,"x=1","isolated");
+          say("<b>Partition injected.</b> Node C can no longer reach A or B. The majority side (A,B) keeps quorum; C is in the minority. <b>The CAP trade-off begins now &mdash; only now.</b>");
+        });
+        steps.push(function(){
+          renderNode("A",COL.green,"x=2","WRITE x=2 ok");
+          nodeState.A.value=2; nodeState.B.value=2;
+          renderNode("B",COL.green,"x=2","replicated");
+          renderNode("C",COL.amber,"x=1","stale");
+          say("CP mode: a write x=2 arrives at the majority side. A and B have quorum, so they <b>accept and commit</b> x=2. Node C still shows the old x=1.");
+        });
+        steps.push(function(){
+          renderNode("C",COL.red,"x=1","REJECTS write");
+          say("A write (or strongly-consistent read) hits the minority Node C. To avoid serving stale or conflicting data, <b>C refuses the request</b>. C chose <b>Consistency over Availability</b> &mdash; it is unavailable to its clients.");
+        });
+        steps.push(function(){
+          say("Result of CP: the system never returns a wrong value, but the minority side stops serving. Switch the mode to <b>AP</b> and Reset to see the opposite choice, or <b>Heal Partition</b> to recover.");
+        });
+      } else {
+        steps.push(function(){
+          renderNode("A",COL.green,"x=1","side 1");
+          renderNode("B",COL.green,"x=1","side 1");
+          renderNode("C",COL.amber,"x=1","side 2");
+          say("<b>Partition injected.</b> Node C is isolated from A and B. <b>The CAP trade-off begins now &mdash; only now.</b> In AP mode, every side stays available.");
+        });
+        steps.push(function(){
+          renderNode("A",COL.purple,"x=2","WRITE x=2");
+          nodeState.A.value=2; nodeState.B.value=2;
+          renderNode("B",COL.purple,"x=2","accepted");
+          say("AP mode: a write x=2 reaches side 1. A and B <b>accept it without waiting</b> for C. They stay available, but can no longer guarantee they agree with C.");
+        });
+        steps.push(function(){
+          nodeState.C.value=9;
+          renderNode("C",COL.purple,"x=9","WRITE x=9");
+          say("Meanwhile a different client writes x=9 to the isolated Node C. C also <b>accepts</b> it &mdash; it cannot ask the others. The replicas have now <b>diverged</b>: x=2 on one side, x=9 on the other. AP chose <b>Availability over Consistency</b>.");
+        });
+        steps.push(function(){
+          say("Both sides answered every request (available), but they disagree (not consistent). Click <b>Heal Partition</b> to reconnect and watch reconciliation handle the conflict.");
+        });
+      }
+    } else {
+      // healed after AP -> reconcile conflict
+      steps.push(function(){
+        renderNode("A",COL.purple,"x=2","reconnected");
+        renderNode("B",COL.purple,"x=2","reconnected");
+        renderNode("C",COL.purple,"x=9","reconnected");
+        say("<b>Partition healed.</b> The link to C is restored. Replicas gossip and immediately discover a <b>conflict</b>: x=2 versus x=9. This conflict is the bill that AP deferred during the partition.");
+      });
+      steps.push(function(){
+        renderNode("A",COL.amber,"x=2 vs x=9","CONFLICT");
+        renderNode("B",COL.amber,"x=2 vs x=9","CONFLICT");
+        renderNode("C",COL.amber,"x=2 vs x=9","CONFLICT");
+        say("Reconciliation must resolve it: last-writer-wins, version vectors, or a merge / app-level rule. Here we apply last-writer-wins (x=9 was newer).");
+      });
+      steps.push(function(){
+        renderNode("A",COL.green,"x=9","converged");
+        renderNode("B",COL.green,"x=9","converged");
+        renderNode("C",COL.green,"x=9","converged");
+        say("All replicas converge on x=9. The cluster is healthy and consistent again. <b>Notice: C and A only conflicted while partitioned.</b> 'Pick 2 of 3' is misleading &mdash; you only choose between C and A <em>during</em> a partition.");
+      });
+    }
+  }
+
+  function gotoStep(i){
+    if(i<0 || i>=steps.length) return;
+    stepIdx = i;
+    steps[i]();
+    updateButtons();
+  }
+
+  function nextStep(){
+    if(stepIdx < steps.length-1){
+      gotoStep(stepIdx+1);
+      return true;
+    }
+    return false;
+  }
+
+  function updateButtons(){
+    stepBtn.disabled = (stepIdx >= steps.length-1);
+    playBtn.textContent = playing ? "Pause" : "Play";
+    partitionBtn.disabled = partitioned;
+    healBtn.disabled = !partitioned || healed;
+  }
+
+  function loop(){
+    if(!playing) return;
+    if(!nextStep()){
+      playing = false;
+      updateButtons();
+      return;
+    }
+    rafTimer = setTimeout(function(){ requestAnimationFrame(loop); }, 1700);
+  }
+
+  function startPlay(){
+    if(stepIdx >= steps.length-1){ return; }
+    playing = true; updateButtons();
+    rafTimer = setTimeout(function(){ requestAnimationFrame(loop); }, 600);
+  }
+  function pausePlay(){
+    playing = false;
+    if(rafTimer){ clearTimeout(rafTimer); rafTimer=null; }
+    updateButtons();
+  }
+
+  // ----- phase transitions -----
+  function fullReset(){
+    pausePlay();
+    partitioned = false; healed = false;
+    showPartitionVisual(false);
+    build();
+    buildSteps();
+    stepIdx = -1;
+    gotoStep(0);
+  }
+
+  function injectPartition(){
+    pausePlay();
+    partitioned = true; healed = false;
+    showPartitionVisual(true);
+    buildSteps();
+    stepIdx = -1;
+    gotoStep(0);
+  }
+
+  function healPartition(){
+    pausePlay();
+    if(mode==="AP"){
+      healed = true;
+      showPartitionVisual(false);
+      buildSteps();
+      stepIdx = -1;
+      gotoStep(0);
+    } else {
+      // CP heal: minority catches up, no conflict
+      healed = false;
+      partitioned = false;
+      showPartitionVisual(false);
+      renderNode("A",COL.green,"x=2","healthy");
+      renderNode("B",COL.green,"x=2","healthy");
+      renderNode("C",COL.green,"x=2","caught up");
+      steps = [function(){
+        say("<b>Partition healed (CP).</b> Node C never accepted conflicting data, so it simply catches up to x=2. No conflict to resolve &mdash; that is the cost CP paid up front by being unavailable. Reset to start over.");
+      }];
+      stepIdx = 0;
+      updateButtons();
+      partitionBtn.disabled = false;
+      healBtn.disabled = true;
+    }
+  }
+
+  // ----- wire controls -----
+  playBtn.addEventListener("click", function(){ playing ? pausePlay() : startPlay(); });
+  stepBtn.addEventListener("click", function(){ pausePlay(); nextStep(); });
+  resetBtn.addEventListener("click", fullReset);
+  partitionBtn.addEventListener("click", injectPartition);
+  healBtn.addEventListener("click", healPartition);
+
+  modeSeg.addEventListener("click", function(e){
+    var b = e.target.closest("button");
+    if(!b) return;
+    Array.prototype.forEach.call(modeSeg.children, function(x){x.classList.remove("active");});
+    b.classList.add("active");
+    mode = b.dataset.mode;
+    // changing mode resets the scenario for clarity
+    fullReset();
+  });
+
+  // init
+  build();
+  buildSteps();
+  gotoStep(0);
+  updateButtons();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Log vs Queue (Kafka vs SQS)</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --border:#30363d;
+    --text:#e6edf3; --muted:#8b949e;
+    --blue:#58a6ff; --green:#3fb950; --amber:#d29922; --red:#f85149; --purple:#bc8cff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    line-height:1.5; padding:24px 16px 60px;
+  }
+  .wrap{max-width:960px; margin:0 auto;}
+  header h1{font-size:1.6rem; margin:0 0 8px;}
+  header p{color:var(--muted); margin:0 0 20px; max-width:760px;}
+  .stage{
+    background:var(--panel); border:1px solid var(--border); border-radius:8px;
+    padding:14px; margin-bottom:16px;
+  }
+  .stage h2{font-size:.95rem; margin:0 0 6px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+  svg{display:block; width:100%; height:auto;}
+  .panes{display:flex; gap:16px; flex-wrap:wrap;}
+  .pane{flex:1 1 380px; min-width:300px;}
+  .controls{
+    display:flex; flex-wrap:wrap; gap:10px; align-items:center;
+    background:var(--panel); border:1px solid var(--border); border-radius:8px;
+    padding:14px; margin-bottom:16px;
+  }
+  button{
+    background:#1b222c; color:var(--text); border:1px solid var(--border);
+    border-radius:999px; padding:8px 16px; font-size:.9rem; cursor:pointer;
+    font-family:inherit; transition:background .15s,border-color .15s;
+  }
+  button:hover{background:#262d38; border-color:var(--blue);}
+  button:active{transform:translateY(1px);}
+  button:disabled{opacity:.4; cursor:not-allowed;}
+  button.primary{border-color:var(--blue); color:var(--blue);}
+  .ctl-group{display:flex; align-items:center; gap:8px; font-size:.85rem; color:var(--muted);}
+  .ctl-group label{font-size:.82rem;}
+  input[type=range]{accent-color:var(--blue); width:120px;}
+  .narration{
+    background:#10161d; border:1px solid var(--border); border-left:4px solid var(--blue);
+    border-radius:8px; padding:14px 16px; margin-bottom:16px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.92rem; min-height:46px;
+  }
+  .legend{
+    background:var(--panel); border:1px solid var(--border); border-radius:8px;
+    padding:14px 16px; margin-bottom:16px; display:flex; flex-wrap:wrap; gap:14px 22px;
+    font-size:.85rem;
+  }
+  .legend .item{display:flex; align-items:center; gap:8px;}
+  .sw{width:16px; height:16px; border-radius:4px; flex:0 0 auto; border:1px solid #0006;}
+  .tryit{
+    background:#13241a; border:1px solid #1f6f3a; border-radius:8px;
+    padding:12px 16px; margin-bottom:16px; font-size:.9rem;
+  }
+  .tryit b{color:var(--green);}
+  footer{display:flex; gap:18px; font-size:.9rem; margin-top:8px;}
+  footer a{color:var(--blue); text-decoration:none;}
+  footer a:hover{text-decoration:underline;}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--purple); font-size:.85em;}
+  .hint{font-size:.78rem; color:var(--muted); margin-top:4px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Log vs Queue (Kafka vs SQS)</h1>
+  <p>A <b>queue</b> hands each message to one competing consumer and deletes it on ack — no replay. A <b>partitioned log</b> appends messages and keeps them; each consumer group tracks its own offset, can rewind to replay, and order is guaranteed only within a partition.</p>
+</header>
+
+<div class="stage">
+  <div class="panes">
+    <div class="pane">
+      <h2 style="color:var(--amber)">QUEUE — competing consumers, delete on ack</h2>
+      <svg id="queueSvg" viewBox="0 0 380 320" role="img" aria-label="Queue animation"></svg>
+    </div>
+    <div class="pane">
+      <h2 style="color:var(--blue)">LOG — partitioned, retained, per-group offsets</h2>
+      <svg id="logSvg" viewBox="0 0 380 320" role="img" aria-label="Log animation"></svg>
+    </div>
+  </div>
+</div>
+
+<div class="controls">
+  <button id="play" class="primary">Play</button>
+  <button id="step">Step</button>
+  <button id="reset">Reset</button>
+  <div class="ctl-group">
+    <button id="addPart">+ Add log partition</button>
+    <span id="partCount" style="font-family:ui-monospace,monospace">2 partitions</span>
+  </div>
+  <div class="ctl-group">
+    <button id="rewind">Rewind Group B</button>
+  </div>
+  <div class="ctl-group">
+    <label for="speed">Speed</label>
+    <input type="range" id="speed" min="300" max="1600" value="850" step="50">
+  </div>
+</div>
+
+<div class="narration" id="narration">Press Play to produce messages. Watch the same events feed a queue (left) and a log (right).</div>
+
+<div class="legend">
+  <div class="item"><span class="sw" style="background:var(--green)"></span> New message / produced record</div>
+  <div class="item"><span class="sw" style="background:var(--amber)"></span> Queue consumer (competing)</div>
+  <div class="item"><span class="sw" style="background:var(--blue)"></span> Log Consumer Group A offset</div>
+  <div class="item"><span class="sw" style="background:var(--purple)"></span> Log Consumer Group B offset (can rewind)</div>
+  <div class="item"><span class="sw" style="background:#30363d"></span> Retained log record (kept after read)</div>
+  <div class="item"><span class="sw" style="background:#0d1117;border-color:var(--red)"></span> Deleted (gone from queue)</div>
+</div>
+
+<div class="tryit">
+  <b>Try this:</b> Produce several messages, let both groups read the log, then hit <b>Rewind Group B</b>. Group B re-reads old records while Group A keeps moving forward — and the queue can't replay anything, because acked messages are already deleted. Then click <b>+ Add log partition</b> and notice ordering is only promised <i>inside</i> each partition.
+</div>
+
+<footer>
+  <a href="./index.html">&larr; Back to gallery</a>
+  <a href="../01-building-blocks/11-messaging-and-streaming.md">Related writeup: Messaging &amp; Streaming &rarr;</a>
+</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var SVGNS="http://www.w3.org/2000/svg";
+  var C={bg:"#0d1117",panel:"#161b22",border:"#30363d",text:"#e6edf3",muted:"#8b949e",
+         blue:"#58a6ff",green:"#3fb950",amber:"#d29922",red:"#f85149",purple:"#bc8cff"};
+
+  var queueSvg=document.getElementById("queueSvg");
+  var logSvg=document.getElementById("logSvg");
+  var narration=document.getElementById("narration");
+  var partCountEl=document.getElementById("partCount");
+
+  function el(tag,attrs,parent){
+    var n=document.createElementNS(SVGNS,tag);
+    if(attrs)for(var k in attrs)n.setAttribute(k,attrs[k]);
+    if(parent)parent.appendChild(n);
+    return n;
+  }
+  function clear(svg){while(svg.firstChild)svg.removeChild(svg.firstChild);}
+  function say(t){narration.textContent=t;}
+
+  // ----- State -----
+  var nextId=0;
+  var queueMsgs=[];      // {id} waiting in queue (FIFO)
+  var queueLog=[];       // history of delivered (deleted) records: {id, consumer}
+  var queueConsumers=["amber","amber"]; // 2 competing consumers
+  var qConsumerColor=[C.amber,"#b87f10"];
+
+  var PARTS=2;
+  var partitions=[];     // array of arrays of {id}
+  var offA=[];           // group A offsets per partition
+  var offB=[];           // group B offsets per partition
+  var produceCount=0;
+
+  function initLog(){
+    partitions=[]; offA=[]; offB=[];
+    for(var i=0;i<PARTS;i++){partitions.push([]);offA.push(0);offB.push(0);}
+  }
+
+  function resetAll(){
+    nextId=0; produceCount=0;
+    queueMsgs=[]; queueLog=[];
+    initLog();
+    render();
+    say("Reset. Press Play or Step to produce messages.");
+  }
+
+  // ----- Simulation steps -----
+  // A "step" cycle: produce a message, then advance one consumer on each side.
+  var phase=0; // 0=produce, 1=queue consume, 2=group A consume, 3=group B consume
+  var rrConsumer=0;
+
+  function doStep(){
+    if(phase===0){
+      // produce
+      var id=nextId++;
+      produceCount++;
+      queueMsgs.push({id:id});
+      var p=id % PARTS;
+      partitions[p].push({id:id});
+      say("Produced msg #"+id+". Queue: enqueued (1 copy). Log: appended to partition P"+p+" (key % "+PARTS+"), retained.");
+      phase=1;
+    } else if(phase===1){
+      // queue consume by a competing consumer
+      if(queueMsgs.length>0){
+        var m=queueMsgs.shift();
+        var c=rrConsumer % queueConsumers.length; rrConsumer++;
+        queueLog.push({id:m.id,consumer:c});
+        say("QUEUE: consumer C"+(c+1)+" received msg #"+m.id+", acked -> message DELETED. No other consumer or replay can see it.");
+      } else {
+        say("QUEUE: empty — nothing to deliver.");
+      }
+      phase=2;
+    } else if(phase===2){
+      // group A advances on partition with most lag
+      var pa=mostLag(offA);
+      if(pa>=0){
+        var rec=partitions[pa][offA[pa]];
+        offA[pa]++;
+        say("LOG Group A: read msg #"+rec.id+" from P"+pa+", offset A[P"+pa+"] -> "+offA[pa]+". Record stays in the log.");
+      } else {
+        say("LOG Group A: caught up to the end of all partitions.");
+      }
+      phase=3;
+    } else {
+      // group B advances independently
+      var pb=mostLag(offB);
+      if(pb>=0){
+        var recb=partitions[pb][offB[pb]];
+        offB[pb]++;
+        say("LOG Group B: independently read msg #"+recb.id+" from P"+pb+", offset B[P"+pb+"] -> "+offB[pb]+". Same log, separate offset.");
+      } else {
+        say("LOG Group B: caught up. Group A & B never interfere — each tracks its own offsets.");
+      }
+      phase=0;
+    }
+    render();
+  }
+
+  function mostLag(off){
+    var best=-1,bestLag=0;
+    for(var i=0;i<PARTS;i++){
+      var lag=partitions[i].length-off[i];
+      if(lag>bestLag){bestLag=lag;best=i;}
+    }
+    return best;
+  }
+
+  function rewindB(){
+    var any=false;
+    for(var i=0;i<PARTS;i++){
+      var back=Math.min(2,offB[i]);
+      if(back>0){offB[i]-=back;any=true;}
+    }
+    render();
+    if(any) say("LOG Group B REWOUND its offsets to replay old records. The data is still there because the log RETAINS messages — a queue could never do this.");
+    else say("Group B has no read offset to rewind yet. Let it read some records first.");
+  }
+
+  function addPartition(){
+    if(PARTS>=4){say("Demo caps at 4 partitions. More partitions = more parallel consumers, but order is still only guaranteed within each partition.");return;}
+    PARTS++;
+    partitions.push([]); offA.push(0); offB.push(0);
+    // redistribute existing produced ids by id % PARTS  (rebuild from history)
+    rebuildPartitions();
+    partCountEl.textContent=PARTS+" partitions";
+    render();
+    say("Added partition P"+(PARTS-1)+". Now "+PARTS+" partitions -> more parallelism. Ordering is preserved ONLY within a partition, not across them.");
+  }
+
+  function rebuildPartitions(){
+    // keep total produced ids = nextId; reassign to partitions by id%PARTS
+    var prevOffA=offA.slice(), prevOffB=offB.slice();
+    partitions=[]; for(var i=0;i<PARTS;i++)partitions.push([]);
+    for(var id=0;id<nextId;id++){
+      partitions[id%PARTS].push({id:id});
+    }
+    // reset offsets to start (simplest correct behavior on repartition)
+    offA=[]; offB=[];
+    for(var j=0;j<PARTS;j++){offA.push(0);offB.push(0);}
+  }
+
+  // ----- Rendering -----
+  function render(){
+    renderQueue();
+    renderLog();
+  }
+
+  function renderQueue(){
+    clear(queueSvg);
+    // Producer
+    el("rect",{x:10,y:14,width:90,height:30,rx:6,fill:C.panel,stroke:C.border},queueSvg);
+    txt(queueSvg,55,33,"Producer",C.text,11,"middle");
+
+    // Queue lane
+    el("text",{x:10,y:66,fill:C.muted,"font-size":11,"font-family":"ui-monospace,monospace"}).textContent="";
+    txt(queueSvg,10,64,"Queue (FIFO, one copy each):",C.muted,10,"start");
+    var laneY=72, slotW=40, x0=10;
+    el("rect",{x:x0-2,y:laneY-2,width:8*slotW+4,height:34,rx:6,fill:"#10161d",stroke:C.border},queueSvg);
+    var show=queueMsgs.slice(0,8);
+    for(var i=0;i<show.length;i++){
+      var bx=x0+i*slotW+4;
+      el("rect",{x:bx,y:laneY+2,width:slotW-8,height:26,rx:5,fill:C.green,stroke:"#1c7430"},queueSvg);
+      txt(queueSvg,bx+(slotW-8)/2,laneY+19,"#"+show[i].id,"#08130a",11,"middle");
+    }
+    if(queueMsgs.length>8) txt(queueSvg,x0+8*slotW+10,laneY+19,"+"+(queueMsgs.length-8),C.muted,10,"start");
+    if(queueMsgs.length===0) txt(queueSvg,x0+8,laneY+19,"(empty)",C.muted,11,"start");
+
+    // Competing consumers
+    txt(queueSvg,10,128,"Competing consumers (each msg -> exactly one):",C.muted,10,"start");
+    for(var c=0;c<queueConsumers.length;c++){
+      var cy=140+c*44;
+      el("rect",{x:10,y:cy,width:130,height:34,rx:6,fill:C.panel,stroke:qConsumerColor[c]},queueSvg);
+      txt(queueSvg,75,cy+15,"Consumer C"+(c+1),C.text,11,"middle");
+      var got=queueLog.filter(function(r){return r.consumer===c;}).map(function(r){return "#"+r.id;});
+      txt(queueSvg,75,cy+28,got.length?("got "+got.slice(-3).join(" ")):"idle",C.muted,9.5,"middle");
+    }
+
+    // Deleted log
+    txt(queueSvg,10,242,"Deleted after ack (cannot replay):",C.red,10,"start");
+    var dy=250;
+    el("rect",{x:8,y:dy,width:364,height:58,rx:6,fill:"#10161d",stroke:C.border},queueSvg);
+    var del=queueLog.slice(-18);
+    for(var d=0;d<del.length;d++){
+      var col=d%9, row=Math.floor(d/9);
+      var dx=16+col*40, dyy=dy+10+row*24;
+      el("rect",{x:dx,y:dyy,width:34,height:18,rx:4,fill:C.bg,stroke:C.red,"stroke-dasharray":"3 2"},queueSvg);
+      txt(queueSvg,dx+17,dyy+13,"#"+del[d].id,C.red,9.5,"middle");
+    }
+    if(queueLog.length===0) txt(queueSvg,16,dy+33,"(nothing acked yet)",C.muted,10,"start");
+  }
+
+  function renderLog(){
+    clear(logSvg);
+    el("rect",{x:10,y:14,width:90,height:30,rx:6,fill:C.panel,stroke:C.border},logSvg);
+    txt(logSvg,55,33,"Producer",C.text,11,"middle");
+
+    var topY=58;
+    var areaH=200;
+    var pH=Math.min(46,(areaH-(PARTS-1)*10)/PARTS);
+    var gap=10;
+    var slotW=34, x0=46;
+    var maxSlots=Math.floor((370-x0)/slotW);
+
+    for(var p=0;p<PARTS;p++){
+      var py=topY+p*(pH+gap);
+      txt(logSvg,8,py+pH/2+4,"P"+p,C.muted,12,"start");
+      var recs=partitions[p];
+      var start=Math.max(0,recs.length-maxSlots);
+      // lane background
+      el("rect",{x:x0-2,y:py-2,width:maxSlots*slotW+4,height:pH+4,rx:5,fill:"#10161d",stroke:C.border},logSvg);
+      for(var i=start;i<recs.length;i++){
+        var ix=i-start;
+        var rx=x0+ix*slotW+3;
+        el("rect",{x:rx,y:py+4,width:slotW-6,height:pH-8,rx:4,fill:"#222a35",stroke:C.border},logSvg);
+        txt(logSvg,rx+(slotW-6)/2,py+pH/2+4,"#"+recs[i].id,C.text,10,"middle");
+      }
+      // offset markers for A and B
+      drawOffset(logSvg, x0, slotW, start, recs.length, offA[p], py, pH, C.blue, "A", true);
+      drawOffset(logSvg, x0, slotW, start, recs.length, offB[p], py, pH, C.purple, "B", false);
+    }
+
+    // tail label
+    txt(logSvg,46,topY+PARTS*(pH+gap)+6,"Records are appended right & RETAINED. Offsets point at next-to-read.",C.muted,9.5,"start");
+
+    // group legend chips
+    var gy=topY+PARTS*(pH+gap)+22;
+    el("rect",{x:46,y:gy,width:14,height:10,rx:2,fill:C.blue},logSvg);
+    txt(logSvg,64,gy+9,"Group A offsets",C.text,10,"start");
+    el("rect",{x:170,y:gy,width:14,height:10,rx:2,fill:C.purple},logSvg);
+    txt(logSvg,188,gy+9,"Group B offsets (rewindable)",C.text,10,"start");
+  }
+
+  function drawOffset(svg,x0,slotW,start,len,off,py,pH,color,label,above){
+    // offset position = boundary before record index 'off'
+    var idx=off; // points to next record to read
+    var localIdx=idx-start;
+    var mx=x0+localIdx*slotW+1;
+    if(localIdx<0) mx=x0-1;
+    if(localIdx>Math.floor((370-x0)/slotW)) mx=x0+Math.floor((370-x0)/slotW)*slotW;
+    var y1=above?py-1:py+pH/2;
+    var y2=above?py+pH/2:py+pH+1;
+    el("line",{x1:mx,y1:py-2,x2:mx,y2:py+pH+2,stroke:color,"stroke-width":2.5},svg);
+    // little flag
+    var flagY=above?py-1:py+pH-9;
+    el("rect",{x:mx-1,y:flagY,width:13,height:10,rx:2,fill:color},svg);
+    txt(svg,mx+5.5,flagY+8,label,"#08130a",8,"middle");
+  }
+
+  function txt(svg,x,y,str,fill,size,anchor){
+    var t=el("text",{x:x,y:y,fill:fill,"font-size":size,
+      "font-family":"ui-monospace,SFMono-Regular,Menlo,monospace","text-anchor":anchor||"start"},svg);
+    t.textContent=str; return t;
+  }
+
+  // ----- Controls / loop -----
+  var playing=false, timer=null;
+  var speed=850;
+  var playBtn=document.getElementById("play");
+
+  function tick(){
+    if(!playing)return;
+    doStep();
+    timer=setTimeout(tick,speed);
+  }
+  function setPlaying(v){
+    playing=v;
+    playBtn.textContent=v?"Pause":"Play";
+    playBtn.classList.toggle("primary",!v);
+    if(v){ if(timer)clearTimeout(timer); timer=setTimeout(tick,speed); }
+    else if(timer){clearTimeout(timer);timer=null;}
+  }
+
+  playBtn.addEventListener("click",function(){setPlaying(!playing);});
+  document.getElementById("step").addEventListener("click",function(){setPlaying(false);doStep();});
+  document.getElementById("reset").addEventListener("click",function(){setPlaying(false);PARTS=2;partCountEl.textContent="2 partitions";resetAll();});
+  document.getElementById("addPart").addEventListener("click",addPartition);
+  document.getElementById("rewind").addEventListener("click",rewindB);
+  document.getElementById("speed").addEventListener("input",function(e){
+    speed=2000-Number(e.target.value)+300-300; // map: higher value -> faster
+    speed=1900-Number(e.target.value);
+    if(speed<200)speed=200;
+    if(playing){if(timer)clearTimeout(timer);timer=setTimeout(tick,speed);}
+  });
+
+  resetAll();
+})();
+</script>
+</body>
+</html>

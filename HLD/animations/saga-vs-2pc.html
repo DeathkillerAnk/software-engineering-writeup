@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Distributed Transactions: 2PC vs Saga</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --border:#30363d;
+    --text:#e6edf3; --muted:#8b949e;
+    --accent:#58a6ff; --green:#3fb950; --amber:#d29922; --red:#f85149; --purple:#bc8cff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
+  .wrap{max-width:960px;margin:0 auto;padding:20px 18px 48px;}
+  header h1{font-size:1.5rem;margin:0 0 8px;}
+  header p{color:var(--muted);margin:0;line-height:1.5;font-size:.95rem;}
+  .modebar{display:flex;gap:8px;margin:18px 0 12px;flex-wrap:wrap;}
+  .stage{background:var(--panel);border:1px solid var(--border);border-radius:8px;
+    padding:12px;}
+  svg{display:block;width:100%;height:auto;}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:14px 0;}
+  button{background:#1c2230;color:var(--text);border:1px solid var(--border);
+    border-radius:999px;padding:8px 16px;font-size:.9rem;cursor:pointer;
+    font-family:inherit;transition:background .15s,border-color .15s;}
+  button:hover{background:#262d3d;border-color:var(--accent);}
+  button:disabled{opacity:.4;cursor:not-allowed;}
+  button.active{background:var(--accent);color:#0d1117;border-color:var(--accent);font-weight:600;}
+  button.danger{border-color:var(--red);}
+  button.danger:hover{background:#3a1d1d;}
+  .ctl-group{display:flex;gap:6px;align-items:center;background:#11151c;
+    border:1px solid var(--border);border-radius:8px;padding:6px 10px;}
+  .ctl-group label{font-size:.82rem;color:var(--muted);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+  select{background:#1c2230;color:var(--text);border:1px solid var(--border);
+    border-radius:6px;padding:5px 8px;font-family:ui-monospace,Menlo,monospace;font-size:.82rem;}
+  #narration{background:#11151c;border:1px solid var(--border);border-left:4px solid var(--accent);
+    border-radius:6px;padding:12px 14px;margin:12px 0;font-size:.95rem;line-height:1.5;min-height:48px;}
+  #narration b{color:var(--accent);}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;background:var(--panel);border:1px solid var(--border);
+    border-radius:8px;padding:12px 14px;font-size:.82rem;color:var(--muted);margin-top:14px;}
+  .legend .item{display:flex;align-items:center;gap:7px;}
+  .swatch{width:16px;height:16px;border-radius:4px;border:1px solid var(--border);flex:none;}
+  .try{margin-top:14px;padding:12px 14px;background:#13241a;border:1px solid #1f4a2e;
+    border-radius:8px;font-size:.9rem;line-height:1.5;}
+  .try b{color:var(--green);}
+  footer{margin-top:26px;display:flex;gap:18px;font-size:.85rem;}
+  footer a{color:var(--accent);text-decoration:none;}
+  footer a:hover{text-decoration:underline;}
+  text{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+  .hint{color:var(--muted);font-size:.8rem;margin-left:auto;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Distributed Transactions: 2PC vs Saga</h1>
+    <p>Two ways to make several services agree on one outcome. <b>2PC</b> locks everyone and votes, but a crashed coordinator blocks participants forever. A <b>Saga</b> never locks, running compensations to undo on failure, but its intermediate states are visible to others.</p>
+  </header>
+
+  <div class="modebar">
+    <button id="mode2pc" class="active">Two-Phase Commit (2PC)</button>
+    <button id="modeSaga">Saga</button>
+  </div>
+
+  <div class="stage">
+    <svg id="svg" viewBox="0 0 900 420" preserveAspectRatio="xMidYMid meet" aria-label="transaction animation"></svg>
+  </div>
+
+  <div class="controls">
+    <button id="play">Play</button>
+    <button id="step">Step</button>
+    <button id="reset">Reset</button>
+    <div class="ctl-group">
+      <label for="failSel">Inject failure:</label>
+      <select id="failSel"></select>
+    </div>
+    <span class="hint" id="speedHint">click Play to run, Step to advance one event</span>
+  </div>
+
+  <div id="narration">Pick a mode and press <b>Play</b>. In 2PC the coordinator asks everyone to prepare; in a Saga each step commits locally and is undone by a compensation on failure.</div>
+
+  <div class="legend" id="legend"></div>
+
+  <div class="try">
+    <b>Try this:</b> <span id="tryText"></span>
+  </div>
+
+  <footer>
+    <a href="./index.html">&larr; Back to gallery</a>
+    <a href="../02-distributed-systems/15-distributed-transactions.md">Related writeup: Distributed Transactions</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const SVG="http://www.w3.org/2000/svg";
+  const svg=document.getElementById("svg");
+  const narr=document.getElementById("narration");
+  const failSel=document.getElementById("failSel");
+  const C={bg:"#0d1117",panel:"#161b22",border:"#30363d",text:"#e6edf3",
+    muted:"#8b949e",accent:"#58a6ff",green:"#3fb950",amber:"#d29922",
+    red:"#f85149",purple:"#bc8cff"};
+
+  let mode="2pc";
+  let steps=[];        // array of step functions/descriptions
+  let idx=0;           // next step index
+  let playing=false;
+  let rafTimer=null;
+
+  function el(tag,attrs){
+    const e=document.createElementNS(SVG,tag);
+    for(const k in attrs) e.setAttribute(k,attrs[k]);
+    return e;
+  }
+  function clear(){ while(svg.firstChild) svg.removeChild(svg.firstChild); }
+  function say(html){ narr.innerHTML=html; }
+
+  // ---------- shared helpers ----------
+  function box(x,y,w,h,fill,stroke){
+    const g=el("g",{});
+    const r=el("rect",{x,y,width:w,height:h,rx:8,fill:fill||C.panel,
+      stroke:stroke||C.border,"stroke-width":2});
+    g.appendChild(r);
+    g._rect=r;
+    svg.appendChild(g);
+    return g;
+  }
+  function label(x,y,txt,fill,size,weight){
+    const t=el("text",{x,y,"text-anchor":"middle",
+      "dominant-baseline":"middle",fill:fill||C.text,
+      "font-size":size||14});
+    if(weight) t.setAttribute("font-weight",weight);
+    t.textContent=txt;
+    svg.appendChild(t);
+    return t;
+  }
+  function line(x1,y1,x2,y2,stroke,dash){
+    const l=el("line",{x1,y1,x2,y2,stroke:stroke||C.border,"stroke-width":2});
+    if(dash) l.setAttribute("stroke-dasharray",dash);
+    svg.appendChild(l);
+    return l;
+  }
+
+  // =================================================================
+  //  TWO-PHASE COMMIT
+  // =================================================================
+  const TPC={};
+  function build2PC(){
+    clear();
+    TPC.coordY=60;
+    TPC.parts=[];
+    // coordinator
+    TPC.coord=box(360,30,180,56,C.panel,C.accent);
+    label(450,58,"Coordinator",C.accent,16,700);
+    // participants
+    const names=["Account A","Inventory B","Shipping C"];
+    const xs=[90,360,630];
+    for(let i=0;i<3;i++){
+      const g=box(xs[i],250,180,90,C.panel,C.border);
+      label(xs[i]+90,278,names[i],C.text,14,600);
+      const status=el("text",{x:xs[i]+90,y:304,"text-anchor":"middle",
+        fill:C.muted,"font-size":12});
+      status.textContent="idle";
+      svg.appendChild(status);
+      // lock indicator
+      const lock=el("text",{x:xs[i]+90,y:326,"text-anchor":"middle",
+        fill:C.muted,"font-size":12});
+      lock.textContent="unlocked";
+      svg.appendChild(lock);
+      // connecting line
+      line(450,86,xs[i]+90,250,C.border,"4 4");
+      TPC.parts.push({g,status,lock,name:names[i],vote:null,locked:false,
+        cx:xs[i]+90});
+    }
+    // phase header
+    TPC.phase=el("text",{x:450,y:130,"text-anchor":"middle",fill:C.muted,
+      "font-size":13,"font-style":"italic"});
+    TPC.phase.textContent="";
+    svg.appendChild(TPC.phase);
+    TPC.coordCrashed=false;
+    // build step list based on chosen failure
+    build2PCSteps();
+    say("<b>2PC ready.</b> The coordinator will ask each participant to PREPARE. Press <b>Play</b> or <b>Step</b>.");
+  }
+
+  function pulse(line2){ /* placeholder */ }
+
+  function setPartStatus(p,txt,color){ p.status.textContent=txt; p.status.setAttribute("fill",color||C.muted); }
+  function setLock(p,on){
+    p.locked=on;
+    p.lock.textContent=on?"LOCKED 🔒":"unlocked";
+    p.lock.setAttribute("fill",on?C.amber:C.muted);
+    p.g._rect.setAttribute("stroke",on?C.amber:C.border);
+  }
+
+  function build2PCSteps(){
+    steps=[];
+    const f=failSel.value; // none | voteNo | coordCrash
+    // Phase 1
+    steps.push({d:"<b>Phase 1 — Prepare.</b> Coordinator sends PREPARE to all participants.",
+      run:()=>{TPC.phase.textContent="PHASE 1: PREPARE";TPC.coord._rect.setAttribute("stroke",C.accent);}});
+    TPC.parts.forEach((p,i)=>{
+      const willNo=(f==="voteNo" && i===1);
+      steps.push({d:`<b>${p.name}</b> prepares: writes a tentative record and <b>LOCKS</b> the row, then votes <b>${willNo?"NO":"YES"}</b>.`,
+        run:()=>{
+          if(willNo){
+            setPartStatus(p,"voted NO",C.red);
+            p.vote="no";
+            p.g._rect.setAttribute("stroke",C.red);
+          }else{
+            setLock(p,true);
+            setPartStatus(p,"voted YES",C.green);
+            p.vote="yes";
+          }
+        }});
+    });
+
+    if(f==="voteNo"){
+      steps.push({d:"<b>Decision: ABORT.</b> One participant voted NO, so the coordinator must abort the whole transaction.",
+        run:()=>{TPC.phase.textContent="PHASE 2: ABORT";}});
+      TPC.parts.forEach(p=>{
+        steps.push({d:`<b>${p.name}</b> receives ABORT: rolls back its tentative change and releases the lock.`,
+          run:()=>{setLock(p,false);setPartStatus(p,"aborted ✗",C.red);}});
+      });
+      steps.push({d:"<b>Done (aborted).</b> Atomicity held: nobody committed. All locks released — no blocking. This is the happy failure path.",
+        run:()=>{}});
+      return;
+    }
+
+    if(f==="coordCrash"){
+      steps.push({d:"All participants voted YES and are <b>holding locks</b>, waiting for the commit decision...",
+        run:()=>{TPC.phase.textContent="PHASE 2: waiting for decision";}});
+      steps.push({d:"💥 <b>The coordinator CRASHES</b> before sending the commit/abort decision.",
+        run:()=>{
+          TPC.coordCrashed=true;
+          TPC.coord._rect.setAttribute("stroke",C.red);
+          TPC.coord._rect.setAttribute("fill","#2a1414");
+          TPC.phase.textContent="COORDINATOR DOWN — no decision sent";
+          TPC.phase.setAttribute("fill",C.red);
+        }});
+      steps.push({d:"<b>BLOCKING FAILURE.</b> Participants voted YES so they may NOT unilaterally abort, but no commit ever arrives. They are <b>stuck holding locks indefinitely</b> — other transactions touching these rows are blocked too.",
+        run:()=>{
+          TPC.parts.forEach(p=>{
+            if(p.vote==="yes"){ setPartStatus(p,"BLOCKED — stuck",C.red); }
+          });
+        }});
+      steps.push({d:"This is the core 2PC weakness: a single coordinator failure at the wrong moment freezes every participant. They cannot safely commit (maybe peer aborted) nor abort (maybe peer committed).",
+        run:()=>{}});
+      return;
+    }
+
+    // none: commit path
+    steps.push({d:"All participants voted <b>YES</b>. Coordinator durably logs the decision: <b>COMMIT</b>.",
+      run:()=>{TPC.phase.textContent="PHASE 2: COMMIT";}});
+    TPC.parts.forEach(p=>{
+      steps.push({d:`<b>${p.name}</b> receives COMMIT: makes its change permanent and releases the lock.`,
+        run:()=>{setLock(p,false);setPartStatus(p,"committed ✓",C.green);p.g._rect.setAttribute("stroke",C.green);}});
+    });
+    steps.push({d:"<b>Done (committed).</b> All-or-nothing achieved: every participant committed atomically, all locks released.",
+      run:()=>{TPC.phase.textContent="COMMITTED";TPC.phase.setAttribute("fill",C.green);}});
+  }
+
+  // =================================================================
+  //  SAGA
+  // =================================================================
+  const SG={};
+  const sagaNames=["T1 Reserve\nInventory","T2 Charge\nCard","T3 Create\nShipment","T4 Notify\nWarehouse"];
+  function buildSaga(){
+    clear();
+    SG.steps=[];
+    const n=4;
+    const startX=40, gap=210, w=160, y=120, h=80;
+    SG.xs=[];
+    for(let i=0;i<n;i++){
+      const x=startX+i*gap;
+      SG.xs.push(x+w/2);
+      const g=box(x,y,w,h,C.panel,C.border);
+      // multi-line label
+      const parts=sagaNames[i].split("\n");
+      const t1=el("text",{x:x+w/2,y:y+30,"text-anchor":"middle",fill:C.text,"font-size":14,"font-weight":600});
+      t1.textContent=parts[0];
+      const t2=el("text",{x:x+w/2,y:y+50,"text-anchor":"middle",fill:C.text,"font-size":14,"font-weight":600});
+      t2.textContent=parts[1];
+      svg.appendChild(t1);svg.appendChild(t2);
+      const st=el("text",{x:x+w/2,y:y+70,"text-anchor":"middle",fill:C.muted,"font-size":11});
+      st.textContent="pending";
+      svg.appendChild(st);
+      // compensation label below
+      const c=el("text",{x:x+w/2,y:y+h+34,"text-anchor":"middle",fill:C.muted,"font-size":12});
+      c.textContent="C"+(i+1);
+      svg.appendChild(c);
+      // arrow to next
+      if(i<n-1){
+        const ax1=x+w, ax2=x+gap;
+        const ar=el("line",{x1:ax1,y1:y+h/2,x2:ax2-3,y2:y+h/2,stroke:C.border,"stroke-width":2,"marker-end":"url(#arr)"});
+        svg.appendChild(ar);
+      }
+      SG.steps.push({g,st,comp:c,name:parts[0],x:x+w/2,committed:false});
+    }
+    // arrow marker
+    const defs=el("defs",{});
+    const m=el("marker",{id:"arr",markerWidth:8,markerHeight:8,refX:6,refY:3,orient:"auto",markerUnits:"strokeWidth"});
+    m.appendChild(el("path",{d:"M0,0 L6,3 L0,6 Z",fill:C.muted}));
+    defs.appendChild(m);
+    svg.insertBefore(defs,svg.firstChild);
+
+    // "Other user observer" panel showing visible intermediate state
+    SG.obsBox=box(620,250,240,120,"#11151c",C.purple);
+    label(740,272,"👀 Another user reads now",C.purple,12,600);
+    SG.obsLines=[];
+    const obsTxt=["Inventory: shows reserved?","Card: shows charged?","Shipment: visible?"];
+    for(let i=0;i<3;i++){
+      const t=el("text",{x:635,y:300+i*22,"text-anchor":"start",fill:C.muted,"font-size":12});
+      t.textContent=obsTxt[i]+" no";
+      svg.appendChild(t);
+      SG.obsLines.push(t);
+    }
+    SG.phase=el("text",{x:40,y:40,"text-anchor":"start",fill:C.muted,"font-size":13,"font-style":"italic"});
+    SG.phase.textContent="Saga: each step commits locally — no global lock, no isolation.";
+    svg.appendChild(SG.phase);
+
+    buildSagaSteps();
+    say("<b>Saga ready.</b> Each Ti commits to its own database immediately. There is <b>no isolation</b> — watch the observer panel. Press <b>Play</b>.");
+  }
+
+  function setSagaState(s,txt,color,fill){
+    s.st.textContent=txt; s.st.setAttribute("fill",color||C.muted);
+    if(fill) s.g._rect.setAttribute("fill",fill);
+    s.g._rect.setAttribute("stroke",color||C.border);
+  }
+  function updateObserver(){
+    const obs=SG.obsLines;
+    obs[0].textContent="Inventory: reserved? "+(SG.steps[0].committed?"YES (visible!)":"no");
+    obs[0].setAttribute("fill",SG.steps[0].committed?C.purple:C.muted);
+    obs[1].textContent="Card: charged? "+(SG.steps[1].committed?"YES (visible!)":"no");
+    obs[1].setAttribute("fill",SG.steps[1].committed?C.purple:C.muted);
+    obs[2].textContent="Shipment: created? "+(SG.steps[2].committed?"YES (visible!)":"no");
+    obs[2].setAttribute("fill",SG.steps[2].committed?C.purple:C.muted);
+  }
+
+  function buildSagaSteps(){
+    steps=[];
+    const f=failSel.value; // none | f2 | f3 | f4  (fail at step Tk)
+    const failIdx={none:-1,f2:1,f3:2,f4:3}[f];
+
+    for(let i=0;i<SG.steps.length;i++){
+      const s=SG.steps[i];
+      if(i===failIdx){
+        steps.push({d:`<b>${s.name} FAILS.</b> (e.g. card declined / out of stock). The forward path stops here. Now the saga runs compensations <b>in reverse</b> to undo the visible effects of T1..T${i}.`,
+          run:()=>{setSagaState(s,"FAILED ✗",C.red,"#2a1414");}});
+        // compensations in reverse
+        for(let j=i-1;j>=0;j--){
+          const cs=SG.steps[j];
+          steps.push({d:`Run compensation <b>C${j+1}</b>: semantically undo <b>${cs.name}</b> (it was already committed and visible — we cannot just roll back; we apply an inverse operation).`,
+            run:()=>{cs.committed=false;setSagaState(cs,"compensated ↺",C.amber,"#2a2410");updateObserver();}});
+        }
+        steps.push({d:"<b>Saga finished (compensated).</b> Net effect is undone — but note other users may have <b>already seen</b> the intermediate committed states before compensation ran. Sagas trade isolation for availability.",
+          run:()=>{}});
+        return;
+      }
+      steps.push({d:`Run <b>${s.name}</b>: commits to its OWN database immediately. This change is now durable AND visible to everyone — look at the observer panel.`,
+        run:()=>{
+          s.committed=true;
+          setSagaState(s,"committed ✓",C.green,"#13241a");
+          updateObserver();
+        }});
+      // dirty-read callout
+      if(i<3){
+        steps.push({d:`⚠️ <b>No isolation:</b> another user querying right now sees <b>${s.name}</b>'s result even though the overall saga is not finished. In 2PC this would be hidden behind a lock.`,
+          run:()=>{SG.obsBox._rect.setAttribute("stroke",C.purple);}});
+      }
+    }
+    steps.push({d:"<b>Saga complete (all committed).</b> Every local transaction succeeded; no compensation needed. No step ever blocked waiting on a coordinator.",
+      run:()=>{SG.phase.textContent="Saga complete — all steps committed.";SG.phase.setAttribute("fill",C.green);}});
+  }
+
+  // =================================================================
+  //  ENGINE
+  // =================================================================
+  function rebuild(){
+    stop();
+    idx=0;
+    populateFailOptions();
+    if(mode==="2pc") build2PC(); else buildSaga();
+    updateButtons();
+  }
+  function populateFailOptions(){
+    failSel.innerHTML="";
+    let opts;
+    if(mode==="2pc"){
+      opts=[["none","none (commit)"],["voteNo","participant votes NO"],["coordCrash","coordinator crash after YES"]];
+    }else{
+      opts=[["none","none (all succeed)"],["f2","fail at T2"],["f3","fail at T3"],["f4","fail at T4"]];
+    }
+    opts.forEach(o=>{
+      const op=document.createElement("option");
+      op.value=o[0];op.textContent=o[1];failSel.appendChild(op);
+    });
+  }
+
+  function doStep(){
+    if(idx>=steps.length){ stop(); return false; }
+    const s=steps[idx];
+    if(s.run) s.run();
+    say(s.d);
+    idx++;
+    updateButtons();
+    return true;
+  }
+
+  let lastTime=0;
+  const INTERVAL=1400;
+  function loop(ts){
+    if(!playing) return;
+    if(!lastTime) lastTime=ts;
+    if(ts-lastTime>=INTERVAL){
+      lastTime=ts;
+      if(!doStep()){ return; }
+    }
+    rafTimer=requestAnimationFrame(loop);
+  }
+  function play(){
+    if(idx>=steps.length){ rebuildKeepFail(); }
+    if(playing) return;
+    playing=true; lastTime=0;
+    updateButtons();
+    rafTimer=requestAnimationFrame(loop);
+  }
+  function stop(){
+    playing=false;
+    if(rafTimer) cancelAnimationFrame(rafTimer);
+    rafTimer=null;
+    updateButtons();
+  }
+  function rebuildKeepFail(){
+    // restart same scenario from scratch
+    idx=0;
+    if(mode==="2pc") build2PC(); else buildSaga();
+  }
+
+  function updateButtons(){
+    const playBtn=document.getElementById("play");
+    playBtn.textContent=playing?"Pause":(idx>=steps.length?"Replay":"Play");
+    document.getElementById("step").disabled=playing||idx>=steps.length;
+    document.getElementById("mode2pc").classList.toggle("active",mode==="2pc");
+    document.getElementById("modeSaga").classList.toggle("active",mode==="saga");
+  }
+
+  // ---------- legend / try text ----------
+  function setLegend(){
+    const lg=document.getElementById("legend");
+    let items;
+    if(mode==="2pc"){
+      items=[
+        [C.accent,"Coordinator"],
+        [C.green,"voted YES / committed"],
+        [C.amber,"row LOCKED (held)"],
+        [C.red,"voted NO / crash / blocked"],
+      ];
+    }else{
+      items=[
+        [C.green,"Ti committed (durable + visible)"],
+        [C.amber,"compensation Ci ran (undone)"],
+        [C.red,"step failed"],
+        [C.purple,"intermediate state visible to others (no isolation)"],
+      ];
+    }
+    lg.innerHTML="";
+    items.forEach(it=>{
+      const d=document.createElement("div");d.className="item";
+      const s=document.createElement("span");s.className="swatch";s.style.background=it[0];
+      d.appendChild(s);
+      const t=document.createElement("span");t.textContent=it[1];
+      d.appendChild(t);lg.appendChild(d);
+    });
+    document.getElementById("tryText").innerHTML = mode==="2pc"
+      ? 'Set <b>Inject failure</b> to “coordinator crash after YES” and step through. Watch the participants vote YES, lock their rows — then get stuck <b>holding locks forever</b> with no decision. That is the 2PC blocking problem.'
+      : 'Set <b>Inject failure</b> to “fail at T3”. As T1 and T2 commit, watch the observer panel light up purple — another user can see the half-done order <i>before</i> compensations undo it. Sagas have <b>no isolation</b>.';
+  }
+
+  // ---------- wiring ----------
+  document.getElementById("play").addEventListener("click",()=>{ playing?stop():play(); });
+  document.getElementById("step").addEventListener("click",()=>{
+    if(idx>=steps.length) rebuildKeepFail();
+    doStep();
+  });
+  document.getElementById("reset").addEventListener("click",rebuild);
+  failSel.addEventListener("change",rebuild);
+  document.getElementById("mode2pc").addEventListener("click",()=>{
+    if(mode==="2pc")return; mode="2pc"; setLegend(); rebuild();
+  });
+  document.getElementById("modeSaga").addEventListener("click",()=>{
+    if(mode==="saga")return; mode="saga"; setLegend(); rebuild();
+  });
+
+  setLegend();
+  rebuild();
+})();
+</script>
+</body>
+</html>

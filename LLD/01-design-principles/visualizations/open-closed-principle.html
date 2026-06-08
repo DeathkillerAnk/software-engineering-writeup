@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Open/Closed: if-else vs Strategy — LLD 01</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --ink:#e2e8f0; --muted:#94a3b8; --line:#475569;
+    --ok:#34d399; --bad:#f87171; --accent:#a78bfa;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5;padding:24px}
+  h1{font-size:1.35rem;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 18px;font-size:.95rem}
+  .toggle{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:18px}
+  .toggle button{background:#0b1220;color:var(--muted);border:0;padding:9px 16px;font-weight:700;cursor:pointer;font-size:.85rem}
+  .toggle button.active{background:var(--bad);color:#0b1220}
+  .toggle button.active.good{background:var(--ok)}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;min-height:300px;position:relative}
+  .core{border:2px solid var(--line);border-radius:12px;padding:14px;background:#0b1220;transition:all .4s;max-width:420px}
+  .core.modified{border-color:var(--bad);box-shadow:0 0 0 4px rgba(248,113,113,.35)}
+  .core .h{font-family:ui-monospace,monospace;font-weight:700;margin-bottom:8px;font-size:.9rem}
+  .line{font-family:ui-monospace,monospace;font-size:.8rem;color:var(--muted);padding:2px 0;white-space:pre}
+  .line.new{color:var(--bad);animation:flash 1s ease}
+  @keyframes flash{0%{background:rgba(248,113,113,.4)}100%{background:transparent}}
+  .methods{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+  .mbox{border:2px solid var(--ok);border-radius:10px;padding:8px 12px;background:#0b1220;font-family:ui-monospace,monospace;font-size:.78rem;color:var(--ok)}
+  .mbox.appear{animation:pop .5s cubic-bezier(.4,0,.2,1)}
+  @keyframes pop{0%{transform:scale(.6);opacity:0}100%{transform:scale(1);opacity:1}}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+  button.act{background:var(--accent);color:#0b1220;border:0;border-radius:8px;padding:9px 15px;font-size:.85rem;cursor:pointer;font-weight:700}
+  button.act.ghost{background:#334155;color:var(--ink);border:1px solid var(--line)}
+  button.act:hover{filter:brightness(1.1)}
+  .log{font-family:ui-monospace,monospace;font-size:.82rem;color:var(--muted);margin-top:14px;background:#0b1220;border:1px solid var(--line);border-radius:8px;padding:9px 12px;min-height:40px}
+  .verdict{margin-top:12px;padding:11px 14px;border-radius:8px;font-size:.9rem}
+  .verdict.bad{background:rgba(248,113,113,.12);color:var(--bad);border:1px solid rgba(248,113,113,.4)}
+  .verdict.ok{background:rgba(52,211,153,.12);color:var(--ok);border:1px solid rgba(52,211,153,.4)}
+  .counter{font-family:ui-monospace,monospace;font-size:.8rem;color:var(--muted);margin-top:10px}
+  .foot{color:var(--muted);font-size:.85rem;margin-top:22px;border-top:1px solid var(--line);padding-top:14px}
+  code{background:#0b1220;padding:1px 6px;border-radius:5px;font-size:.85em}
+  b.bad{color:var(--bad)} b.ok{color:var(--ok)}
+</style>
+</head>
+<body>
+  <h1>Open/Closed Principle — <code>if/else</code> vs Strategy</h1>
+  <p class="sub">LLD · 01 — "open for extension, closed for modification." Add a payment type and watch who has to change.</p>
+
+  <div class="toggle" id="toggle">
+    <button id="tIf" class="active">if/else design</button>
+    <button id="tStrat">Strategy design</button>
+  </div>
+
+  <div class="panel">
+    <div class="core" id="core">
+      <div class="h" id="coreTitle">class PaymentProcessor</div>
+      <div id="coreBody"></div>
+    </div>
+    <div class="methods" id="methods"></div>
+    <div class="counter" id="counter"></div>
+  </div>
+
+  <div class="controls">
+    <button class="act" id="btnAdd">➕ Add CryptoPayment</button>
+    <button class="act ghost" id="btnReset">reset</button>
+  </div>
+  <div class="log" id="log"></div>
+  <div class="verdict" id="verdict" style="display:none"></div>
+
+  <div class="foot">
+    <strong>Takeaway:</strong> with the <b class="bad">if/else</b> design every new payment type forces you to
+    <b class="bad">reopen and modify already-tested code</b> — risky, and the class grows without bound. With the
+    <b class="ok">Strategy</b> design you add a <b class="ok">new class</b> and the processor never changes — it was
+    <em>closed for modification</em> yet <em>open for extension</em>. The seam is the <code>PaymentMethod</code> interface.
+  </div>
+
+<script>
+(function(){
+  const core=document.getElementById('core'), coreTitle=document.getElementById('coreTitle'),
+        coreBody=document.getElementById('coreBody'), methods=document.getElementById('methods'),
+        counter=document.getElementById('counter'), log=document.getElementById('log'),
+        verdict=document.getElementById('verdict'),
+        tIf=document.getElementById('tIf'), tStrat=document.getElementById('tStrat'),
+        btnAdd=document.getElementById('btnAdd'), btnReset=document.getElementById('btnReset');
+  let strategy=false, added=0;
+  const base=['Card','UPI'];
+
+  function render(){
+    methods.innerHTML='';
+    if(strategy){
+      coreTitle.textContent='class PaymentProcessor  (never edited)';
+      coreBody.innerHTML='<div class="line">pay(PaymentMethod m, amount){</div>'
+        + '<div class="line">    m.pay(amount);  // depends on the seam</div>'
+        + '<div class="line">}</div>';
+      const types=base.concat(addedCrypto());
+      types.forEach(t=>{
+        const d=document.createElement('div'); d.className='mbox'; d.textContent='class '+t+'Payment implements PaymentMethod';
+        methods.appendChild(d);
+      });
+    }else{
+      coreTitle.textContent='class PaymentProcessor';
+      let body='<div class="line">pay(String type, amount){</div>';
+      body+='<div class="line">    if (type=="Card") {...}</div>';
+      body+='<div class="line">    else if (type=="UPI") {...}</div>';
+      for(let i=0;i<added;i++) body+='<div class="line">    else if (type=="Crypto'+(i+1)+'") {...}</div>';
+      body+='<div class="line">}</div>';
+      coreBody.innerHTML=body;
+    }
+  }
+  function addedCrypto(){ const a=[]; for(let i=0;i<added;i++) a.push('Crypto'+(i+1)); return a; }
+  function setMode(s){
+    strategy=s; tIf.classList.toggle('active',!s); tStrat.classList.toggle('active',s); tStrat.classList.toggle('good',s);
+    reset(true);
+  }
+  function reset(keepMode){
+    added=0; verdict.style.display='none';
+    log.textContent = strategy
+      ? 'Strategy: the processor depends on a PaymentMethod interface. Add a type → add a class.'
+      : 'if/else: the processor branches on a type string. Add a type → edit this method.';
+    counter.textContent=''; render();
+  }
+  btnAdd.onclick=function(){
+    added++;
+    render();
+    counter.textContent='Crypto payment types added: '+added;
+    if(strategy){
+      const boxes=methods.querySelectorAll('.mbox'); const last=boxes[boxes.length-1];
+      if(last) last.classList.add('appear');
+      log.innerHTML='Added <code>CryptoPayment</code> as a <b class="ok">new class</b>. PaymentProcessor was NOT touched.';
+      verdict.className='verdict ok'; verdict.style.display='block';
+      verdict.innerHTML='✅ <b>0 lines of tested code modified.</b> Extension #'+added+' was pure addition. This scales forever.';
+    }else{
+      core.classList.add('modified'); setTimeout(()=>core.classList.remove('modified'),900);
+      const lines=coreBody.querySelectorAll('.line'); const added2=lines[lines.length-2]; if(added2) added2.classList.add('new');
+      log.innerHTML='Added <code>CryptoPayment</code> by <b class="bad">editing PaymentProcessor</b> (a new <code>else if</code>).';
+      verdict.className='verdict bad'; verdict.style.display='block';
+      verdict.innerHTML='⚠️ <b>You reopened tested code</b> (modification #'+added+'). Every payment type makes this method longer and riskier to change.';
+    }
+  };
+  btnReset.onclick=()=>reset();
+  tIf.onclick=()=>setMode(false); tStrat.onclick=()=>setMode(true);
+  setMode(false);
+})();
+</script>
+</body>
+</html>

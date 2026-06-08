@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spatial Indexing: Quadtree</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --border:#30363d;
+    --text:#e6edf3; --muted:#8b949e;
+    --accent:#58a6ff; --success:#3fb950; --warning:#d29922;
+    --danger:#f85149; --purple:#bc8cff;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    line-height:1.5;
+  }
+  .wrap{max-width:960px; margin:0 auto; padding:24px 16px 48px;}
+  header h1{font-size:1.6rem; margin:0 0 8px;}
+  header p{color:var(--muted); margin:0 0 20px; max-width:760px;}
+  .stage-card{
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:8px; padding:14px; margin-bottom:16px;
+  }
+  svg{display:block; width:100%; height:auto; touch-action:none; cursor:crosshair;}
+  .controls{
+    display:flex; flex-wrap:wrap; gap:10px; align-items:center;
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:8px; padding:14px; margin-bottom:16px;
+  }
+  button{
+    background:#1b222b; color:var(--text);
+    border:1px solid var(--border); border-radius:999px;
+    padding:8px 16px; font-size:.9rem; cursor:pointer;
+    font-family:inherit; transition:background .15s,border-color .15s;
+  }
+  button:hover{background:#222b36; border-color:var(--accent);}
+  button:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+  button.active{background:#16324f; border-color:var(--accent); color:#cfe6ff;}
+  .ctl-group{display:flex; align-items:center; gap:8px;}
+  .ctl-group label{font-size:.82rem; color:var(--muted);}
+  input[type=range]{accent-color:var(--accent); cursor:pointer;}
+  .switch{display:flex; align-items:center; gap:6px; font-size:.85rem; color:var(--text);}
+  .switch input{width:16px; height:16px; accent-color:var(--purple); cursor:pointer;}
+  .divider{width:1px; align-self:stretch; background:var(--border); margin:0 2px;}
+  #narration{
+    background:var(--panel); border:1px solid var(--border);
+    border-left:4px solid var(--accent); border-radius:8px;
+    padding:14px 16px; margin-bottom:16px; min-height:46px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:.9rem; color:var(--text);
+  }
+  .stat{color:var(--muted); font-size:.82rem; margin-left:auto;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;}
+  .legend, .trythis{
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:8px; padding:14px 16px; margin-bottom:16px;
+  }
+  .legend h2, .trythis h2{font-size:.95rem; margin:0 0 10px;}
+  .legend ul{list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:14px;}
+  .legend li{display:flex; align-items:center; gap:8px; font-size:.84rem; color:var(--muted);}
+  .swatch{width:16px; height:16px; border-radius:3px; flex:none; border:1px solid var(--border);}
+  .dot{width:12px; height:12px; border-radius:50%; flex:none;}
+  .trythis p{margin:0; color:var(--muted); font-size:.88rem;}
+  .trythis b{color:var(--text);}
+  footer{border-top:1px solid var(--border); padding-top:16px; margin-top:8px;
+    display:flex; gap:20px; flex-wrap:wrap; font-size:.88rem;}
+  footer a{color:var(--accent); text-decoration:none;}
+  footer a:hover{text-decoration:underline;}
+  kbd{font-family:ui-monospace,monospace; background:#1b222b; border:1px solid var(--border);
+    border-radius:4px; padding:1px 5px; font-size:.8rem;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Spatial Indexing: Quadtree</h1>
+    <p>
+      A quadtree adapts to your data: a cell splits into four quadrants whenever it holds more than the
+      capacity, so crowded areas get fine cells and empty areas stay coarse. A "find nearby" query then
+      touches only the few cells near the radius instead of scanning every point.
+    </p>
+  </header>
+
+  <div class="stage-card">
+    <svg id="svg" viewBox="0 0 600 420" role="img" aria-label="2D map with points and an adaptive quadtree subdivision">
+      <rect x="0" y="0" width="600" height="420" fill="#0b0f14"/>
+      <g id="gGrid"></g>
+      <g id="gCells"></g>
+      <g id="gQuery"></g>
+      <g id="gPoints"></g>
+    </svg>
+  </div>
+
+  <div class="controls">
+    <button id="btnPlay">Play</button>
+    <button id="btnStep">Step</button>
+    <button id="btnReset">Reset</button>
+    <div class="divider"></div>
+    <button id="btnAdd" class="active">Add points</button>
+    <button id="btnQuery">Run nearby query</button>
+    <div class="divider"></div>
+    <div class="ctl-group">
+      <label for="cap">Capacity per cell:&nbsp;<b id="capVal">4</b></label>
+      <input type="range" id="cap" min="1" max="8" value="4">
+    </div>
+    <div class="ctl-group">
+      <label for="rad">Query radius:&nbsp;<b id="radVal">70</b></label>
+      <input type="range" id="rad" min="30" max="160" value="70">
+    </div>
+    <div class="divider"></div>
+    <label class="switch"><input type="checkbox" id="toggleGrid"> Uniform-grid compare</label>
+    <span class="stat" id="stat"></span>
+  </div>
+
+  <div id="narration">Click on the map to scatter points (drivers / restaurants). Watch dense areas split into smaller cells.</div>
+
+  <div class="legend">
+    <h2>Legend</h2>
+    <ul>
+      <li><span class="dot" style="background:var(--accent)"></span> Point (driver / venue)</li>
+      <li><span class="dot" style="background:var(--success)"></span> Point inside query radius</li>
+      <li><span class="dot" style="background:var(--warning)"></span> Point in a touched cell (checked, but rejected)</li>
+      <li><span class="swatch" style="background:transparent;border-color:var(--border)"></span> Quadtree cell boundary</li>
+      <li><span class="swatch" style="background:rgba(88,166,255,.18);border-color:var(--accent)"></span> Cell the query touches</li>
+      <li><span class="swatch" style="background:transparent;border-color:var(--purple)"></span> Uniform grid (comparison)</li>
+    </ul>
+  </div>
+
+  <div class="trythis">
+    <h2>Try this</h2>
+    <p>
+      Click many times in <b>one corner</b> to build a dense cluster, then a few clicks elsewhere. Notice the
+      quadtree carves the cluster into tiny cells while leaving open space as one big cell. Now switch to
+      <b>Run nearby query</b> and click near the cluster: only a handful of cells light up. Toggle
+      <b>Uniform-grid compare</b> to see how a fixed grid is either too coarse over the cluster or wasteful over empty space.
+    </p>
+  </div>
+
+  <footer>
+    <a href="./index.html">&larr; Back to gallery</a>
+    <a href="../04-design-case-studies/25-search-and-geo.md">Related writeup: Search &amp; Geo &rarr;</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const W = 600, H = 420;
+  const svg = document.getElementById('svg');
+  const gGrid = document.getElementById('gGrid');
+  const gCells = document.getElementById('gCells');
+  const gQuery = document.getElementById('gQuery');
+  const gPoints = document.getElementById('gPoints');
+  const narration = document.getElementById('narration');
+  const stat = document.getElementById('stat');
+
+  const SVGNS = "http://www.w3.org/2000/svg";
+  function el(tag, attrs){
+    const n = document.createElementNS(SVGNS, tag);
+    for(const k in attrs) n.setAttribute(k, attrs[k]);
+    return n;
+  }
+
+  // ---------- State ----------
+  let points = [];          // {x,y}
+  let capacity = 4;
+  let radius = 70;
+  let mode = 'add';         // 'add' | 'query'
+  let query = null;         // {x,y,r}
+  let showGrid = false;
+
+  // Animated build: we rebuild a quadtree but reveal subdivisions step by step.
+  let tree = null;          // root node
+  let buildOrder = [];      // nodes in BFS order for stepwise reveal
+  let revealCount = 0;      // how many nodes currently "shown"
+  let playing = false;
+  let lastTick = 0;
+  const STEP_MS = 380;
+
+  // ---------- Quadtree ----------
+  function makeNode(x,y,w,h,depth){
+    return {x,y,w,h,depth,pts:[],divided:false,children:null};
+  }
+  function contains(n,p){
+    return p.x>=n.x && p.x<n.x+n.w && p.y>=n.y && p.y<n.y+n.h;
+  }
+  function subdivide(n){
+    const hw=n.w/2, hh=n.h/2, d=n.depth+1;
+    n.children=[
+      makeNode(n.x, n.y, hw, hh, d),       // NW
+      makeNode(n.x+hw, n.y, hw, hh, d),    // NE
+      makeNode(n.x, n.y+hh, hw, hh, d),    // SW
+      makeNode(n.x+hw, n.y+hh, hw, hh, d)  // SE
+    ];
+    n.divided=true;
+    // re-distribute existing points down
+    const old=n.pts; n.pts=[];
+    for(const p of old) insert(n,p);
+  }
+  const MAX_DEPTH = 8;
+  function insert(n,p){
+    if(!contains(n,p)) return false;
+    if(n.divided){
+      for(const c of n.children){ if(insert(c,p)) return true; }
+      return false;
+    }
+    n.pts.push(p);
+    if(n.pts.length>capacity && n.depth<MAX_DEPTH){
+      subdivide(n);
+    }
+    return true;
+  }
+  function buildTree(){
+    const root=makeNode(0,0,W,H,0);
+    for(const p of points) insert(root,p);
+    return root;
+  }
+  // collect nodes in BFS order (parents before children) for reveal animation
+  function bfsNodes(root){
+    const out=[], q=[root];
+    while(q.length){
+      const n=q.shift(); out.push(n);
+      if(n.children) for(const c of n.children) q.push(c);
+    }
+    return out;
+  }
+  // leaf cells of the (possibly partially revealed) tree
+  function collectLeaves(n, revealedSet, out){
+    if(n.divided && revealedSet.has(n.children[0])){
+      for(const c of n.children) collectLeaves(c, revealedSet, out);
+    } else {
+      out.push(n);
+    }
+  }
+
+  function rebuild(animate){
+    tree = buildTree();
+    buildOrder = bfsNodes(tree);
+    if(animate){
+      revealCount = 1; // show root immediately, animate the rest
+    } else {
+      revealCount = buildOrder.length;
+    }
+  }
+
+  // ---------- Query ----------
+  function rectIntersectsCircle(n, q){
+    // closest point on rect to circle center
+    const cx = Math.max(n.x, Math.min(q.x, n.x+n.w));
+    const cy = Math.max(n.y, Math.min(q.y, n.y+n.h));
+    const dx = q.x-cx, dy = q.y-cy;
+    return dx*dx+dy*dy <= q.r*q.r;
+  }
+  // returns {touchedLeaves, checkedPts, hitPts}
+  function runQuery(q){
+    const revealed = new Set(buildOrder.slice(0,revealCount));
+    const leaves=[]; collectLeaves(tree, revealed, leaves);
+    const touched=[], checked=[], hits=[];
+    for(const lf of leaves){
+      if(rectIntersectsCircle(lf,q)){
+        touched.push(lf);
+        for(const p of lf.pts){
+          checked.push(p);
+          const dx=p.x-q.x, dy=p.y-q.y;
+          if(dx*dx+dy*dy<=q.r*q.r) hits.push(p);
+        }
+      }
+    }
+    return {leaves, touched, checked, hits};
+  }
+
+  // ---------- Rendering ----------
+  function clear(g){ while(g.firstChild) g.removeChild(g.firstChild); }
+
+  function draw(){
+    clear(gGrid); clear(gCells); clear(gQuery); clear(gPoints);
+
+    const revealed = new Set(buildOrder.slice(0, revealCount));
+    const leaves=[]; collectLeaves(tree, revealed, leaves);
+
+    let q = null, qres = null, touchedSet=new Set(), hitSet=new Set(), checkSet=new Set();
+    if(mode==='query' && query){
+      q = query;
+      qres = runQuery(q);
+      qres.touched.forEach(c=>touchedSet.add(c));
+      qres.hits.forEach(p=>hitSet.add(p));
+      qres.checked.forEach(p=>checkSet.add(p));
+    }
+
+    // draw quadtree cells
+    for(const lf of leaves){
+      const touched = touchedSet.has(lf);
+      gCells.appendChild(el('rect',{
+        x:lf.x, y:lf.y, width:lf.w, height:lf.h,
+        fill: touched ? 'rgba(88,166,255,0.18)' : 'none',
+        stroke: touched ? '#58a6ff' : '#30363d',
+        'stroke-width': touched ? 1.6 : 1
+      }));
+    }
+
+    // uniform grid comparison overlay
+    if(showGrid){
+      // choose a uniform grid whose cell count roughly matches a "reasonable" guess:
+      // use a fixed 8x8 to illustrate the fixed-resolution problem.
+      const cols=8, rows=8;
+      const cw=W/cols, ch=H/rows;
+      for(let i=1;i<cols;i++){
+        gGrid.appendChild(el('line',{x1:i*cw,y1:0,x2:i*cw,y2:H,stroke:'#bc8cff','stroke-width':1,'stroke-dasharray':'4 4',opacity:0.7}));
+      }
+      for(let j=1;j<rows;j++){
+        gGrid.appendChild(el('line',{x1:0,y1:j*ch,x2:W,y2:j*ch,stroke:'#bc8cff','stroke-width':1,'stroke-dasharray':'4 4',opacity:0.7}));
+      }
+    }
+
+    // draw query circle
+    if(q){
+      gQuery.appendChild(el('circle',{
+        cx:q.x, cy:q.y, r:q.r, fill:'rgba(63,185,80,0.10)',
+        stroke:'#3fb950','stroke-width':1.6,'stroke-dasharray':'6 4'
+      }));
+      gQuery.appendChild(el('circle',{cx:q.x, cy:q.y, r:3, fill:'#3fb950'}));
+    }
+
+    // draw points
+    for(const p of points){
+      let color='#58a6ff', r=3.2;
+      if(hitSet.has(p)){ color='#3fb950'; r=4; }
+      else if(checkSet.has(p)){ color='#d29922'; r=3.6; }
+      gPoints.appendChild(el('circle',{cx:p.x, cy:p.y, r:r, fill:color,
+        stroke:'#0b0f14','stroke-width':0.8}));
+    }
+
+    updateStats(leaves, qres);
+  }
+
+  function updateStats(leaves, qres){
+    if(mode==='query' && qres){
+      const total=points.length;
+      const checked=qres.checked.length;
+      const saved = total>0 ? Math.round(100*(1-checked/total)) : 0;
+      stat.textContent = `points: ${total} | leaf cells: ${leaves.length} | touched: ${qres.touched.length} | checked ${checked}/${total} pts (${saved}% skipped) | found: ${qres.hits.length}`;
+    } else {
+      stat.textContent = `points: ${points.length} | leaf cells: ${leaves.length} | capacity/cell: ${capacity}`;
+    }
+  }
+
+  // ---------- Narration ----------
+  function say(s){ narration.textContent = s; }
+
+  function narrateBuild(){
+    if(revealCount>=buildOrder.length){
+      say(`Quadtree built: ${points.length} points across ${leafCount()} adaptive cells. Dense regions split deeper; sparse regions stay as large cells. Switch to "Run nearby query".`);
+    } else {
+      const n = buildOrder[revealCount-1];
+      if(n && n.divided){
+        say(`Cell at depth ${n.depth} held more than ${capacity} points -> split into 4 quadrants. Each quadrant only keeps the points that fall inside it.`);
+      } else {
+        say(`Revealing cells... a cell stops splitting once it holds at most ${capacity} points.`);
+      }
+    }
+  }
+  function leafCount(){
+    const revealed=new Set(buildOrder.slice(0,revealCount));
+    const out=[]; collectLeaves(tree,revealed,out); return out.length;
+  }
+
+  // ---------- Interactions ----------
+  function svgPoint(evt){
+    const rect = svg.getBoundingClientRect();
+    const sx = W/rect.width, sy = H/rect.height;
+    const cx = (evt.touches?evt.touches[0].clientX:evt.clientX) - rect.left;
+    const cy = (evt.touches?evt.touches[0].clientY:evt.clientY) - rect.top;
+    return {x: cx*sx, y: cy*sy};
+  }
+
+  svg.addEventListener('click', function(evt){
+    const p = svgPoint(evt);
+    if(p.x<0||p.x>=W||p.y<0||p.y>=H) return;
+    if(mode==='add'){
+      points.push({x:p.x, y:p.y});
+      rebuild(false); // immediate (full) build when adding
+      draw();
+      say(`Added a point at (${Math.round(p.x)}, ${Math.round(p.y)}). Total ${points.length}. The cell containing it splits if it now exceeds capacity ${capacity}.`);
+    } else {
+      query = {x:p.x, y:p.y, r:radius};
+      const res = runQuery(query);
+      const total=points.length, checked=res.checked.length;
+      const saved = total>0?Math.round(100*(1-checked/total)):0;
+      draw();
+      say(`Nearby query at (${Math.round(p.x)}, ${Math.round(p.y)}), r=${radius}. The query touches ${res.touched.length} leaf cells, so we only check ${checked} of ${total} points (${saved}% skipped) and find ${res.hits.length} inside the radius.`);
+    }
+  });
+
+  // ---------- Animation loop (stepwise build reveal) ----------
+  function tick(ts){
+    if(playing){
+      if(!lastTick) lastTick=ts;
+      if(ts-lastTick>=STEP_MS){
+        lastTick=ts;
+        stepBuild();
+      }
+    }
+    requestAnimationFrame(tick);
+  }
+  function stepBuild(){
+    if(revealCount<buildOrder.length){
+      revealCount++;
+      draw();
+      narrateBuild();
+    } else {
+      playing=false;
+      document.getElementById('btnPlay').textContent='Play';
+      narrateBuild();
+    }
+  }
+
+  // ---------- Sample data ----------
+  function seed(){
+    points=[];
+    // dense cluster top-left
+    for(let i=0;i<26;i++){
+      points.push({x: 70+rand(80), y: 60+rand(80)});
+    }
+    // medium cluster bottom-right
+    for(let i=0;i<12;i++){
+      points.push({x: 410+rand(120), y: 280+rand(100)});
+    }
+    // sparse scatter
+    for(let i=0;i<8;i++){
+      points.push({x: 40+rand(W-80), y: 40+rand(H-80)});
+    }
+  }
+  function rand(n){ return Math.random()*n; }
+
+  // ---------- Controls ----------
+  const btnPlay=document.getElementById('btnPlay');
+  const btnStep=document.getElementById('btnStep');
+  const btnReset=document.getElementById('btnReset');
+  const btnAdd=document.getElementById('btnAdd');
+  const btnQuery=document.getElementById('btnQuery');
+  const capSlider=document.getElementById('cap');
+  const radSlider=document.getElementById('rad');
+  const capVal=document.getElementById('capVal');
+  const radVal=document.getElementById('radVal');
+  const toggleGrid=document.getElementById('toggleGrid');
+
+  btnPlay.addEventListener('click', function(){
+    if(revealCount>=buildOrder.length){
+      // restart the reveal animation from scratch
+      rebuild(true);
+      draw();
+    }
+    playing=!playing;
+    btnPlay.textContent = playing?'Pause':'Play';
+    if(playing){ lastTick=0; say('Building the quadtree step by step: each split divides one cell into four quadrants.'); }
+  });
+
+  btnStep.addEventListener('click', function(){
+    playing=false; btnPlay.textContent='Play';
+    if(revealCount>=buildOrder.length){ rebuild(true); draw(); narrateBuild(); return; }
+    stepBuild();
+  });
+
+  btnReset.addEventListener('click', function(){
+    playing=false; btnPlay.textContent='Play';
+    query=null;
+    seed();
+    rebuild(false);
+    setMode('add');
+    draw();
+    say(`Reset with a fresh sample: a dense cluster, a medium cluster, and a sparse scatter (${points.length} points). The quadtree adapts to each density.`);
+  });
+
+  function setMode(m){
+    mode=m;
+    btnAdd.classList.toggle('active', m==='add');
+    btnQuery.classList.toggle('active', m==='query');
+    svg.style.cursor = m==='query' ? 'crosshair' : 'copy';
+  }
+  btnAdd.addEventListener('click', function(){
+    setMode('add'); draw();
+    say('Add-points mode: click anywhere on the map to drop a point. Cells split automatically when they exceed capacity.');
+  });
+  btnQuery.addEventListener('click', function(){
+    setMode('query');
+    // ensure tree fully revealed so the query is meaningful
+    revealCount=buildOrder.length;
+    draw();
+    say('Query mode: click on the map to drop a search center. Only the cells the radius touches are inspected.');
+  });
+
+  capSlider.addEventListener('input', function(){
+    capacity=parseInt(capSlider.value,10);
+    capVal.textContent=capacity;
+    rebuild(false);
+    if(mode==='query' && query) query.r=radius;
+    draw();
+    say(`Capacity set to ${capacity} points per cell. Lower capacity = more aggressive splitting (finer cells); higher = coarser cells.`);
+  });
+  radSlider.addEventListener('input', function(){
+    radius=parseInt(radSlider.value,10);
+    radVal.textContent=radius;
+    if(query) query.r=radius;
+    draw();
+    if(mode==='query' && query){
+      const res=runQuery(query);
+      say(`Radius ${radius}: query now touches ${res.touched.length} cells and checks ${res.checked.length}/${points.length} points. Bigger radius -> more cells touched.`);
+    } else {
+      say(`Query radius set to ${radius}. Switch to "Run nearby query" and click the map to use it.`);
+    }
+  });
+
+  toggleGrid.addEventListener('change', function(){
+    showGrid=toggleGrid.checked;
+    draw();
+    if(showGrid){
+      say('Uniform 8x8 grid overlay (purple): every cell is the same size regardless of density. It is too coarse over the dense cluster (many points per cell) yet wasteful over empty space (cells with nothing). The quadtree avoids both.');
+    } else {
+      say('Uniform-grid overlay hidden. Back to the adaptive quadtree.');
+    }
+  });
+
+  // ---------- Init ----------
+  seed();
+  rebuild(false);
+  setMode('add');
+  draw();
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Load Balancing Algorithms</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --border:#30363d;
+    --text:#e6edf3; --muted:#8b949e;
+    --blue:#58a6ff; --green:#3fb950; --amber:#d29922; --red:#f85149; --purple:#bc8cff;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    line-height:1.5; padding:24px 16px;
+  }
+  .wrap{max-width:960px; margin:0 auto}
+  header h1{font-size:1.6rem; margin:0 0 .3em}
+  header p{color:var(--muted); margin:0 0 1.2em; max-width:70ch}
+  .panel{background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:16px}
+  .stage{padding:8px 16px 4px}
+  svg{display:block; width:100%; height:auto}
+  .controls{display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:14px}
+  .algo-row{display:flex; flex-wrap:wrap; gap:8px; margin-top:14px}
+  button{
+    background:#21262d; color:var(--text); border:1px solid var(--border);
+    border-radius:999px; padding:8px 16px; font-size:.9rem; cursor:pointer;
+    font-family:inherit; transition:background .15s,border-color .15s;
+  }
+  button:hover{background:#30363d; border-color:#8b949e}
+  button:focus-visible{outline:2px solid var(--blue); outline-offset:2px}
+  button.algo[aria-pressed="true"]{background:#1f3b5c; border-color:var(--blue); color:#cfe3ff}
+  .slider{display:flex; align-items:center; gap:8px; font-size:.85rem; color:var(--muted)}
+  input[type=range]{accent-color:var(--blue)}
+  .readouts{display:flex; flex-wrap:wrap; gap:14px; margin-top:16px}
+  .stat{background:#0d1117; border:1px solid var(--border); border-radius:8px; padding:10px 14px; min-width:120px}
+  .stat .k{font-size:.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:.04em}
+  .stat .v{font-size:1.3rem; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; margin-top:2px}
+  #narration{
+    margin-top:16px; padding:12px 14px; background:#0d1117; border:1px solid var(--border);
+    border-left:3px solid var(--blue); border-radius:6px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.88rem; min-height:2.4em;
+  }
+  .legend{display:flex; flex-wrap:wrap; gap:16px; margin-top:16px; font-size:.85rem; color:var(--muted)}
+  .legend .item{display:flex; align-items:center; gap:7px}
+  .swatch{width:14px; height:14px; border-radius:3px; display:inline-block}
+  .try{margin-top:16px; padding:12px 14px; background:#1c2333; border:1px dashed var(--purple); border-radius:6px; font-size:.9rem}
+  .try b{color:var(--purple)}
+  footer{margin-top:24px; display:flex; gap:20px; font-size:.85rem}
+  footer a{color:var(--blue); text-decoration:none}
+  footer a:hover{text-decoration:underline}
+  h2.section{font-size:.95rem; color:var(--muted); margin:0 0 4px; text-transform:uppercase; letter-spacing:.05em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Load Balancing Algorithms</h1>
+    <p>Requests with random durations stream into a pool of servers. Each bar's height is that server's current in-flight load. Switch algorithms and watch how evenly (or unevenly) the load spreads. Power-of-Two-Choices samples two servers and picks the lighter one, getting near-perfect balance without any global coordinator.</p>
+  </header>
+
+  <div class="panel stage">
+    <svg id="svg" viewBox="0 0 900 420" role="img" aria-label="Server load bars">
+      <g id="incoming"></g>
+      <g id="flying"></g>
+      <g id="bars"></g>
+    </svg>
+  </div>
+
+  <div class="panel" style="margin-top:14px">
+    <h2 class="section">Algorithm</h2>
+    <div class="algo-row" id="algoRow">
+      <button class="algo" data-algo="rr" aria-pressed="true">Round-Robin</button>
+      <button class="algo" data-algo="lc" aria-pressed="false">Least-Connections</button>
+      <button class="algo" data-algo="rand" aria-pressed="false">Random</button>
+      <button class="algo" data-algo="p2c" aria-pressed="false">Power-of-Two-Choices</button>
+    </div>
+
+    <div class="controls">
+      <button id="playBtn">Pause</button>
+      <button id="stepBtn">Step</button>
+      <button id="resetBtn">Reset</button>
+      <label class="slider">Arrival rate
+        <input type="range" id="rate" min="1" max="12" value="5">
+        <span id="rateVal">5</span>/s
+      </label>
+      <label class="slider">Servers
+        <input type="range" id="nservers" min="4" max="12" value="8">
+        <span id="nVal">8</span>
+      </label>
+    </div>
+
+    <div class="readouts">
+      <div class="stat"><div class="k">Algorithm</div><div class="v" id="roAlgo" style="font-size:1rem">Round-Robin</div></div>
+      <div class="stat"><div class="k">Max load</div><div class="v" id="roMax">0</div></div>
+      <div class="stat"><div class="k">Variance</div><div class="v" id="roVar">0.0</div></div>
+      <div class="stat"><div class="k">Total in-flight</div><div class="v" id="roTotal">0</div></div>
+    </div>
+
+    <div id="narration">Waiting for the first request…</div>
+
+    <div class="legend">
+      <div class="item"><span class="swatch" style="background:var(--blue)"></span>Server bar (height = in-flight requests)</div>
+      <div class="item"><span class="swatch" style="background:var(--amber)"></span>Server(s) being considered this dispatch</div>
+      <div class="item"><span class="swatch" style="background:var(--green)"></span>Chosen server</div>
+      <div class="item"><span class="swatch" style="background:var(--purple)"></span>Request in flight</div>
+    </div>
+
+    <div class="try">
+      <b>Try this:</b> Crank the arrival rate to max and watch <b>Random</b> — some bars spike way above others (high max &amp; variance). Switch to <b>Power-of-Two-Choices</b>: with just two random samples per request the bars flatten out dramatically, nearly matching Least-Connections but using no shared counter.
+    </div>
+  </div>
+
+  <footer>
+    <a href="./index.html">&larr; Back to gallery</a>
+    <a href="../01-building-blocks/05-load-balancing.md">Related writeup: Load Balancing &rarr;</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const NS="http://www.w3.org/2000/svg";
+  const svg=document.getElementById("svg");
+  const gBars=document.getElementById("bars");
+  const gFly=document.getElementById("flying");
+  const gIn=document.getElementById("incoming");
+  const VW=900, VH=420;
+  const BASE_Y=360;       // baseline of bars
+  const MAX_BAR_H=300;    // pixels for CAP load
+  const CAP=20;           // load value that maps to full bar height (for scaling)
+
+  // ---- state ----
+  let algo="rr";
+  let nServers=8;
+  let arrivalRate=5;      // requests per second
+  let playing=true;
+  let rrIdx=0;
+  let servers=[];         // {load}
+  let flights=[];         // active requests {el,server,endT}
+  let lastTime=0;
+  let arrivalAcc=0;       // fractional accumulator for arrivals
+  let reqCounter=0;
+
+  const ALGO_NAMES={rr:"Round-Robin",lc:"Least-Connections",rand:"Random",p2c:"Power-of-Two-Choices"};
+
+  function makeEl(tag,attrs){
+    const e=document.createElementNS(NS,tag);
+    for(const k in attrs) e.setAttribute(k,attrs[k]);
+    return e;
+  }
+
+  function barX(i){
+    const slot=VW/nServers;
+    const w=Math.min(70, slot*0.62);
+    return {x:i*slot+(slot-w)/2, w:w, cx:i*slot+slot/2};
+  }
+
+  function buildServers(){
+    servers=[];
+    flights.forEach(f=>{ if(f.el.parentNode) f.el.parentNode.removeChild(f.el); });
+    flights=[];
+    gBars.innerHTML="";
+    for(let i=0;i<nServers;i++){
+      servers.push({load:0});
+      const {x,w,cx}=barX(i);
+      const bar=makeEl("rect",{x:x,y:BASE_Y,width:w,height:0,rx:4,fill:"#58a6ff",class:"barRect"});
+      const cap=makeEl("rect",{x:x,y:BASE_Y-MAX_BAR_H,width:w,height:MAX_BAR_H,rx:4,fill:"none",stroke:"#30363d","stroke-width":1});
+      const lbl=makeEl("text",{x:cx,y:BASE_Y+22,fill:"#8b949e","font-size":"13","text-anchor":"middle","font-family":"ui-monospace,Menlo,monospace"});
+      lbl.textContent="S"+i;
+      const num=makeEl("text",{x:cx,y:BASE_Y-4,fill:"#e6edf3","font-size":"13","text-anchor":"middle","font-family":"ui-monospace,Menlo,monospace"});
+      num.textContent="0";
+      gBars.appendChild(cap); gBars.appendChild(bar); gBars.appendChild(lbl); gBars.appendChild(num);
+      servers[i].bar=bar; servers[i].num=num; servers[i].x=x; servers[i].w=w; servers[i].cx=cx;
+    }
+    // baseline
+    const old=document.getElementById("baseline");
+    if(old) old.remove();
+    const base=makeEl("line",{id:"baseline",x1:0,y1:BASE_Y,x2:VW,y2:BASE_Y,stroke:"#30363d","stroke-width":2});
+    gBars.appendChild(base);
+    renderBars();
+  }
+
+  function renderBars(){
+    let maxLoad=0;
+    for(const s of servers) maxLoad=Math.max(maxLoad,s.load);
+    const scaleMax=Math.max(CAP, maxLoad);
+    for(const s of servers){
+      const h=s.load/scaleMax*MAX_BAR_H;
+      s.bar.setAttribute("y",BASE_Y-h);
+      s.bar.setAttribute("height",h);
+      // color: highlight relative load
+      s.bar.setAttribute("fill", s._chosen? "#3fb950" : (s._candidate? "#d29922":"#58a6ff"));
+      s.num.textContent=s.load;
+      s.num.setAttribute("y", BASE_Y-h-4);
+    }
+  }
+
+  // pick a server index per algorithm; returns {idx, candidates:[]}
+  function pick(){
+    if(algo==="rr"){
+      const idx=rrIdx % nServers;
+      rrIdx=(rrIdx+1)%nServers;
+      return {idx, candidates:[idx], note:"Round-Robin: next server in rotation -> S"+idx+"."};
+    }
+    if(algo==="rand"){
+      const idx=Math.floor(Math.random()*nServers);
+      return {idx, candidates:[idx], note:"Random: rolled the dice -> S"+idx+"."};
+    }
+    if(algo==="lc"){
+      let best=0;
+      for(let i=1;i<nServers;i++) if(servers[i].load<servers[best].load) best=i;
+      return {idx:best, candidates:servers.map((_,i)=>i),
+        note:"Least-Connections: scanned all servers, S"+best+" has the fewest ("+servers[best].load+")."};
+    }
+    // p2c
+    let a=Math.floor(Math.random()*nServers);
+    let b=Math.floor(Math.random()*nServers);
+    while(b===a && nServers>1) b=Math.floor(Math.random()*nServers);
+    const idx = servers[a].load<=servers[b].load ? a : b;
+    return {idx, candidates:[a,b],
+      note:"Power-of-Two: sampled S"+a+" ("+servers[a].load+") &amp; S"+b+" ("+servers[b].load+") -> chose lighter S"+idx+"."};
+  }
+
+  function dispatchRequest(){
+    const p=pick();
+    reqCounter++;
+    const s=servers[p.idx];
+    s.load++;
+    // duration: random, exponential-ish so durations vary widely
+    const dur=600+ -Math.log(1-Math.random())*1400; // ms
+    const endT=performance.now()+dur;
+    // flying dot animation: from top center to bar
+    const startX=VW/2, startY=20;
+    const dot=makeEl("circle",{cx:startX,cy:startY,r:6,fill:"#bc8cff",opacity:0.95});
+    gFly.appendChild(dot);
+    flights.push({el:dot,server:p.idx,endT:endT,startT:performance.now(),flyDur:380,fromX:startX,fromY:startY,arrived:false});
+
+    // highlight candidates briefly
+    for(const c of p.candidates) servers[c]._candidate=true;
+    s._chosen=true;
+    setTimeout(()=>{
+      for(const c of p.candidates) servers[c]._candidate=false;
+      s._chosen=false;
+      renderBars();
+    }, 360);
+
+    setNarration(p.note);
+    renderBars();
+    updateReadouts();
+  }
+
+  function setNarration(html){
+    document.getElementById("narration").innerHTML = html;
+  }
+
+  function updateReadouts(){
+    let maxLoad=0,total=0;
+    for(const s of servers){ maxLoad=Math.max(maxLoad,s.load); total+=s.load; }
+    const mean=total/nServers;
+    let v=0;
+    for(const s of servers) v+=(s.load-mean)*(s.load-mean);
+    v/=nServers;
+    document.getElementById("roMax").textContent=maxLoad;
+    document.getElementById("roVar").textContent=v.toFixed(1);
+    document.getElementById("roTotal").textContent=total;
+    document.getElementById("roAlgo").textContent=ALGO_NAMES[algo];
+  }
+
+  function tick(now){
+    if(!lastTime) lastTime=now;
+    const dt=(now-lastTime)/1000;
+    lastTime=now;
+
+    if(playing){
+      arrivalAcc += dt*arrivalRate;
+      while(arrivalAcc>=1){
+        arrivalAcc-=1;
+        dispatchRequest();
+      }
+    }
+
+    // animate flights & complete finished requests
+    for(let i=flights.length-1;i>=0;i--){
+      const f=flights[i];
+      const s=servers[f.server];
+      // move dot toward bar top
+      if(!f.arrived){
+        const t=Math.min(1,(now-f.startT)/f.flyDur);
+        const tx=s.cx;
+        // target y = current bar top
+        const targetY=parseFloat(s.bar.getAttribute("y"));
+        const ease=1-Math.pow(1-t,2);
+        f.el.setAttribute("cx", f.fromX+(tx-f.fromX)*ease);
+        f.el.setAttribute("cy", f.fromY+(targetY-f.fromY)*ease);
+        if(t>=1){ f.arrived=true; f.el.setAttribute("opacity","0"); }
+      }
+      if(now>=f.endT){
+        if(s.load>0) s.load--;
+        if(f.el.parentNode) f.el.parentNode.removeChild(f.el);
+        flights.splice(i,1);
+      }
+    }
+    renderBars();
+    updateReadouts();
+    requestAnimationFrame(tick);
+  }
+
+  // ---- controls ----
+  document.getElementById("algoRow").addEventListener("click",e=>{
+    const b=e.target.closest("button.algo");
+    if(!b) return;
+    algo=b.dataset.algo;
+    document.querySelectorAll("button.algo").forEach(x=>x.setAttribute("aria-pressed", x===b?"true":"false"));
+    rrIdx=0;
+    setNarration("Switched to <b>"+ALGO_NAMES[algo]+"</b>. Watch the spread of bar heights.");
+    updateReadouts();
+  });
+
+  const playBtn=document.getElementById("playBtn");
+  playBtn.addEventListener("click",()=>{
+    playing=!playing;
+    playBtn.textContent=playing?"Pause":"Play";
+  });
+  document.getElementById("stepBtn").addEventListener("click",()=>{
+    dispatchRequest();
+  });
+  document.getElementById("resetBtn").addEventListener("click",()=>{
+    rrIdx=0; arrivalAcc=0;
+    buildServers();
+    setNarration("Reset. Pool cleared.");
+    updateReadouts();
+  });
+  const rate=document.getElementById("rate");
+  rate.addEventListener("input",()=>{
+    arrivalRate=+rate.value;
+    document.getElementById("rateVal").textContent=rate.value;
+  });
+  const nsel=document.getElementById("nservers");
+  nsel.addEventListener("input",()=>{
+    nServers=+nsel.value;
+    document.getElementById("nVal").textContent=nsel.value;
+    rrIdx=0;
+    buildServers();
+    updateReadouts();
+  });
+
+  // init
+  buildServers();
+  updateReadouts();
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>equals / hashCode & HashMap — LLD 00</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --ink:#e2e8f0; --muted:#94a3b8;
+    --ok:#34d399; --bad:#f87171; --line:#475569; --key:#38bdf8; --probe:#f59e0b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.5;padding:24px}
+  h1{font-size:1.4rem;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 20px;font-size:.95rem}
+  .toggle{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:18px}
+  .toggle button{background:#0b1220;color:var(--muted);border:0;padding:9px 16px;font-weight:700;cursor:pointer;font-size:.85rem}
+  .toggle button.active{background:var(--key);color:#0b1220}
+  .toggle button.active.broken{background:var(--bad);color:#0b1220}
+  .codeline{font-family:ui-monospace,monospace;font-size:.82rem;background:#0b1220;border:1px solid var(--line);
+    border-radius:8px;padding:8px 12px;margin-bottom:18px;color:var(--muted)}
+  .codeline b{color:var(--ink)}
+  .map{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 18px 16px;min-height:260px}
+  .maplabel{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px}
+  .buckets{display:grid;grid-template-columns:repeat(8,1fr);gap:10px;margin-top:60px}
+  .bucket{height:90px;border:2px dashed var(--line);border-radius:10px;display:flex;flex-direction:column;
+    align-items:center;justify-content:flex-end;padding-bottom:8px;position:relative;transition:all .35s}
+  .bucket .idx{position:absolute;top:6px;font-size:.7rem;color:var(--muted);font-family:ui-monospace,monospace}
+  .bucket.hit{border-style:solid;border-color:var(--ok);background:rgba(52,211,153,.08)}
+  .bucket.miss{border-style:solid;border-color:var(--bad);background:rgba(248,113,113,.08)}
+  .entry{width:42px;height:42px;border-radius:8px;background:#0b1220;border:2px solid var(--key);
+    display:flex;align-items:center;justify-content:center;font-size:.7rem;font-family:ui-monospace,monospace;color:var(--key);
+    transition:all .5s cubic-bezier(.4,0,.2,1)}
+  .token{position:absolute;width:46px;height:46px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+    font-size:.66rem;font-weight:700;font-family:ui-monospace,monospace;z-index:5;
+    transition:all .8s cubic-bezier(.45,0,.2,1)}
+  .token.key{background:var(--key);color:#0b1220;border:2px solid var(--key)}
+  .token.probe{background:var(--probe);color:#0b1220;border:2px solid var(--probe)}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 0}
+  button.act{background:#334155;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:9px 15px;font-size:.85rem;cursor:pointer;font-weight:600}
+  button.act:hover{background:#475569}
+  button.act:disabled{opacity:.4;cursor:not-allowed}
+  button.act.go{background:var(--key);color:#0b1220;border-color:var(--key)}
+  .log{font-family:ui-monospace,monospace;font-size:.84rem;margin-top:16px;background:#0b1220;border:1px solid var(--line);
+    border-radius:8px;padding:10px 14px;min-height:46px}
+  .verdict{margin-top:12px;padding:11px 14px;border-radius:8px;font-size:.92rem;display:none}
+  .verdict.ok{display:block;background:rgba(52,211,153,.12);color:var(--ok);border:1px solid rgba(52,211,153,.4)}
+  .verdict.bad{display:block;background:rgba(248,113,113,.12);color:var(--bad);border:1px solid rgba(248,113,113,.4)}
+  .foot{color:var(--muted);font-size:.85rem;margin-top:22px;border-top:1px solid var(--line);padding-top:14px}
+  code{background:#0b1220;padding:1px 6px;border-radius:5px;font-size:.85em}
+</style>
+</head>
+<body>
+  <h1>How a broken <code>hashCode</code> loses your key in a <code>HashMap</code></h1>
+  <p class="sub">LLD · 00-foundations — <code>put</code> a key, then <code>get</code> an <em>equal</em> key. Toggle the hashCode and watch the difference.</p>
+
+  <div class="toggle" id="toggle">
+    <button id="tCorrect" class="active">✓ Correct hashCode (all fields)</button>
+    <button id="tBroken">✗ Broken hashCode (inconsistent)</button>
+  </div>
+
+  <div class="codeline" id="codeline"></div>
+
+  <div class="map">
+    <div class="maplabel">HashMap&lt;Point, String&gt; — 8 buckets · key hashes to <code>hashCode() &amp; 7</code></div>
+    <div class="buckets" id="buckets"></div>
+    <div class="token key" id="keyTok" style="left:18px;top:18px;opacity:0">p1<br>(1,2)</div>
+    <div class="token probe" id="probeTok" style="left:18px;top:18px;opacity:0">p2<br>(1,2)</div>
+  </div>
+
+  <div class="controls">
+    <button class="act go" id="btnPut">1 · map.put(p1,"x")</button>
+    <button class="act" id="btnGet" disabled>2 · map.get(p2)</button>
+    <button class="act" id="btnReset">reset</button>
+  </div>
+
+  <div class="log" id="log">Both <code>p1</code> and <code>p2</code> are <code>new Point(1,2)</code> — <b>equal by value</b>. Press <b>put</b>.</div>
+  <div class="verdict" id="verdict"></div>
+
+  <div class="foot">
+    <strong>The contract:</strong> if <code>a.equals(b)</code> then <code>a.hashCode() == b.hashCode()</code> — <em>required</em>.
+    A <code>HashMap</code> finds the bucket with <code>hashCode()</code> <b>first</b>, and only compares with <code>equals()</code>
+    inside that bucket. Break the contract and equal keys scatter to different buckets, so <code>get</code> never even reaches the
+    bucket where <code>put</code> left the entry → <code>null</code>, though the key is right there. <em>Fix: a <code>record</code> generates a correct hashCode for free.</em>
+  </div>
+
+<script>
+(function(){
+  const N=8;
+  const bucketsEl=document.getElementById('buckets');
+  const keyTok=document.getElementById('keyTok');
+  const probeTok=document.getElementById('probeTok');
+  const log=document.getElementById('log');
+  const verdict=document.getElementById('verdict');
+  const codeline=document.getElementById('codeline');
+  const btnPut=document.getElementById('btnPut');
+  const btnGet=document.getElementById('btnGet');
+  const btnReset=document.getElementById('btnReset');
+  const tCorrect=document.getElementById('tCorrect');
+  const tBroken=document.getElementById('tBroken');
+
+  let broken=false;
+  // Correct: both keys -> same bucket. Broken: keys land in different buckets.
+  const PUT_BUCKET_OK=5, GET_BUCKET_OK=5;
+  const PUT_BUCKET_BAD=5, GET_BUCKET_BAD=2;
+  let putBucket=PUT_BUCKET_OK, getBucket=GET_BUCKET_OK;
+  let bucketEls=[];
+
+  function buildBuckets(){
+    bucketsEl.innerHTML='';
+    bucketEls=[];
+    for(let i=0;i<N;i++){
+      const b=document.createElement('div');
+      b.className='bucket';
+      b.innerHTML='<span class="idx">'+i+'</span>';
+      bucketsEl.appendChild(b);
+      bucketEls.push(b);
+    }
+  }
+  function center(el){
+    const m=document.querySelector('.map').getBoundingClientRect();
+    const r=el.getBoundingClientRect();
+    return {x:r.left-m.left+r.width/2-23, y:r.top-m.top+r.height/2-23};
+  }
+  function setMode(b){
+    broken=b;
+    tCorrect.classList.toggle('active',!b);
+    tBroken.classList.toggle('active',b);
+    tBroken.classList.toggle('broken',b);
+    putBucket = b?PUT_BUCKET_BAD:PUT_BUCKET_OK;
+    getBucket = b?GET_BUCKET_BAD:GET_BUCKET_OK;
+    codeline.innerHTML = b
+      ? 'int hashCode(){ return <b style="color:var(--bad)">System.identityHashCode(this)</b>; } &nbsp;<span style="color:var(--bad)">// different per object — violates the contract</span>'
+      : 'int hashCode(){ return <b style="color:var(--ok)">Objects.hash(x, y)</b>; } &nbsp;<span style="color:var(--ok)">// same for equal points ✓</span>';
+    reset();
+  }
+  function reset(){
+    buildBuckets();
+    keyTok.style.opacity='0'; probeTok.style.opacity='0';
+    keyTok.style.left='18px'; keyTok.style.top='18px';
+    probeTok.style.left='18px'; probeTok.style.top='18px';
+    verdict.className='verdict';
+    btnPut.disabled=false; btnGet.disabled=true;
+    log.innerHTML='Both <code>p1</code> and <code>p2</code> are <code>new Point(1,2)</code> — <b>equal by value</b>. Press <b>put</b>.';
+  }
+
+  btnPut.onclick=function(){
+    btnPut.disabled=true;
+    keyTok.style.opacity='1';
+    log.innerHTML='<code>put</code>: hashCode(p1) → bucket <b>'+putBucket+'</b> &nbsp;('+(broken?'identity hash':'hash of 1,2')+')';
+    setTimeout(()=>{
+      const c=center(bucketEls[putBucket]);
+      keyTok.style.left=c.x+'px'; keyTok.style.top=c.y+'px';
+      bucketEls[putBucket].classList.add('hit');
+    },60);
+    setTimeout(()=>{
+      // settle into bucket as a stored entry
+      keyTok.style.opacity='0';
+      const e=document.createElement('div'); e.className='entry'; e.textContent='(1,2)';
+      bucketEls[putBucket].appendChild(e);
+      bucketEls[putBucket].classList.remove('hit');
+      log.innerHTML='Stored entry <code>(1,2)→"x"</code> in bucket <b>'+putBucket+'</b>. Now press <b>get</b>.';
+      btnGet.disabled=false;
+    },950);
+  };
+
+  btnGet.onclick=function(){
+    btnGet.disabled=true;
+    probeTok.style.opacity='1';
+    log.innerHTML='<code>get</code>: hashCode(p2) → bucket <b>'+getBucket+'</b> &nbsp;('+(broken?'identity hash — different object!':'hash of 1,2')+')';
+    setTimeout(()=>{
+      const c=center(bucketEls[getBucket]);
+      probeTok.style.left=c.x+'px'; probeTok.style.top=c.y+'px';
+    },60);
+    setTimeout(()=>{
+      const found = (getBucket===putBucket);
+      bucketEls[getBucket].classList.add(found?'hit':'miss');
+      if(found){
+        log.innerHTML='Bucket <b>'+getBucket+'</b> has an entry → compare with <code>equals()</code> → <b style="color:var(--ok)">match!</b>';
+        verdict.className='verdict ok';
+        verdict.innerHTML='✅ <b>Found "x".</b> Same hashCode → same bucket → equals confirms it. The contract held.';
+      }else{
+        log.innerHTML='Bucket <b>'+getBucket+'</b> is <b style="color:var(--bad)">empty</b> → <code>equals()</code> is never even called.';
+        verdict.className='verdict bad';
+        verdict.innerHTML='❌ <b>Returned null</b> — yet <code>(1,2)→"x"</code> is sitting in bucket '+putBucket+'. The key is in the map but unreachable. <b>This is the bug.</b>';
+      }
+    },950);
+  };
+
+  btnReset.onclick=reset;
+  tCorrect.onclick=()=>setMode(false);
+  tBroken.onclick=()=>setMode(true);
+
+  window.addEventListener('load',()=>setMode(false));
+  setMode(false);
+})();
+</script>
+</body>
+</html>

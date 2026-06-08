@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Partitioning &amp; Rebalancing</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --border:#30363d;
+    --text:#e6edf3; --muted:#8b949e;
+    --accent:#58a6ff; --success:#3fb950; --warning:#d29922;
+    --danger:#f85149; --purple:#bc8cff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    line-height:1.5; padding:24px 16px 60px;
+  }
+  .wrap{max-width:960px;margin:0 auto}
+  header h1{font-size:1.6rem;margin:0 0 6px}
+  header p{color:var(--muted);margin:0 0 18px;max-width:760px}
+  .panel{
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:8px; padding:16px; margin-bottom:16px;
+  }
+  .stage-head{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:6px}
+  .stage-head h2{font-size:1rem;margin:0}
+  .mode-tag{
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:.8rem; padding:2px 10px; border-radius:999px;
+    border:1px solid var(--border);
+  }
+  .mode-hash{color:var(--success);border-color:var(--success)}
+  .mode-range{color:var(--warning);border-color:var(--warning)}
+  svg{width:100%;height:auto;display:block;background:#0b0f14;border-radius:8px;border:1px solid var(--border)}
+  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .group{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  button{
+    background:#1c2230; color:var(--text);
+    border:1px solid var(--border); border-radius:999px;
+    padding:8px 16px; font-size:.9rem; cursor:pointer;
+    font-family:inherit; transition:background .15s,border-color .15s,color .15s;
+  }
+  button:hover{background:#262d3d;border-color:var(--accent)}
+  button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  button.active{border-color:var(--accent);color:var(--accent);background:#16243a}
+  button.danger.active{border-color:var(--danger);color:var(--danger);background:#2a1517}
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden}
+  .seg button{border:none;border-radius:0;padding:8px 14px}
+  .seg button + button{border-left:1px solid var(--border)}
+  label.ctl{display:inline-flex;align-items:center;gap:8px;color:var(--muted);font-size:.85rem}
+  input[type=range]{accent-color:var(--accent)}
+  .divider{width:1px;align-self:stretch;background:var(--border);margin:0 2px}
+  #narration{
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:.92rem; min-height:2.6em; color:var(--text);
+    border-left:3px solid var(--accent); padding:8px 12px;
+    background:#0b0f14; border-radius:0 8px 8px 0;
+  }
+  .legend{display:flex;flex-wrap:wrap;gap:14px 22px;font-size:.85rem;color:var(--muted)}
+  .legend .it{display:flex;align-items:center;gap:8px}
+  .sw{width:14px;height:14px;border-radius:4px;display:inline-block;flex:0 0 auto}
+  .dot{width:12px;height:12px;border-radius:50%;display:inline-block;flex:0 0 auto}
+  h3{font-size:.95rem;margin:0 0 8px}
+  .try{border-left:3px solid var(--purple);padding:8px 12px;background:#0b0f14;border-radius:0 8px 8px 0;color:var(--text);font-size:.9rem}
+  .try b{color:var(--purple)}
+  footer{display:flex;gap:20px;flex-wrap:wrap;font-size:.9rem;margin-top:8px}
+  footer a{color:var(--accent);text-decoration:none}
+  footer a:hover{text-decoration:underline}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--purple)}
+  .stat{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.82rem;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Partitioning &amp; Rebalancing</h1>
+    <p>Watch keys land in shards under a <b>fixed-partition</b> scheme. Add a node to see only <i>some</i> data move, inject a celebrity hot key, and compare <b>hash</b> partitioning (even spread) against <b>range</b> partitioning on a monotonic key (the timestamp hotspot).</p>
+  </header>
+
+  <div class="panel">
+    <div class="stage-head">
+      <h2>Keyspace &rarr; 12 fixed partitions &rarr; nodes</h2>
+      <span id="modeTag" class="mode-tag mode-hash">mode: HASH</span>
+    </div>
+    <svg id="stage" viewBox="0 0 920 470" role="img" aria-label="Sharding visualization"></svg>
+  </div>
+
+  <div class="panel">
+    <div class="controls">
+      <div class="group">
+        <button id="play">Pause</button>
+        <button id="step">Step</button>
+        <button id="reset">Reset</button>
+      </div>
+      <div class="divider"></div>
+      <div class="group">
+        <span class="stat">partition by:</span>
+        <span class="seg" role="group" aria-label="Partitioning mode">
+          <button id="mHash" class="active">Hash</button>
+          <button id="mRange">Range (time)</button>
+        </span>
+      </div>
+      <div class="divider"></div>
+      <div class="group">
+        <button id="addNode">+ Add node</button>
+        <button id="removeNode">&minus; Remove node</button>
+        <button id="hot" class="danger">Inject hot key</button>
+      </div>
+      <div class="divider"></div>
+      <label class="ctl">Write rate
+        <input id="speed" type="range" min="1" max="10" value="5" aria-label="Write rate">
+      </label>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>What's happening</h3>
+    <div id="narration">Hash mode. New keys are hashed into one of 12 partitions, spreading writes evenly across all nodes.</div>
+  </div>
+
+  <div class="panel">
+    <h3>Legend</h3>
+    <div class="legend">
+      <span class="it"><span class="sw" style="background:#1f6feb"></span>Partition (slice of keyspace)</span>
+      <span class="it"><span class="dot" style="background:#3fb950"></span>Data item (write)</span>
+      <span class="it"><span class="dot" style="background:#f85149"></span>Hot-key write (celebrity)</span>
+      <span class="it"><span class="sw" style="background:var(--success)"></span>Healthy load</span>
+      <span class="it"><span class="sw" style="background:var(--warning)"></span>Warm load</span>
+      <span class="it"><span class="sw" style="background:var(--danger)"></span>Overloaded / hotspot</span>
+      <span class="it"><span class="sw" style="background:#bc8cff;border:1px dashed #fff"></span>Partition just moved to new node</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="try">
+      <b>Try this:</b> Switch to <b>Range (time)</b> mode and watch every new write pile onto the last shard &mdash; that's the monotonic-key hotspot. Then switch back to <b>Hash</b> and click <b>+ Add node</b>: notice only a few partitions (and their data) migrate, not the whole keyspace.
+    </div>
+  </div>
+
+  <footer>
+    <a href="./index.html">&larr; Back to gallery</a>
+    <a href="../01-building-blocks/10-partitioning-sharding.md">Related writeup: Partitioning &amp; Sharding &rarr;</a>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const SVG_NS="http://www.w3.org/2000/svg";
+  const svg=document.getElementById("stage");
+  const NARR=document.getElementById("narration");
+  const modeTag=document.getElementById("modeTag");
+
+  // ---- config ----
+  const NUM_PART=12;            // fixed number of partitions
+  const VBW=920, VBH=470;
+  const COLORS={part:"#1f6feb",partMoved:"#bc8cff",data:"#3fb950",hot:"#f85149",
+                good:"#3fb950",warm:"#d29922",bad:"#f85149"};
+
+  // ---- state ----
+  let mode="hash";             // "hash" | "range"
+  let nodes=[];                // each: {id, partitions:[...]}
+  let partLoad=new Array(NUM_PART).fill(0); // accumulated count per partition
+  let partRecentMoved=new Array(NUM_PART).fill(0); // animation flag timer
+  let nextNodeId=0;
+  let items=[];                // flying data items
+  let playing=true;
+  let writeAccum=0;
+  let hotMode=false;           // inject hot key
+  let keyCounter=0;            // monotonic key for range mode
+  let totalWrites=0;
+
+  // layout cache for partitions (computed each frame from node assignment)
+  // partition -> {nodeIndex, x, y}
+  let partPos=new Array(NUM_PART).fill(null);
+
+  function makeNode(){ return {id:nextNodeId++, partitions:[]}; }
+
+  // distribute fixed partitions over nodes as evenly as possible (round-robin by index)
+  function assignPartitions(){
+    const prev=new Array(NUM_PART); // remember old owner to detect moves
+    nodes.forEach((n,ni)=>n.partitions.forEach(p=>prev[p]=ni));
+    nodes.forEach(n=>n.partitions=[]);
+    for(let p=0;p<NUM_PART;p++){
+      const ni=p % nodes.length;
+      nodes[ni].partitions.push(p);
+    }
+    // mark moves
+    const moved=[];
+    nodes.forEach((n,ni)=>n.partitions.forEach(p=>{
+      if(prev[p]!==undefined && prev[p]!==ni) { partRecentMoved[p]=1.0; moved.push(p); }
+    }));
+    return moved;
+  }
+
+  function reset(){
+    nodes=[makeNode(),makeNode(),makeNode()];
+    nextNodeId=3;
+    nodes[0].id=0;nodes[1].id=1;nodes[2].id=2;
+    partLoad=new Array(NUM_PART).fill(0);
+    partRecentMoved=new Array(NUM_PART).fill(0);
+    items=[]; writeAccum=0; keyCounter=0; totalWrites=0;
+    // straight round robin assign w/o move flags
+    nodes.forEach(n=>n.partitions=[]);
+    for(let p=0;p<NUM_PART;p++) nodes[p%nodes.length].partitions.push(p);
+    narrate(mode==="hash"
+      ? "Hash mode. Each key is hashed into one of 12 partitions, spreading writes evenly across all nodes."
+      : "Range mode. Partitions cover ascending key ranges; with a monotonic key, every new write targets the highest range.");
+  }
+
+  function narrate(t){ NARR.textContent=t; }
+
+  // ---- hashing: simple deterministic string hash ----
+  function hashStr(s){
+    let h=2166136261>>>0;
+    for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619)>>>0; }
+    return h>>>0;
+  }
+
+  // pick which partition a new write goes to
+  function pickPartition(isHot){
+    if(mode==="range"){
+      // monotonic key -> always the last range (highest partition)
+      // a hot key in range mode is also just the celebrity range; still the top range typically
+      if(isHot) return NUM_PART-1;
+      return NUM_PART-1; // monotonic increasing -> top partition
+    } else {
+      // hash mode
+      if(isHot){
+        // celebrity = single fixed key -> always same partition
+        return hashStr("celebrity:taylor") % NUM_PART;
+      }
+      const key="user:"+(keyCounter++)+":"+Math.random().toString(36).slice(2,6);
+      return hashStr(key) % NUM_PART;
+    }
+  }
+
+  // ---------- geometry ----------
+  // Top: keyspace bar. Middle: partitions row grouped by node. Bottom: per-node load bars.
+  const KEY_Y=30, KEY_H=26, KEY_X=40, KEY_W=VBW-80;
+  const NODE_TOP=120, NODE_H=190;
+  const NODE_GAP=18;
+  const PART_W=64, PART_H=40, PART_GAP=10;
+
+  function nodeLayout(){
+    const n=nodes.length;
+    const totalGap=NODE_GAP*(n-1);
+    const w=(VBW-80-totalGap)/n;
+    const x0=40;
+    return {x0,w,top:NODE_TOP,h:NODE_H};
+  }
+
+  function computePartPositions(L){
+    partPos=new Array(NUM_PART).fill(null);
+    nodes.forEach((node,ni)=>{
+      const nx=L.x0+ni*(L.w+NODE_GAP);
+      const parts=node.partitions.slice().sort((a,b)=>a-b);
+      // grid of partitions inside node box
+      const perRow=Math.max(1,Math.floor((L.w-16)/(PART_W+PART_GAP)));
+      parts.forEach((p,idx)=>{
+        const r=Math.floor(idx/perRow), c=idx%perRow;
+        const rowCount=Math.min(perRow,parts.length-r*perRow);
+        const rowW=rowCount*PART_W+(rowCount-1)*PART_GAP;
+        const startX=nx+(L.w-rowW)/2;
+        const px=startX+c*(PART_W+PART_GAP);
+        const py=L.top+44+r*(PART_H+PART_GAP+10);
+        partPos[p]={x:px,y:py,w:PART_W,h:PART_H,node:ni,cx:px+PART_W/2,cy:py+PART_H/2};
+      });
+    });
+  }
+
+  function loadColor(v,maxv){
+    const r=maxv>0?v/maxv:0;
+    if(r>=0.75) return COLORS.bad;
+    if(r>=0.45) return COLORS.warm;
+    return COLORS.good;
+  }
+
+  // ---------- rendering ----------
+  function el(name,attrs){
+    const e=document.createElementNS(SVG_NS,name);
+    for(const k in attrs) e.setAttribute(k,attrs[k]);
+    return e;
+  }
+  function txt(x,y,s,attrs){
+    const t=el("text",Object.assign({x:x,y:y},attrs||{}));
+    t.textContent=s; return t;
+  }
+
+  function render(){
+    while(svg.firstChild) svg.removeChild(svg.firstChild);
+    const L=nodeLayout();
+    computePartPositions(L);
+
+    // --- source label ---
+    svg.appendChild(txt(40,18,"Incoming writes (keyspace)",{fill:"#8b949e","font-size":"12","font-family":"ui-monospace,Menlo,monospace"}));
+
+    // keyspace bar with range markers
+    svg.appendChild(el("rect",{x:KEY_X,y:KEY_Y,width:KEY_W,height:KEY_H,rx:6,fill:"#10243f",stroke:"#1f6feb"}));
+    if(mode==="range"){
+      // show range slices labelled, and highlight the rightmost
+      for(let p=0;p<NUM_PART;p++){
+        const sx=KEY_X+(KEY_W/NUM_PART)*p;
+        svg.appendChild(el("line",{x1:sx,y1:KEY_Y,x2:sx,y2:KEY_Y+KEY_H,stroke:"#1f6feb","stroke-width":p===0?0:1,opacity:.4}));
+      }
+      const lastx=KEY_X+(KEY_W/NUM_PART)*(NUM_PART-1);
+      svg.appendChild(el("rect",{x:lastx,y:KEY_Y,width:KEY_W/NUM_PART,height:KEY_H,rx:0,fill:"#3a1d1f",stroke:COLORS.bad}));
+      svg.appendChild(txt(KEY_X+6,KEY_Y+KEY_H+15,"low keys",{fill:"#8b949e","font-size":"11"}));
+      svg.appendChild(txt(KEY_X+KEY_W-6,KEY_Y+KEY_H+15,"high keys (newest) ↑ hotspot",{fill:COLORS.bad,"font-size":"11","text-anchor":"end"}));
+    } else {
+      svg.appendChild(txt(KEY_X+KEY_W/2,KEY_Y+17,"hash(key) % 12  →  uniform spread",{fill:"#9fd0ff","font-size":"12","text-anchor":"middle","font-family":"ui-monospace,Menlo,monospace"}));
+    }
+
+    // --- node boxes + partitions ---
+    const maxLoad=Math.max(1,...partLoad);
+    nodes.forEach((node,ni)=>{
+      const nx=L.x0+ni*(L.w+NODE_GAP);
+      // node load = sum of its partitions
+      let nodeLoad=0; node.partitions.forEach(p=>nodeLoad+=partLoad[p]);
+      svg.appendChild(el("rect",{x:nx,y:L.top,width:L.w,height:L.h,rx:8,fill:"#11161f",stroke:"#30363d"}));
+      svg.appendChild(txt(nx+10,L.top+20,"Node "+node.id,{fill:"#e6edf3","font-size":"13","font-weight":"600","font-family":"ui-monospace,Menlo,monospace"}));
+      svg.appendChild(txt(nx+L.w-10,L.top+20,node.partitions.length+" part",{fill:"#8b949e","font-size":"11","text-anchor":"end","font-family":"ui-monospace,Menlo,monospace"}));
+    });
+
+    // partitions (draw after boxes so they sit on top)
+    const maxPart=Math.max(1,...partLoad);
+    for(let p=0;p<NUM_PART;p++){
+      const pp=partPos[p]; if(!pp) continue;
+      const moved=partRecentMoved[p]>0.01;
+      const fill = moved ? "#2a2140" : "#163056";
+      const stroke = moved ? COLORS.partMoved : COLORS.part;
+      svg.appendChild(el("rect",{x:pp.x,y:pp.y,width:pp.w,height:pp.h,rx:6,fill:fill,stroke:stroke,
+        "stroke-width":moved?2:1, "stroke-dasharray":moved?"4 3":"0"}));
+      svg.appendChild(txt(pp.cx,pp.y+15,"P"+p,{fill:"#cfe3ff","font-size":"11","text-anchor":"middle","font-family":"ui-monospace,Menlo,monospace"}));
+      svg.appendChild(txt(pp.cx,pp.y+30,partLoad[p],{fill: loadColor(partLoad[p],maxPart),"font-size":"12","text-anchor":"middle","font-weight":"700","font-family":"ui-monospace,Menlo,monospace"}));
+    }
+
+    // --- per-node load bars (bottom) ---
+    const barTop=NODE_TOP+NODE_H+30;
+    const barMaxH=70;
+    svg.appendChild(txt(40,barTop-10,"Per-node load (writes received)",{fill:"#8b949e","font-size":"12","font-family":"ui-monospace,Menlo,monospace"}));
+    let maxNodeLoad=1;
+    const nodeLoads=nodes.map(node=>{let s=0;node.partitions.forEach(p=>s+=partLoad[p]);return s;});
+    maxNodeLoad=Math.max(1,...nodeLoads);
+    nodes.forEach((node,ni)=>{
+      const nx=L.x0+ni*(L.w+NODE_GAP);
+      const load=nodeLoads[ni];
+      const h=Math.max(2,(load/maxNodeLoad)*barMaxH);
+      const baseY=barTop+barMaxH;
+      const bw=Math.min(L.w-20,140);
+      const bx=nx+(L.w-bw)/2;
+      svg.appendChild(el("rect",{x:bx,y:barTop,width:bw,height:barMaxH,rx:4,fill:"#0b0f14",stroke:"#30363d"}));
+      svg.appendChild(el("rect",{x:bx,y:baseY-h,width:bw,height:h,rx:4,fill:loadColor(load,maxNodeLoad)}));
+      svg.appendChild(txt(bx+bw/2,baseY+16,load+" writes",{fill:"#8b949e","font-size":"11","text-anchor":"middle","font-family":"ui-monospace,Menlo,monospace"}));
+    });
+
+    // --- flying data items ---
+    items.forEach(it=>{
+      svg.appendChild(el("circle",{cx:it.x,cy:it.y,r:it.hot?6:4,fill:it.hot?COLORS.hot:COLORS.data,
+        opacity:0.95, stroke:it.hot?"#fff":"none","stroke-width":it.hot?1:0}));
+    });
+  }
+
+  // ---------- spawning a write ----------
+  function spawnWrite(){
+    const isHot = hotMode && Math.random()<0.7; // celebrity dominates traffic when injected
+    const p=pickPartition(isHot);
+    const pp=partPos[p];
+    // origin: along the keyspace bar (range -> position by partition, hash -> random)
+    let ox;
+    if(mode==="range") ox=KEY_X+(KEY_W/NUM_PART)*(p+0.5);
+    else ox=KEY_X+Math.random()*KEY_W;
+    const oy=KEY_Y+KEY_H/2;
+    const tx=pp?pp.cx:VBW/2, ty=pp?pp.cy:VBH/2;
+    items.push({x:ox,y:oy,sx:ox,sy:oy,tx,ty,part:p,t:0,hot:isHot,landed:false});
+  }
+
+  function landItem(it){
+    partLoad[it.part]+=1;
+    totalWrites+=1;
+  }
+
+  // ---------- narration based on situation ----------
+  function updateNarration(justAddedNode,movedParts){
+    const maxPart=Math.max(...partLoad);
+    const maxIdx=partLoad.indexOf(maxPart);
+    const sum=partLoad.reduce((a,b)=>a+b,0)||1;
+    const skew=maxPart/(sum/NUM_PART);
+
+    if(justAddedNode){
+      narrate("Added Node "+(nextNodeId-1)+". Partitions reshuffle round-robin: P"+movedParts.join(", P")+
+        " migrated. Only those partitions' data moves — most keys stay put. This is why a fixed partition count makes rebalancing cheap.");
+      return;
+    }
+    if(mode==="range" && totalWrites>4){
+      narrate("Range mode + monotonic key: every write targets the top range (P"+(NUM_PART-1)+"), so it owns "+
+        partLoad[NUM_PART-1]+" of "+totalWrites+" writes. The newest shard is a write hotspot — great for range scans, terrible for write balance.");
+      return;
+    }
+    if(hotMode){
+      narrate("Hot key injected → the celebrity always hashes to P"+maxIdx+
+        " on Node "+partPos[maxIdx].node+". Hashing spread the keyspace evenly, but a single hot key can't be split — that one partition overloads (skew x"+skew.toFixed(1)+").");
+      return;
+    }
+    if(mode==="hash"){
+      narrate("Hash mode: keys scatter across all 12 partitions, so per-node load stays balanced (max partition x"+skew.toFixed(1)+" of average). Good for even writes — but no efficient range scans.");
+    }
+  }
+
+  // ---------- animation loop ----------
+  let last=performance.now();
+  function frame(now){
+    const dt=Math.min(50,now-last); last=now;
+
+    if(playing){
+      const rate=parseInt(document.getElementById("speed").value,10);
+      writeAccum += (rate/1000)*dt*1.2;
+      while(writeAccum>=1){ spawnWrite(); writeAccum-=1; }
+    }
+
+    // advance items
+    const speedPerMs=0.006;
+    for(let i=items.length-1;i>=0;i--){
+      const it=items[i];
+      it.t += speedPerMs*dt;
+      if(it.t>=1){
+        if(!it.landed){ landItem(it); it.landed=true; }
+        items.splice(i,1);
+        continue;
+      }
+      // ease
+      const e=it.t<0.5?2*it.t*it.t:-1+(4-2*it.t)*it.t;
+      it.x=it.sx+(it.tx-it.sx)*e;
+      it.y=it.sy+(it.ty-it.sy)*e;
+    }
+
+    // decay moved-highlight
+    for(let p=0;p<NUM_PART;p++){
+      if(partRecentMoved[p]>0) partRecentMoved[p]=Math.max(0,partRecentMoved[p]-dt/4000);
+    }
+
+    render();
+    requestAnimationFrame(frame);
+  }
+
+  // ---------- controls ----------
+  const playBtn=document.getElementById("play");
+  playBtn.addEventListener("click",()=>{
+    playing=!playing;
+    playBtn.textContent=playing?"Pause":"Play";
+  });
+  document.getElementById("step").addEventListener("click",()=>{
+    if(playing){ playing=false; playBtn.textContent="Play"; }
+    for(let i=0;i<3;i++) spawnWrite();
+    updateNarration(false,null);
+  });
+  document.getElementById("reset").addEventListener("click",()=>{
+    reset();
+    playing=true; playBtn.textContent="Pause";
+    hotMode=false; document.getElementById("hot").classList.remove("active");
+    updateNarration(false,null);
+  });
+
+  function setMode(m){
+    mode=m;
+    document.getElementById("mHash").classList.toggle("active",m==="hash");
+    document.getElementById("mRange").classList.toggle("active",m==="range");
+    modeTag.textContent="mode: "+(m==="hash"?"HASH":"RANGE");
+    modeTag.className="mode-tag "+(m==="hash"?"mode-hash":"mode-range");
+    // clear loads so the contrast is clean
+    partLoad=new Array(NUM_PART).fill(0);
+    items=[]; totalWrites=0; keyCounter=0;
+    if(m==="range"){
+      narrate("Range mode. Partitions cover ascending key ranges. The key is monotonic (a timestamp/auto-id), so all new writes land in the highest range — watch P"+(NUM_PART-1)+" pile up.");
+    } else {
+      narrate("Hash mode. hash(key) % 12 scatters writes uniformly across partitions and nodes. No single shard is favored — but you lose efficient range scans.");
+    }
+  }
+  document.getElementById("mHash").addEventListener("click",()=>setMode("hash"));
+  document.getElementById("mRange").addEventListener("click",()=>setMode("range"));
+
+  document.getElementById("addNode").addEventListener("click",()=>{
+    if(nodes.length>=6){ narrate("Capped at 6 nodes for this demo — plenty to show rebalancing."); return; }
+    nodes.push(makeNode());
+    const moved=assignPartitions();
+    updateNarration(true,moved.length?moved:[]);
+  });
+  document.getElementById("removeNode").addEventListener("click",()=>{
+    if(nodes.length<=1){ narrate("Need at least one node."); return; }
+    const removed=nodes.pop();
+    const moved=assignPartitions();
+    narrate("Removed Node "+removed.id+". Its "+removed.partitions.length+" partitions were reassigned to surviving nodes (P"+moved.join(", P")+"). Their data must be re-replicated there.");
+  });
+  const hotBtn=document.getElementById("hot");
+  hotBtn.addEventListener("click",()=>{
+    hotMode=!hotMode;
+    hotBtn.classList.toggle("active",hotMode);
+    hotBtn.textContent=hotMode?"Hot key: ON":"Inject hot key";
+    if(hotMode){
+      narrate("Injecting a celebrity hot key — 70% of traffic now hits one single key. Watch its partition turn red while others stay cool.");
+    } else {
+      narrate("Hot key removed. Traffic returns to normal "+(mode==="hash"?"uniform hashing.":"range targeting."));
+    }
+  });
+
+  // periodic narration refresh while running
+  setInterval(()=>{ if(playing) updateNarration(false,null); },2500);
+
+  // init
+  reset();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

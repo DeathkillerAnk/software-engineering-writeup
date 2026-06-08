@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cache Stampede &amp; Mitigation</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --border:#30363d;
+    --text:#e6edf3; --muted:#8b949e;
+    --accent:#58a6ff; --success:#3fb950; --warning:#d29922;
+    --danger:#f85149; --purple:#bc8cff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    line-height:1.5; padding:24px 16px 48px;
+  }
+  .wrap{max-width:960px;margin:0 auto}
+  header h1{font-size:1.6rem;margin:0 0 8px}
+  header p{color:var(--muted);margin:0 0 20px;max-width:760px}
+  .stage{
+    background:var(--panel);border:1px solid var(--border);
+    border-radius:8px;padding:12px;margin-bottom:16px;
+  }
+  svg{display:block;width:100%;height:auto}
+  .controls{
+    display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+    background:var(--panel);border:1px solid var(--border);
+    border-radius:8px;padding:14px;margin-bottom:16px;
+  }
+  button{
+    background:#21262d;color:var(--text);
+    border:1px solid var(--border);border-radius:999px;
+    padding:8px 16px;font-size:.9rem;cursor:pointer;
+    font-family:inherit;transition:background .15s,border-color .15s;
+  }
+  button:hover{background:#30363d;border-color:var(--accent)}
+  button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  button.active{background:#1f6feb33;border-color:var(--accent);color:var(--accent)}
+  .ctl-group{display:flex;align-items:center;gap:8px}
+  .ctl-group label{font-size:.85rem;color:var(--muted)}
+  input[type=range]{accent-color:var(--accent);cursor:pointer}
+  .toggles{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .sep{width:1px;align-self:stretch;background:var(--border);margin:0 2px}
+  #narration{
+    background:var(--panel);border:1px solid var(--border);
+    border-left:4px solid var(--accent);border-radius:8px;
+    padding:14px 16px;margin-bottom:16px;min-height:48px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:.92rem;
+  }
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:720px){.grid2{grid-template-columns:1fr}}
+  .card{
+    background:var(--panel);border:1px solid var(--border);
+    border-radius:8px;padding:14px 16px;
+  }
+  .card h2{font-size:1rem;margin:0 0 10px}
+  .legend-item{display:flex;align-items:center;gap:10px;margin:6px 0;font-size:.88rem}
+  .swatch{width:16px;height:16px;border-radius:4px;flex:0 0 auto}
+  .dot{width:14px;height:14px;border-radius:50%;flex:0 0 auto}
+  .try{color:var(--muted);font-size:.9rem}
+  .try b{color:var(--purple)}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    background:#0d1117;border:1px solid var(--border);border-radius:4px;
+    padding:1px 5px;font-size:.85em}
+  footer{margin-top:28px;padding-top:16px;border-top:1px solid var(--border);
+    display:flex;gap:20px;flex-wrap:wrap}
+  footer a{color:var(--accent);text-decoration:none;font-size:.9rem}
+  footer a:hover{text-decoration:underline}
+  .qps-num{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Cache Stampede &amp; Mitigation</h1>
+  <p>A hot cache key expires. Without protection, every concurrent client misses at once and
+     all of them hammer the slow database &mdash; a <em>thundering herd</em>. Toggle mitigations and
+     watch the database QPS meter spike vs. stay flat.</p>
+</header>
+
+<div class="stage">
+  <svg id="scene" viewBox="0 0 920 440" role="img" aria-label="Cache stampede animation">
+    <!-- defs -->
+    <defs>
+      <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+        <path d="M0,0 L6,3 L0,6 Z" fill="#8b949e"/>
+      </marker>
+    </defs>
+
+    <!-- DB QPS meter (top) -->
+    <text x="20" y="28" fill="#8b949e" font-size="12" font-family="ui-monospace,Menlo,monospace">DB QPS (queries hitting the database, per expiry)</text>
+    <rect x="20" y="36" width="600" height="22" rx="5" fill="#0d1117" stroke="#30363d"/>
+    <rect id="qpsBar" x="21" y="37" width="0" height="20" rx="4" fill="#3fb950"/>
+    <text id="qpsLabel" x="632" y="52" fill="#e6edf3" font-size="14" font-family="ui-monospace,Menlo,monospace" class="qps-num">0</text>
+    <text id="peakLabel" x="700" y="52" fill="#8b949e" font-size="12" font-family="ui-monospace,Menlo,monospace">peak: 0</text>
+
+    <!-- Cache box -->
+    <g>
+      <rect x="360" y="120" width="200" height="120" rx="10" fill="#161b22" stroke="#58a6ff" stroke-width="1.5"/>
+      <text x="460" y="146" text-anchor="middle" fill="#58a6ff" font-size="14" font-weight="600">CACHE</text>
+      <text x="460" y="170" text-anchor="middle" fill="#e6edf3" font-size="12" font-family="ui-monospace,Menlo,monospace">key: "home_feed"</text>
+      <!-- TTL ring -->
+      <circle cx="460" cy="206" r="22" fill="none" stroke="#30363d" stroke-width="6"/>
+      <circle id="ttlRing" cx="460" cy="206" r="22" fill="none" stroke="#3fb950" stroke-width="6"
+              stroke-linecap="round" transform="rotate(-90 460 206)"
+              stroke-dasharray="138.2" stroke-dashoffset="0"/>
+      <text id="ttlText" x="460" y="211" text-anchor="middle" fill="#e6edf3" font-size="13" font-family="ui-monospace,Menlo,monospace">TTL</text>
+      <text id="cacheState" x="460" y="248" text-anchor="middle" fill="#3fb950" font-size="11" font-family="ui-monospace,Menlo,monospace">FRESH</text>
+    </g>
+
+    <!-- Database -->
+    <g>
+      <ellipse cx="800" cy="150" rx="55" ry="16" fill="#161b22" stroke="#d29922" stroke-width="1.5"/>
+      <path d="M745,150 L745,250 A55,16 0 0 0 855,250 L855,150" fill="#161b22" stroke="#d29922" stroke-width="1.5"/>
+      <ellipse cx="800" cy="190" rx="55" ry="16" fill="none" stroke="#d29922" stroke-width="1" opacity=".5"/>
+      <ellipse cx="800" cy="230" rx="55" ry="16" fill="none" stroke="#d29922" stroke-width="1" opacity=".5"/>
+      <text x="800" y="285" text-anchor="middle" fill="#d29922" font-size="13" font-weight="600">DATABASE</text>
+      <text x="800" y="302" text-anchor="middle" fill="#8b949e" font-size="10" font-family="ui-monospace,Menlo,monospace">slow recompute</text>
+      <!-- DB load glow -->
+      <ellipse id="dbGlow" cx="800" cy="200" rx="62" ry="80" fill="#f85149" opacity="0"/>
+    </g>
+
+    <!-- Single-flight lock badge -->
+    <g id="lockBadge" opacity="0">
+      <rect x="585" y="186" width="120" height="40" rx="6" fill="#0d1117" stroke="#bc8cff" stroke-width="1.5"/>
+      <text x="645" y="202" text-anchor="middle" fill="#bc8cff" font-size="11" font-weight="600">single-flight</text>
+      <text x="645" y="217" text-anchor="middle" fill="#8b949e" font-size="10" font-family="ui-monospace,Menlo,monospace">1 leader fetches</text>
+    </g>
+
+    <!-- Clients label -->
+    <text x="120" y="100" text-anchor="middle" fill="#8b949e" font-size="12">Concurrent clients</text>
+    <g id="clients"></g>
+
+    <!-- requests layer -->
+    <g id="reqs"></g>
+  </svg>
+</div>
+
+<div class="controls">
+  <button id="playBtn">Play</button>
+  <button id="stepBtn">Step expiry</button>
+  <button id="resetBtn">Reset</button>
+  <div class="sep"></div>
+  <div class="ctl-group">
+    <label for="clientSlider">Clients: <span id="clientVal">12</span></label>
+    <input type="range" id="clientSlider" min="3" max="24" step="1" value="12">
+  </div>
+  <div class="sep"></div>
+  <div class="toggles">
+    <button id="sfToggle">Single-flight: OFF</button>
+    <button id="jitterToggle">Jittered TTL + early recompute: OFF</button>
+  </div>
+</div>
+
+<div id="narration">Press <b>Play</b> or <b>Step expiry</b> to watch what happens when the TTL hits zero.</div>
+
+<div class="grid2">
+  <div class="card">
+    <h2>Legend</h2>
+    <div class="legend-item"><span class="dot" style="background:#58a6ff"></span> Client (idle / reading cache)</div>
+    <div class="legend-item"><span class="dot" style="background:#3fb950"></span> Client got a cache HIT</div>
+    <div class="legend-item"><span class="dot" style="background:#f85149"></span> Client MISSED &rarr; querying the DB</div>
+    <div class="legend-item"><span class="dot" style="background:#d29922"></span> Client waiting for the leader (coalesced)</div>
+    <div class="legend-item"><span class="swatch" style="background:#3fb950"></span> QPS bar low / safe &mdash; <span class="swatch" style="background:#f85149;margin-left:4px"></span> spiking</div>
+    <div class="legend-item"><span class="swatch" style="background:#bc8cff"></span> Single-flight lock active (one leader)</div>
+  </div>
+  <div class="card">
+    <h2>What you're seeing</h2>
+    <p style="font-size:.88rem;color:var(--muted);margin:.2em 0">
+      The green ring is the key's <b style="color:var(--text)">TTL</b> counting down.
+      When it hits zero the key is stale, so the next reads <b style="color:var(--text)">miss</b>.</p>
+    <p style="font-size:.88rem;color:var(--muted);margin:.6em 0">
+      <b style="color:var(--purple)">Single-flight</b>: only one client (the leader) recomputes;
+      the rest wait and reuse its result &rarr; exactly <b style="color:var(--text)">1</b> DB query.</p>
+    <p style="font-size:.88rem;color:var(--muted);margin:.6em 0">
+      <b style="color:var(--accent)">Jitter + early recompute</b>: each client refreshes a bit
+      <i>before</i> expiry at a random offset, so misses spread out instead of synchronizing.</p>
+  </div>
+</div>
+
+<p class="try">Try this: set clients to the max with both mitigations <b>OFF</b> and Step the expiry &mdash; watch QPS spike to the client count. Now turn <b>Single-flight ON</b> and Step again: peak QPS drops to exactly <b>1</b>, no matter how many clients.</p>
+
+<footer>
+  <a href="./index.html">&larr; Back to gallery</a>
+  <a href="../01-building-blocks/06-caching.md">Related writeup: Caching &rarr;</a>
+</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var NS="http://www.w3.org/2000/svg";
+  var svg=document.getElementById("scene");
+  var gClients=document.getElementById("clients");
+  var gReqs=document.getElementById("reqs");
+  var qpsBar=document.getElementById("qpsBar");
+  var qpsLabel=document.getElementById("qpsLabel");
+  var peakLabel=document.getElementById("peakLabel");
+  var ttlRing=document.getElementById("ttlRing");
+  var ttlText=document.getElementById("ttlText");
+  var cacheState=document.getElementById("cacheState");
+  var dbGlow=document.getElementById("dbGlow");
+  var lockBadge=document.getElementById("lockBadge");
+  var narration=document.getElementById("narration");
+
+  var playBtn=document.getElementById("playBtn");
+  var stepBtn=document.getElementById("stepBtn");
+  var resetBtn=document.getElementById("resetBtn");
+  var clientSlider=document.getElementById("clientSlider");
+  var clientVal=document.getElementById("clientVal");
+  var sfToggle=document.getElementById("sfToggle");
+  var jitterToggle=document.getElementById("jitterToggle");
+
+  var CACHE_X=460, CACHE_Y=180; // approx cache center for routing
+  var DB_X=800, DB_Y=200;
+  var TTL_CIRC=2*Math.PI*22; // ~138.23
+
+  // ---- state ----
+  var N=12;
+  var singleFlight=false;
+  var jitter=false;
+  var ttlMax=6;            // seconds of TTL
+  var ttl=ttlMax;          // current ttl
+  var playing=false;
+  var dbQps=0;             // current concurrent DB queries this expiry
+  var peakQps=0;
+  var clients=[];          // {idx, el, x,y, angle, state, refreshAt}
+  var packets=[];          // moving request dots
+  var lastT=0;
+  var DB_FETCH_MS=1400;    // how long a DB recompute takes
+  var inflightLeader=null; // single-flight leader index or null
+  var leaderDoneAt=0;
+
+  function setNarr(s){ narration.innerHTML=s; }
+
+  function layoutClients(){
+    gClients.innerHTML="";
+    clients=[];
+    // arrange in a vertical-ish column on the left
+    var cx=120;
+    var topY=120, botY=400;
+    for(var i=0;i<N;i++){
+      var t = N===1?0.5:i/(N-1);
+      var y = topY + t*(botY-topY);
+      var g=document.createElementNS(NS,"g");
+      var c=document.createElementNS(NS,"circle");
+      c.setAttribute("cx",cx); c.setAttribute("cy",y);
+      c.setAttribute("r",9);
+      c.setAttribute("fill","#58a6ff");
+      c.setAttribute("stroke","#0d1117");
+      c.setAttribute("stroke-width","1.5");
+      g.appendChild(c);
+      gClients.appendChild(g);
+      // random jittered early-refresh offset (fraction of TTL before expiry)
+      var off = jitter ? (0.05 + Math.random()*0.45) : 0; // refresh up to 45% early
+      clients.push({idx:i, el:c, x:cx, y:y, state:"idle", refreshAt: off, refreshed:false});
+    }
+  }
+
+  function resetExpiryState(){
+    dbQps=0; updateQps();
+    inflightLeader=null;
+    packets.forEach(function(p){ if(p.el && p.el.parentNode) p.el.parentNode.removeChild(p.el); });
+    packets=[];
+    clients.forEach(function(c){
+      c.state="idle"; c.refreshed=false;
+      c.el.setAttribute("fill","#58a6ff");
+    });
+    lockBadge.setAttribute("opacity","0");
+    dbGlow.setAttribute("opacity","0");
+  }
+
+  function fullReset(){
+    playing=false; playBtn.textContent="Play";
+    ttl=ttlMax;
+    peakQps=0; peakLabel.textContent="peak: 0";
+    layoutClients();
+    resetExpiryState();
+    cacheState.textContent="FRESH"; cacheState.setAttribute("fill","#3fb950");
+    updateTtlRing();
+    setNarr('Cache is <b style="color:#3fb950">FRESH</b>. Clients read straight from cache &mdash; the DB is idle. Watch the TTL ring drain.');
+  }
+
+  function updateTtlRing(){
+    var frac=Math.max(0,Math.min(1,ttl/ttlMax));
+    ttlRing.setAttribute("stroke-dashoffset", (TTL_CIRC*(1-frac)).toFixed(2));
+    var col = frac>0.5? "#3fb950" : frac>0.2? "#d29922":"#f85149";
+    ttlRing.setAttribute("stroke",col);
+    ttlText.textContent = ttl>0 ? ttl.toFixed(1) : "0";
+  }
+
+  function updateQps(){
+    var maxBarVal=24;
+    var w=Math.min(1, dbQps/maxBarVal)*598;
+    qpsBar.setAttribute("width", w.toFixed(1));
+    var col = dbQps<=1? "#3fb950" : dbQps<=4? "#d29922":"#f85149";
+    qpsBar.setAttribute("fill",col);
+    qpsLabel.textContent=dbQps;
+    qpsLabel.setAttribute("fill", dbQps<=1?"#3fb950": dbQps<=4?"#d29922":"#f85149");
+    if(dbQps>peakQps){ peakQps=dbQps; peakLabel.textContent="peak: "+peakQps; }
+    // db glow intensity
+    var glow=Math.min(1, dbQps/12);
+    dbGlow.setAttribute("opacity",(glow*0.55).toFixed(2));
+  }
+
+  // spawn a moving packet from client to a target, then callback
+  function spawnPacket(client, fromX, fromY, toX, toY, color, durMs, onArrive){
+    var p=document.createElementNS(NS,"circle");
+    p.setAttribute("r","5");
+    p.setAttribute("fill",color);
+    p.setAttribute("cx",fromX); p.setAttribute("cy",fromY);
+    gReqs.appendChild(p);
+    packets.push({el:p, fromX:fromX,fromY:fromY,toX:toX,toY:toY,
+      t:0, dur:durMs, onArrive:onArrive, done:false});
+  }
+
+  // ---- expiry orchestration ----
+  function triggerExpiry(){
+    if(ttl>0){ ttl=0; updateTtlRing(); }
+    resetExpiryState();
+    cacheState.textContent="STALE"; cacheState.setAttribute("fill","#f85149");
+
+    if(singleFlight){
+      lockBadge.setAttribute("opacity","1");
+      // pick a leader (first client)
+      var leader=clients[0];
+      inflightLeader=leader.idx;
+      leaderDoneAt = performance.now()+DB_FETCH_MS;
+      leader.state="fetching";
+      leader.el.setAttribute("fill","#f85149");
+      // leader sends ONE request to DB
+      dbQps=1; updateQps();
+      spawnPacket(leader, leader.x, leader.y, DB_X, DB_Y-10, "#f85149", 700, function(){});
+      // all other clients are coalesced waiting
+      for(var i=1;i<clients.length;i++){
+        clients[i].state="waiting";
+        clients[i].el.setAttribute("fill","#d29922");
+        spawnPacket(clients[i], clients[i].x, clients[i].y, 645, 206, "#d29922", 600, function(){});
+      }
+      setNarr('TTL expired. <b style="color:#bc8cff">Single-flight ON</b>: client #0 became the <b>leader</b> and issues exactly <b>1</b> DB query. The other '+(N-1)+' clients <b style="color:#d29922">coalesce</b> and wait on its result. <b style="color:#3fb950">DB QPS = 1</b>.');
+    } else {
+      // every client misses and hits DB (thundering herd)
+      var n=0;
+      clients.forEach(function(c){
+        c.state="fetching";
+        c.el.setAttribute("fill","#f85149");
+        spawnPacket(c, c.x, c.y, DB_X, DB_Y-10+(Math.random()*30-15), "#f85149", 650+Math.random()*250, function(){});
+        n++;
+      });
+      dbQps=n; updateQps();
+      leaderDoneAt = performance.now()+DB_FETCH_MS;
+      inflightLeader=-1; // herd mode
+      setNarr('TTL expired and the key is <b style="color:#f85149">STALE</b>. With no protection, all <b>'+N+'</b> clients miss at once and stampede the DB. <b style="color:#f85149">DB QPS spikes to '+n+'</b> &mdash; the thundering herd.');
+    }
+  }
+
+  function finishExpiry(){
+    // DB recompute done -> cache refreshed
+    cacheState.textContent="FRESH"; cacheState.setAttribute("fill","#3fb950");
+    ttl=ttlMax; updateTtlRing();
+    // packets clients return / turn green (hit)
+    clients.forEach(function(c){
+      c.state="idle"; c.el.setAttribute("fill","#3fb950");
+    });
+    // brief: clear DB load
+    dbQps=0; updateQps();
+    lockBadge.setAttribute("opacity","0");
+    inflightLeader=null;
+    if(singleFlight){
+      setNarr('Leader finished the recompute and stored the value. All waiting clients received the <b style="color:#3fb950">single shared result</b> &mdash; the DB only did <b>1</b> query total. Peak QPS this expiry: <b>1</b>. Cache is FRESH again.');
+    } else {
+      setNarr('All clients eventually got an answer, but the DB absorbed <b style="color:#f85149">'+N+' duplicate queries</b> for the same value. Peak QPS: <b style="color:#f85149">'+peakQps+'</b>. This is what overloads databases. Cache is FRESH again.');
+    }
+    // fade clients back to idle blue shortly
+    setTimeout(function(){
+      clients.forEach(function(c){ if(c.state==="idle") c.el.setAttribute("fill","#58a6ff"); });
+    },700);
+  }
+
+  // ---- main loop ----
+  function frame(t){
+    if(!lastT) lastT=t;
+    var dt=(t-lastT)/1000; lastT=t;
+
+    // advance packets
+    for(var i=packets.length-1;i>=0;i--){
+      var p=packets[i];
+      p.t+=dt*1000;
+      var f=Math.min(1,p.t/p.dur);
+      var ease=f<0.5?2*f*f:1-Math.pow(-2*f+2,2)/2;
+      var x=p.fromX+(p.toX-p.fromX)*ease;
+      var y=p.fromY+(p.toY-p.fromY)*ease;
+      p.el.setAttribute("cx",x); p.el.setAttribute("cy",y);
+      if(f>=1 && !p.done){
+        p.done=true;
+        if(p.onArrive) p.onArrive();
+        if(p.el.parentNode) p.el.parentNode.removeChild(p.el);
+        packets.splice(i,1);
+      }
+    }
+
+    // if an expiry is in flight, check completion
+    if(inflightLeader!==null && performance.now()>=leaderDoneAt){
+      finishExpiry();
+    }
+
+    if(playing){
+      // only drain TTL when fresh & no expiry in flight
+      if(inflightLeader===null && ttl>0){
+        ttl-=dt;
+        if(ttl<0) ttl=0;
+        updateTtlRing();
+
+        // jittered early recompute: clients individually refresh before expiry
+        if(jitter && inflightLeader===null){
+          var fracLeft=ttl/ttlMax;
+          clients.forEach(function(c){
+            if(!c.refreshed && fracLeft<=c.refreshAt){
+              c.refreshed=true;
+              // a single client quietly refreshes; tiny DB blip of 1
+              c.el.setAttribute("fill","#3fb950");
+              spawnPacket(c, c.x, c.y, DB_X, DB_Y-10, "#3fb950", 700, function(){
+                c.el.setAttribute("fill","#58a6ff");
+              });
+              // briefly show qps=1
+              dbQps=1; updateQps();
+              setNarr('<b style="color:#58a6ff">Jitter + early recompute</b>: client #'+c.idx+' refreshed the key <b>before</b> it expired (random offset). Because refreshes are spread out, only ~1 client touches the DB at a time &mdash; <b style="color:#3fb950">no synchronized stampede</b>.');
+              // this client effectively resets the key freshness
+              ttl=ttlMax; updateTtlRing();
+              cacheState.textContent="FRESH"; cacheState.setAttribute("fill","#3fb950");
+              setTimeout(function(){ if(dbQps===1){ dbQps=0; updateQps(); } },650);
+            }
+          });
+        }
+
+        if(ttl<=0){
+          triggerExpiry();
+        }
+      }
+    }
+
+    requestAnimationFrame(frame);
+  }
+
+  // ---- controls ----
+  playBtn.addEventListener("click",function(){
+    playing=!playing;
+    playBtn.textContent=playing?"Pause":"Play";
+    if(playing && inflightLeader===null && ttl>0){
+      setNarr('Running. Cache is <b style="color:#3fb950">FRESH</b>; the TTL ring is draining. When it hits 0 the next reads will miss.');
+    }
+  });
+  stepBtn.addEventListener("click",function(){
+    // jump straight to an expiry event
+    if(inflightLeader!==null) return; // already mid-expiry
+    triggerExpiry();
+  });
+  resetBtn.addEventListener("click",fullReset);
+
+  clientSlider.addEventListener("input",function(){
+    N=parseInt(clientSlider.value,10);
+    clientVal.textContent=N;
+    layoutClients();
+    resetExpiryState();
+  });
+
+  sfToggle.addEventListener("click",function(){
+    singleFlight=!singleFlight;
+    sfToggle.textContent="Single-flight: "+(singleFlight?"ON":"OFF");
+    sfToggle.classList.toggle("active",singleFlight);
+    if(singleFlight){
+      setNarr('<b style="color:#bc8cff">Single-flight enabled.</b> On the next expiry, exactly one leader will recompute and everyone else waits &mdash; DB QPS will be 1.');
+    } else {
+      setNarr('Single-flight disabled. On the next expiry every client will hit the DB independently.');
+    }
+  });
+  jitterToggle.addEventListener("click",function(){
+    jitter=!jitter;
+    jitterToggle.textContent="Jittered TTL + early recompute: "+(jitter?"ON":"OFF");
+    jitterToggle.classList.toggle("active",jitter);
+    layoutClients(); // re-roll random offsets
+    resetExpiryState();
+    if(jitter){
+      setNarr('<b style="color:#58a6ff">Jitter + early recompute enabled.</b> Each client picks a random moment slightly before expiry to refresh, so misses spread out instead of all firing together. Press Play.');
+    }
+  });
+
+  // init
+  clientVal.textContent=N;
+  clientSlider.value=N;
+  fullReset();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

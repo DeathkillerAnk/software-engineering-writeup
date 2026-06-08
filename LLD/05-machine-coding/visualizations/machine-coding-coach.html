@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Machine-Coding Coach — LLD 05</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --ink:#e2e8f0; --muted:#94a3b8; --line:#475569;
+    --ok:#34d399; --bad:#f87171; --accent:#818cf8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5;padding:24px}
+  h1{font-size:1.35rem;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 18px;font-size:.95rem}
+  .timer{font-family:ui-monospace,monospace;font-size:2.4rem;font-weight:800;text-align:center;margin:6px 0}
+  .timer.warn{color:var(--bad)}
+  .phaseName{text-align:center;color:var(--accent);font-weight:700;margin-bottom:14px;min-height:22px}
+  .bar{height:8px;background:#0b1220;border-radius:999px;overflow:hidden;margin-bottom:18px}
+  .bar > div{height:100%;background:var(--accent);width:0;transition:width .4s linear}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .step{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;margin:3px 0;transition:all .3s;border-left:3px solid transparent}
+  .step.current{background:rgba(129,140,248,.12);border-left-color:var(--accent)}
+  .step.done{opacity:.55}
+  .step .n{font-family:ui-monospace,monospace;font-size:.72rem;color:var(--muted);width:48px}
+  .step .t{font-size:.9rem}
+  .step .b{margin-left:auto;font-family:ui-monospace,monospace;font-size:.75rem;color:var(--muted)}
+  .step.done .t{text-decoration:line-through}
+  .controls{display:flex;gap:8px;justify-content:center;margin-top:18px}
+  button{background:#334155;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:9px 16px;font-size:.85rem;cursor:pointer;font-weight:700}
+  button.go{background:var(--accent);color:#0b1220;border:0}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  .rubric{margin-top:18px;display:none}
+  .rubric.show{display:block}
+  .rubric h3{font-size:.9rem;margin:0 0 8px}
+  .rrow{display:flex;justify-content:space-between;font-size:.82rem;padding:4px 0;border-bottom:1px solid var(--line);color:var(--muted)}
+  .foot{color:var(--muted);font-size:.85rem;margin-top:22px;border-top:1px solid var(--line);padding-top:14px}
+  code{background:#0b1220;padding:1px 6px;border-radius:5px;font-size:.85em}
+</style>
+</head>
+<body>
+  <h1>Machine-coding coach — practice the method under the clock</h1>
+  <p class="sub">LLD · 05 — a 45-minute timebox split across the 8 steps. Start, work the current step, hit Next when done.</p>
+
+  <div class="panel">
+    <div class="timer" id="timer">45:00</div>
+    <div class="phaseName" id="phaseName">press Start</div>
+    <div class="bar"><div id="barFill"></div></div>
+    <div id="steps"></div>
+    <div class="controls">
+      <button class="go" id="startBtn">▶ Start</button>
+      <button id="nextBtn" disabled>Next step →</button>
+      <button id="resetBtn">reset</button>
+    </div>
+    <div class="rubric" id="rubric">
+      <h3>⏱ Time's up — score yourself 1–5 on each:</h3>
+      <div class="rrow"><span>Requirements & scope</span><span>__/5</span></div>
+      <div class="rrow"><span>Object model (invariants, not anemic)</span><span>__/5</span></div>
+      <div class="rrow"><span>Extensibility (seam where change was hinted)</span><span>__/5</span></div>
+      <div class="rrow"><span>Clean code (names, small methods, DI)</span><span>__/5</span></div>
+      <div class="rrow"><span>Correctness (edges + concurrency)</span><span>__/5</span></div>
+      <div class="rrow"><span>Communication (trade-offs out loud)</span><span>__/5</span></div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <strong>How to use:</strong> pick a problem (Parking Lot, Rate Limiter, …), hit Start, and force yourself through each
+    phase in its budget. The discipline of <em>clarify → model → seam → build → test</em> in order is what you're training —
+    that order is what scores, not raw coding speed.
+  </div>
+
+<script>
+(function(){
+  const STEPS=[
+    {n:'5 min', t:'1 · Clarify & scope — list requirements, cut what\'s OUT', s:300},
+    {n:'5 min', t:'2 · Entities & value objects — the nouns', s:300},
+    {n:'5 min', t:'3 · Core APIs as interfaces — get sign-off', s:300},
+    {n:'2 min', t:'4 · Find the axis of change — put ONE seam there', s:120},
+    {n:'18 min',t:'5 · Implement the happy path — clean, in-memory', s:1080},
+    {n:'5 min', t:'6 · Correctness — edge cases + concurrency', s:300},
+    {n:'5 min', t:'7 · Test & narrate trade-offs', s:300},
+    {n:'rest',  t:'8 · Extend on demand — your seam pays off', s:0},
+  ];
+  const TOTAL=STEPS.reduce((a,s)=>a+s.s,0);
+  const timer=document.getElementById('timer'), phaseName=document.getElementById('phaseName'),
+        barFill=document.getElementById('barFill'), stepsEl=document.getElementById('steps'),
+        startBtn=document.getElementById('startBtn'), nextBtn=document.getElementById('nextBtn'),
+        resetBtn=document.getElementById('resetBtn'), rubric=document.getElementById('rubric');
+  let idx=-1, remaining=TOTAL, tick=null;
+
+  function fmt(s){ const m=Math.floor(s/60), ss=s%60; return (m<10?'0':'')+m+':'+(ss<10?'0':'')+ss; }
+  function renderSteps(){
+    stepsEl.innerHTML='';
+    STEPS.forEach((s,i)=>{
+      const d=document.createElement('div'); d.className='step'+(i===idx?' current':'')+(i<idx?' done':'');
+      d.innerHTML='<span class="n">'+s.n+'</span><span class="t">'+s.t+'</span><span class="b">'+(i<idx?'✓':'')+'</span>';
+      stepsEl.appendChild(d);
+    });
+  }
+  function update(){
+    timer.textContent=fmt(remaining);
+    timer.classList.toggle('warn', remaining<=60);
+    barFill.style.width=(100*(TOTAL-remaining)/TOTAL)+'%';
+  }
+  function start(){
+    idx=0; remaining=TOTAL; rubric.classList.remove('show');
+    phaseName.textContent='Step 1'; startBtn.disabled=true; nextBtn.disabled=false;
+    renderSteps(); update();
+    tick=setInterval(()=>{
+      remaining--; update();
+      if(remaining<=0){ clearInterval(tick); finish(); }
+    },1000);
+  }
+  function finish(){
+    phaseName.textContent='⏱ Time! Score yourself below.'; nextBtn.disabled=true;
+    idx=STEPS.length; renderSteps(); rubric.classList.add('show');
+  }
+  nextBtn.onclick=()=>{ if(idx<STEPS.length-1){ idx++; phaseName.textContent='Step '+(idx+1); renderSteps(); } };
+  startBtn.onclick=start;
+  resetBtn.onclick=()=>{ if(tick) clearInterval(tick); idx=-1; remaining=TOTAL; startBtn.disabled=false; nextBtn.disabled=true; phaseName.textContent='press Start'; rubric.classList.remove('show'); renderSteps(); update(); };
+  renderSteps(); update();
+})();
+</script>
+</body>
+</html>
