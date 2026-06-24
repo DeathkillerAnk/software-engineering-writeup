@@ -6,6 +6,16 @@
 
 ---
 
+## ⚡ 60-Second TL;DR
+
+- **Three warm-up designs, one problem:** produce a unique value at scale **without per-request coordination**.
+- **URL shortener** is read-heavy (**~100:1**): immutable mappings → cache + CDN + 302 redirects; keys via **offline KGS batches**, not hash-truncate (birthday collisions ~1.9M keys).
+- **Rate limiter** trades accuracy vs memory: **sliding-window counter** is the default (~0.003% error, 2 ints); **token bucket** for bursts. Enforce at the edge via one **atomic Lua script**.
+- **Distributed IDs:** **Snowflake** (64-bit, k-sortable, compact) or **UUIDv7** (no machine-ID assignment); **UUIDv4** kills B-tree locality.
+- **#1 trap:** backward **clock skew** mints duplicate Snowflakes — *stall, never emit*. Runner-up: `GET`-then-`SET` race lets two servers both allow request 100.
+
+**Remember one thing:** Name the trade-off and the sacrificed correctness *before* you pick — pre-allocate, encode, or approximate to push coordination off the hot path.
+
 ## The Mental Model — first principles
 
 Strip the three away and a single tension remains: **global properties demand global agreement, but global agreement is slow.**

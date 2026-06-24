@@ -6,6 +6,17 @@
 
 ---
 
+## ⚡ 60-Second TL;DR
+
+- **What/why:** layered stack (Link→IP→Transport→App) builds a reliable, ordered, encrypted byte stream over an unreliable, plaintext packet medium.
+- **TCP** = reliable/ordered but pays handshake RTTs + **HOL blocking**; **UDP** = no setup/no HOL, you own reliability (media, DNS, QUIC).
+- **HTTP/2** multiplexes over TCP (still TCP-level HOL on loss); **HTTP/3 (QUIC/UDP)** makes streams independent + survives IP changes.
+- **TLS 1.3** = 1-RTT (0-RTT resume, replay-unsafe); decide **where you terminate** (edge vs end-to-end/mTLS).
+- **#1 trap:** "more bandwidth fixes slow." No — **latency = RTT × round-trips**; single-stream throughput ≈ **window/RTT**.
+- **Must-know numbers:** fiber ~5 µs/km → NY↔London ~56 ms RTT; ~64K ephemeral ports/pair; Nagle+delayed-ACK = ~40 ms stalls; MTU ~1500B.
+
+**Remember one thing:** assign a protocol, an RTT, and a round-trip count to every arrow you draw — you cannot reason about a system until each hop has a number.
+
 ## The Mental Model — first principles: why does this thing exist?
 
 Two processes on two machines want to exchange data. Between them sits a chain of fallible components: NICs, switches, routers, fiber, undersea cables, ISPs, firewalls, load balancers. None of them is reliable. Packets get dropped, duplicated, reordered, and delayed by arbitrary amounts. The fundamental problem networking solves is: **build a reliable, ordered, secured byte stream on top of an unreliable, unordered, plaintext packet medium** — and do it without melting the shared infrastructure when ten million machines try at once.

@@ -4,6 +4,17 @@
 >
 > **Principal-level takeaway:** Observability is not "add Datadog." It is a design constraint you bake in from day one, and SLOs are the contract that turns "is it working?" from a heated opinion into a number with a budget attached. The hardest part is not collecting data — it's collecting the *right* data cheaply enough that you can afford to keep it.
 
+## ⚡ 60-Second TL;DR
+
+- **What/why:** explain a distributed system's behavior from only the data it emitted — including questions nobody pre-built a dashboard for.
+- **Monitoring** = known unknowns (dashboards/thresholds); **observability** = unknown unknowns (slice at query time). Need both.
+- **Three pillars:** **metrics** (cheap, "is it broken?", low-cardinality), **logs** (per-event "why", costly), **traces** (cross-service "where", sampled). `trace_id` joins them.
+- **Latency:** use **percentiles, never averages** — p50/p95/p99/p999; at fan-out p99 backend ≈ median page. Histograms aggregate (sum buckets, *then* quantile).
+- **#1 footgun: cardinality explosion** — `user_id`/raw-URL as a metric label OOMs your TSDB; high-cardinality lives in logs/traces.
+- **SLO** drives everything: `error budget = 1 − SLO` (99.9% ≈ 40 min/28d); alert on **symptoms/burn rate**, not CPU.
+
+**Remember one thing:** observability is a design constraint you architect in — propagation, structured logs, bounded labels, SLOs — not a vendor you buy.
+
 ## The Mental Model — first principles: why does this thing exist, what problem does it solve?
 
 A program on your laptop is observable for free: you read the source, attach a debugger, set a breakpoint, inspect every variable. A distributed system in production destroys all three of those affordances at once.

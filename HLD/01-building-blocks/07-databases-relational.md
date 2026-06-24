@@ -6,6 +6,17 @@
 
 ---
 
+## ⚡ 60-Second TL;DR
+
+- **Relational DB** (Postgres/InnoDB) = the default datastore; two jobs: **find data fast** (indexes) and **don't corrupt it under concurrency** (transactions).
+- **B+tree index**: ~4 levels, point lookup ≈ 1 I/O; serves ranges/ordering. But each index is **a write tax** — N indexes = N+1 B+tree writes per insert.
+- **ACID is configurable, not magic**: A+D = crash safety; **C is *your* job** (only declared constraints enforced); **I needs a *level*** to mean anything.
+- **#1 trap**: the default **Read Committed** permits **lost updates** and **write skew**. Snapshot Isolation stops neither write skew — **only Serializable does**.
+- **Serializable on Postgres = SSI**: you **must retry on `40001`**, or it's a bug.
+- Pool size is a **capacity knob** (~2×cores), not "more is better"; transaction-pooling breaks session state.
+
+**Remember one thing:** Know exactly which isolation guarantees you're paying for — the default protects far less than most engineers assume.
+
 ## The Mental Model — first principles: why does this thing exist?
 
 Strip everything away and a database has two jobs: **find data fast** and **don't corrupt it when many people touch it at once**. Everything in this chapter is one of those two jobs.

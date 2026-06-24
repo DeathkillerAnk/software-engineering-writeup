@@ -6,6 +6,17 @@
 
 ---
 
+## ⚡ 60-Second TL;DR
+
+- **What/why:** the canonical **read-heavy** problem (~**100:1** reads:writes) — shape data for the read path, not just storage.
+- **Fan-out-on-write (push):** precompute each follower's feed; cheap reads, write cost **O(followers)** — explodes for celebrities.
+- **Fan-out-on-read (pull):** assemble at read time; cheap writes, but scatter-gather reads on the hottest path.
+- **Hybrid (the real answer):** push for normal accounts, pull + read-merge for celebs above a tuned threshold — the graph is **power-law**, not uniform.
+- **#1 trap:** pure push — celebrity tail = fan-out storm; also store **post IDs, not bodies** (~50-100× RAM blowup otherwise).
+- **Must-knows:** cap feeds ~**800** entries; **cursor** pagination (never OFFSET); deletes filtered at read-time hydration, never chased; **p99 < ~200ms**.
+
+**Remember one thing:** The defining choice is *when* you pay to assemble the feed — write, read, or split — and the power-law graph forces hybrid.
+
 ## The Mental Model — first principles
 
 Strip away the product. A news feed is one question asked billions of times a day: *"Given that user U follows a set of accounts, show me the recent posts from those accounts, in some order."*

@@ -4,6 +4,16 @@
 >
 > **Principal-level takeaway:** Storage systems earn their reputation by being *boring under failure*. The hard part is never the happy path — it's the durability math, the metadata bottleneck, and the consistency contract you commit to *before* you write a line of code, because that contract dictates every other decision downstream. Design the failure behavior first; the API is the easy part.
 
+## ⚡ 60-Second TL;DR
+
+- **Two storage shapes, same primitives:** **object store** (S3) = big immutable blobs, throughput-bound; **KV store** (Dynamo) = tiny mutable records, single-digit-ms p99, always-writable.
+- **S3 = data plane + metadata plane.** Split because bytes are throughput-bound, metadata is IOPS/consistency-bound; metadata commit is the **linearization point** for read-after-write.
+- **Durability via erasure coding,** not just copies: **10+4** = 40% overhead, survives 4 losses vs 3× replication = 200%, survives 2 — but EC repair reads *k* shards.
+- **Dynamo is leaderless + AP:** tune **R/W/N** per call; **W+R>N** forces read/write overlap (not linearizability), default N=3/W=R=2.
+- **Concurrent writes conflict:** **vector clocks** flag causality and return siblings to merge; LWW is simpler but silently drops writes under skew.
+- **#1 trap:** durability is a *rate* — correlated failures that outpace repair lose data despite "11 nines."
+- **Remember one thing:** Design the failure behavior and consistency contract *first* — they dictate every downstream decision; the API is the easy part.
+
 ## The Mental Model — first principles: why does this thing exist?
 
 Almost every product you build needs to put bytes somewhere and get them back later. The naive answer — "a big disk" — fails immediately at scale on two axes: a single disk holds far too little, and it dies. Annualized disk failure rates run 1–2% in the field; with a million disks you are losing tens of thousands per year, and several per hour. So the real problem isn't storage, it's **storing data on inherently unreliable hardware such that the *system* is far more reliable than any *component*.**

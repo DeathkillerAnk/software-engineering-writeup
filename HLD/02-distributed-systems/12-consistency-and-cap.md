@@ -6,6 +6,17 @@
 
 ---
 
+## ⚡ 60-Second TL;DR
+
+- **Why it exists:** the instant data has two copies (replica/cache/region), readers can see stale or out-of-order values — a **consistency model** is the contract for what's allowed.
+- **The spectrum:** **Linearizable** (single-copy illusion, real-time order — never stale, but pays a quorum/leader round trip) → **Causal** (cause-before-effect, strongest model still available in a partition) → **Read-your-writes/session** (your own writes stay visible, cheap) → **Eventual** (converges if writes stop, cheapest, can go backwards).
+- **CAP:** only bites *during a partition* — pick **C** (refuse) or **A** (serve stale). "CA" is a category error: partitions aren't optional.
+- **PACELC > CAP:** Else (no partition) you still trade **Latency vs Consistency** every read — that's the cost you pay 99% of the time.
+- **#1 trap:** split-brain + last-writer-wins **silently loses writes**; and linearizable ≠ serializable (single-object vs multi-object).
+- **Rule of thumb:** Cassandra-style **R+W>N** gives quorum overlap; strong reads cost ~2× and one extra round trip.
+
+**Remember one thing:** consistency is a per-operation choice — pick the *weakest model that still protects the invariant*, not the strongest one that feels safe.
+
 ## The Mental Model — first principles: why does this thing exist?
 
 Start with the thing we wish we had: a single copy of the data, on one machine, accessed by one client at a time. There is no ambiguity. You write `x = 5`, then you read `x`, you get `5`. Every observer agrees on what happened and in what order. This is the gold standard, and the entire field of consistency models exists because we *cannot keep it* once we add concurrency, replication, or geography.

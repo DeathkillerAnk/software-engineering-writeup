@@ -4,6 +4,17 @@
 >
 > **Principal-level takeaway:** The goal of a capacity estimate is *not* a precise answer — it is to find the **order of magnitude** that decides the architecture. Whether a system serves 100 QPS or 100,000 QPS changes everything; whether it's 80,000 or 120,000 changes almost nothing. Estimate to the nearest 10x, state your assumptions out loud, and use the number to *eliminate* designs, not to size hardware.
 
+## ⚡ 60-Second TL;DR
+
+- **What/why:** turn a vague "build X" into **order-of-magnitude** numbers (QPS, TB, Gbps, machines) so scale picks the architecture.
+- **Chain:** **DAU × actions/user/day ÷ 86,400** → avg QPS → **× peak (2–5×)** → peak QPS; storage = writes × size × 365 × **RF (~3) × overhead**.
+- **Latency anchors:** RAM ~100 ns, same-DC RTT ~0.5 ms, HDD seek ~8 ms, cross-region RTT ~70–150 ms — gaps span ~8 orders; physics, not money.
+- **Read/write ratio** often matters more than absolute QPS; **bandwidth** (size × QPS), not QPS, is what forces a **CDN**.
+- **#1 mistake:** sizing to **average** — peaks stack 2–10× and a single **hot key/shard** (100×) hides inside healthy aggregate numbers.
+- **Sanity:** re-derive a second way, check units (the classic error is **1,000×**), compare to an anchor (Twitter peak ~143K writes/sec).
+
+**Remember one thing:** estimate to the nearest 10× to *eliminate designs*, not to size hardware — precision past the architectural threshold is wasted.
+
 ## The Mental Model — first principles: why does this thing exist, what problem does it solve?
 
 Every design discussion starts with a vague sentence: "We need a service that lets users upload photos." That sentence is unfalsifiable. You cannot tell whether it needs one server or ten thousand, a single Postgres box or a globally-sharded object store, until you attach numbers to it. Back-of-the-envelope (BOTE) estimation is the discipline of going from a vague requirement to those numbers in roughly two minutes, on a whiteboard, without a spreadsheet.

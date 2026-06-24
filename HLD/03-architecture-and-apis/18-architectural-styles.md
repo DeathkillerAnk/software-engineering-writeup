@@ -6,6 +6,16 @@
 
 ---
 
+## ⚡ 60-Second TL;DR
+
+- **Architecture = drawing boundaries to localize the cost of change**; it tracks your *team*, not your ambitions.
+- **Modular monolith** = the right default (one deploy, one DB, ACID, cheap-to-move boundaries); **microservices** buy independent deploy/scaling at a permanent **distributed-systems tax**; **EDA** trades max decoupling for hardest debugging.
+- Cut services along **DDD bounded contexts** (data + language that change together), never by technical layer; **start coarse** — merging is harder than splitting.
+- **#1 failure: the distributed monolith** — services that share a DB or must deploy together. All cost, no benefit.
+- Rules of thumb: justify microservices past **~3-4 teams** blocked on each other; **10 services @ 99.9% ≈ 99%** (worse than one); mesh only past **~15-20 services**; **CQRS ≠ event sourcing ≠ microservices** (orthogonal).
+
+**Remember one thing:** A boundary in the wrong place is far worse than no boundary at all — default to the monolith and pay the distribution tax only when the coordination pain is concrete and present.
+
 ## The Mental Model — first principles: why does this thing exist?
 
 Strip away the vocabulary and there are only two questions any architecture answers:

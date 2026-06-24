@@ -6,6 +6,18 @@
 
 ---
 
+## ⚡ 60-Second TL;DR
+
+- **What/why:** a repeatable **8-step method** to *derive* an architecture from requirements, not recall one — because the prompt is deliberately underspecified.
+- **Split requirements:** **functional** (drives API + data model) vs **non-functional** (drives architecture; 80% of the difficulty).
+- **Numbers gate the tier:** compute **QPS + read/write ratio** — 1K vs 1M QPS = "one Postgres box" vs "shard + cache + queue + CDN."
+- **Breadth before depth:** draw the whole request path first, *then* deep-dive the 1-2 hardest components — never one box at a time.
+- **Deep-dive move:** offer **options → trade-offs → let a requirement break the tie** (the trifecta that's scored).
+- **#1 misconception:** more components ≠ more senior; unmotivated boxes are the clearest junior tell. **Time:** ~5/5/5/5/8/10/5/2 over 45 min.
+- **Must-do:** say the word **"fails"** — name what dies when cache/primary/AZ goes down.
+
+**Remember one thing:** the architecture should fall out as the inevitable consequence of requirements → numbers → trade-offs, not be a memorized answer you defend.
+
 ## The Mental Model — first principles: why does this thing exist, what problem does it solve?
 
 The reason people freeze in design interviews and real design reviews is the same: the problem is **deliberately underspecified**, and an underspecified problem has infinite valid answers. "Design Twitter" could mean a weekend hack or a system serving 500M daily users. With no constraints, every decision feels arbitrary, so your brain stalls. The framework exists to *manufacture constraints* — and a constrained problem has a small number of *defensible* answers, which is something a human can reason about.

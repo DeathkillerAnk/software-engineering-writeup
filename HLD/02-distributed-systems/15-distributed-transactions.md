@@ -6,6 +6,18 @@
 
 ---
 
+## ⚡ 60-Second TL;DR
+
+- **What/why:** one business op spans many services/DBs; no shared log or lock, so **atomicity across failure domains** is the problem.
+- **2PC:** strong atomic, but **blocks with locks held** if coordinator dies — SPOF, not partition-tolerant; banned at scale (Spanner fixes it via Paxos-replicated decision).
+- **Saga:** local txns + **semantic compensations** (refunds, not ROLLBACK); gives up atomicity *and* isolation. Choreography for 2–3 steps, **orchestration for 4+**.
+- **Outbox:** kills the **dual-write bug** — write event + business row in one local txn, relay via CDC at-least-once.
+- **Idempotency** is load-bearing: retries are unavoidable, so every mutation needs a key; you **cannot make a remote effect atomic with a local write**.
+- **Exactly-once delivery is a myth** (two-generals); only exactly-once *processing* = at-least-once + dedup + atomic offset commit.
+- Order the **irreversible step last**; compensations must be idempotent and always-eventually-succeed.
+
+**Remember one thing:** Don't reach for a distributed transaction — make each step idempotent and retryable, and explicitly design the failure path.
+
 ## The Mental Model — first principles
 
 A local ACID transaction (see [Relational Databases](../01-building-blocks/07-databases-relational.md)) gives you a deal: a block of reads and writes either *all* happen or *none* do (atomicity), leaves the database in a valid state (consistency), behaves as if it ran alone (isolation), and survives a crash once committed (durability). One process, one storage engine, one write-ahead log, one lock manager. The engine can make all-or-nothing happen because it controls everything that participates.

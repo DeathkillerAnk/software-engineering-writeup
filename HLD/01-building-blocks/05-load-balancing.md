@@ -6,6 +6,17 @@
 
 ---
 
+## ⚡ 60-Second TL;DR
+
+- **What/why:** the routing layer answering "which backend serves *this* request?" once one box isn't enough.
+- **L4 vs L7:** L4 is fast/blind, pins per *connection* (DSR = backend replies direct); L7 parses content, routes per *request* — **gRPC/HTTP2 needs L7 or it pins all RPCs to one box.**
+- **Algorithm:** default to **power-of-two-choices** — no shared state, caps max load at **O(log log N)**; naive "least-loaded" stampedes (herding).
+- **Stateful routing:** never `hash % N` (**~all keys remap** on Δnode); use **consistent hashing + vnodes** or **HRW** → only **~1/N** moves.
+- **#1 trap:** even key distribution ≠ even traffic — a **hot key** melts one node regardless; salt/split it.
+- **Health checks:** aggressive ejection → capacity-collapse cascade; need **panic threshold** + ejection cap. The LB itself must never be a SPOF.
+
+**Remember one thing:** the hard part isn't spreading load evenly — it's what happens when a node joins, dies, or runs hot, and whether your scheme reshuffles ~1/N or ~all of your state.
+
 ## The Mental Model — first principles
 
 Start with one server. It can handle, say, 5,000 requests/second before its CPU saturates or its tail latency blows up. Your traffic grows to 50,000 rps. You now need ~10 servers. But a client only knows *one* address. Something has to sit between "the world" and "the fleet" and answer the question: **for this particular request, which backend should serve it?**

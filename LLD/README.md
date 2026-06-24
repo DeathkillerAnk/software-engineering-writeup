@@ -44,6 +44,10 @@ the "in less time" — is in (1) and (4). This track front-loads the forces and 
 
 See **[STUDY-METHOD.md](STUDY-METHOD.md)** for *how* to learn this fast (it matters more than the order).
 
+> **Interview tomorrow?** Skim the **[Master Cheat Sheet](CHEATSHEET.md)** (~30 min — every concept
+> as recall-ready tables), then drill **[Interview Problems & Answers](INTERVIEW-PROBLEMS.md)** —
+> the classic machine-coding problems worked the way you should present them.
+
 ---
 
 ## Recommended sequence (~12 focused weeks, then lifelong)

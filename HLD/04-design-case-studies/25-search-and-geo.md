@@ -4,6 +4,17 @@
 >
 > **Principal-level takeaway:** The entire game in both systems is *precomputing the answer into the right data structure at write time so reads become a cheap lookup* — a trie/top-K table for prefixes, a 1-D spatial cell for 2-D geography. The hard engineering is never the data structure itself; it's **partitioning a non-uniform load** (popular prefixes, dense cities) without creating hotspots, and accepting bounded staleness so you never pay consistency costs on the read path.
 
+## ⚡ 60-Second TL;DR
+
+- **What/why:** autocomplete + "near me" are **read-heavy lookups** solved by picking the right index, not a bigger DB — precompute at write time so reads are cheap.
+- **Typeahead = trie with cached top-K per node** → **O(prefix length)** lookup; never `LIKE 'p%' ORDER BY` (unbounded scan+sort on hot prefixes).
+- **Geo = map 2-D → locality-preserving 1-D cell ID** (**geohash** simple/skewed, **S2** correct sphere, **quadtree/H3** density-adaptive, **PostGIS** polygons).
+- **#1 trap (geo):** boundary edge problem — **always query the cell + its 8 neighbors**, then refine by true distance/**ETA** (not haversine) for ranking.
+- **#1 trap (typeahead):** the live trie is read-only; rebuild out-of-band, **atomic snapshot swap**, accept staleness.
+- **Numbers:** ~100 ms budget; top-**K=5–10**; client debounce ~50–150 ms; driver pings ~4 s (keep in-memory, overwrite, no durability).
+
+**Remember one thing:** Name the cost you're choosing to pay — bounded staleness, eventual consistency, edge-cell queries — because the design's whole skill is precomputing answers at write time so the read path stays cheap.
+
 ## The Mental Model — first principles: why does this thing exist, what problem does it solve?
 
 Both systems answer a query that a naive database serves badly.

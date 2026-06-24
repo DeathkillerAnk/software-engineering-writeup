@@ -4,6 +4,17 @@
 >
 > **Principal-level takeaway:** A cache is not a performance optimization you bolt on — it is a *second copy of your data with weaker consistency guarantees*, and every hard problem in caching (invalidation, stampedes, inconsistency) is a direct consequence of that one fact. Design the cache as a first-class part of your data model, not as an afterthought.
 
+## ⚡ 60-Second TL;DR
+
+- **A cache is a second copy of your data with weaker consistency** — added to exploit latency or recompute-cost asymmetry; only works because access is **Zipfian** (hot set fits in RAM).
+- **Patterns:** **cache-aside** (default; delete-on-write, degrades to slow-but-correct) · **write-through** (consistent, 2× write latency) · **write-back** (fastest writes, *loses unflushed data on crash*).
+- **Eviction:** **LRU** cheap but not scan-resistant · **W-TinyLFU** the modern default (Caffeine).
+- **Invalidation:** prefer **TTL** > explicit delete > **versioned keys**; the read-modify race means delete-on-write shrinks but never closes the stale window.
+- **#1 failure:** **stampede** on synchronized expiry → fix with **jittered TTL + single-flight**. Also: penetration, hot-key, avalanche.
+- **Number:** origin load = **(1−h)·QPS**; 99%→95% hit rate = **5× origin load**. Watch **p99 on hit vs miss**, not averages.
+
+**Remember one thing:** Pick a staleness budget per data type and confirm the origin survives 100% misses — if it can't, the cache is a load-bearing dependency, not an optimization.
+
 ## The Mental Model — first principles: why does this thing exist?
 
 Every cache exists to exploit one of two asymmetries:

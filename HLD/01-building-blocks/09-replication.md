@@ -6,6 +6,17 @@
 
 ---
 
+## ⚡ 60-Second TL;DR
+
+- **What/why:** keep data on multiple nodes for **HA**, **durability**, **read scaling**, **geo-locality** — but every copy can disagree while writes propagate.
+- **Single-leader:** all writes to one node; **async** = fast but loses unshipped acked writes on failover, **semi-sync** (≥1 sync follower) = durable middle ground, **full-sync** = a slow follower blocks all writes.
+- **Multi-leader:** local/multi-region writes but **conflicts are inherent** — resolve via LWW (silently drops data), app-merge, or **CRDTs**.
+- **Leaderless quorum (Dynamo):** tune **R+W>N** per op for read/write overlap; still only eventually consistent.
+- **#1 myth:** "automatic failover = no data loss" and "R+W>N = strong consistency" — both false; **split-brain** needs fencing + quorum election.
+- **Numbers:** same-DC hop ~0.5–2 ms, cross-region ~30–150 ms; design for **p99 lag of seconds**, not median.
+
+**Remember one thing:** Replication is a consistency contract you sign, not a reliability feature you bolt on — decide the contract first, then pick the topology that enforces it.
+
 ## The Mental Model — first principles
 
 Start with one database on one machine. It has a clean property: there is exactly one copy of every fact, so reads and writes are trivially consistent. Whatever you wrote last is what you read next. That single machine is also a single point of failure (lose the disk, lose everything), a single throughput ceiling (one box's CPU and IOPS), and a single location (a user in Sydney pays ~200 ms round-trip to your box in Virginia — physics, not your code).

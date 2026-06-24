@@ -4,6 +4,17 @@
 >
 > **Principal-level takeaway:** In a distributed system there is no global "now." Stop reasoning about *when* things happened and start reasoning about *what happened before what*. Wall-clock time is a useful approximation for humans and a dangerous one for correctness — order events by causality (or by a clock with *bounded, known error*), never by naively comparing two machines' `now()`.
 
+## ⚡ 60-Second TL;DR
+
+- **What/why:** across machines there's no shared "now"; order events by **causality** (happens-before), not by comparing two clocks' `now()`.
+- **Wall clock:** human-readable, **not monotonic** (NTP steps it backward) — fine for logs, **never** for correctness ordering. Use **monotonic** clock for durations.
+- **Lamport (8 B):** total order, but **`C(a)<C(b)` does NOT imply `a→b`** — cannot detect concurrency.
+- **Vector/version vectors (O(N)):** detect concurrency exactly (Dynamo/Riak siblings); cost is per-message size that grows with writers.
+- **HLC (~8–16 B):** compact, sortable, causal physical time (CockroachDB, Yugabyte) — no concurrency detection.
+- **TrueTime + commit-wait (~2ε ≈ 8 ms):** external consistency via GPS/atomic clocks; correctness from *waiting out* uncertainty, not perfect clocks.
+
+**Remember one thing:** Pick the cheapest mechanism that answers your *actual* question — order, conflict detection, or global real-time order — never order correctness-critical events by comparing two machines' clocks.
+
 ## The Mental Model — first principles: why does this thing exist?
 
 Picture two servers, A and B, each handling a write to the same user record. A's clock says `12:00:00.000`, B's says `12:00:00.050`. Both writes land at a replica. Which one wins?

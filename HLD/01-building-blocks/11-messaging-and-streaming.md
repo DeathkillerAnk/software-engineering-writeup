@@ -6,6 +6,17 @@
 
 ---
 
+## ⚡ 60-Second TL;DR
+
+- **Async messaging** = durable buffer between services; breaks **temporal/load/fan-out coupling** but trades immediate failure for eventual consistency.
+- **Queue** (SQS/RabbitMQ): one consumer per msg, deleted on ack, no replay. **Log** (Kafka/Kinesis): append-only, consumers track **offsets**, replayable, sequential I/O → millions/sec.
+- **Ordering is per-partition only**, never global — your **partition key** (`hash(key) % N`) decides ordering scope; can't freely change partition count on keyed topics.
+- **Delivery is at-least-once**; "exactly-once" = at-least-once + **idempotent consumer** (dedup ID + effect in one txn). Kafka EOS only holds Kafka-to-Kafka.
+- **#1 trap:** dual-write (DB + broker, no shared txn) drops/phantoms events → use **transactional outbox + CDC**.
+- **Poison message** in an ordered partition blocks everything behind it → **retry cap + DLQ + alerting**; watch **consumer lag**.
+
+**Remember one thing:** Messaging relocates your reliability problem rather than solving it — design idempotency, ordering, and dead-letter handling before the happy path.
+
 ## The Mental Model — first principles: why does this thing exist?
 
 Start with the simplest possible interaction: service A needs service B to do something. The obvious move is a **synchronous call** — A calls B over HTTP/gRPC and waits for the reply. This is the right default and you should reach for it most of the time (see [API Design](../03-architecture-and-apis/17-api-design.md)). It is simple, it gives you an immediate answer, and the failure is right in your face.

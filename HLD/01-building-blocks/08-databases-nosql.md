@@ -6,6 +6,17 @@
 
 ---
 
+## ⚡ 60-Second TL;DR
+
+- **"NoSQL"** isn't a DB — it's models that drop **joins/ACID** to buy scale, predictable latency, or a fitting data shape.
+- **Model the queries, not the entities**: enumerate every access pattern *first*, then design keys so each is one cheap lookup.
+- **Families**: **key-value** (get by key, sub-ms) / **document** (aggregate by id) / **wide-column** (write-heavy, time-ordered, LSM) / **graph** (multi-hop) / **search** (inverted index, never the source of truth).
+- **#1 failure: hot partition** — low-cardinality or monotonic keys send all traffic to one node; pick high-cardinality keys + salt.
+- **R + W > N** → quorums overlap → read sees latest write; with N=3, **W=2,R=2** is the default. But quorum ≠ isolation (LWW drops data on clock skew).
+- **Distributed secondary indexes aren't free**: local = scatter-gather reads; global = async, eventually-consistent writes.
+
+**Remember one thing:** Pick the data *model* that fits your dominant access pattern — not the DB that claims to "scale" — because scale is just what was traded away, never a free lunch.
+
 ## The Mental Model — first principles: why does this thing exist?
 
 A relational database is a remarkable bargain. You declare your data once, normalized into tables, and then ask *any question you can think of later* via SQL — joins, aggregates, filters — and the query planner figures out how to answer it efficiently using B-tree indexes. You get ACID transactions, foreign keys, and a 50-year-old query language that every tool understands. (See [Relational Databases](07-databases-relational.md) for the machinery.)

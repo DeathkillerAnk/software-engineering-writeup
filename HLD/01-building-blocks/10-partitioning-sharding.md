@@ -6,6 +6,17 @@
 
 ---
 
+## ⚡ 60-Second TL;DR
+
+- **Partitioning/sharding** = split data into disjoint subsets across nodes; scales **capacity + write throughput** linearly (replication only scales reads).
+- **Range** keys: cheap local scans, but **monotonic keys (timestamps/auto-IDs) hotspot** one shard. **Hash** keys: uniform load, but kills range scans. **Compound** (hash entity + cluster on time) gets both.
+- **Secondary indexes:** *local* = cheap writes / scatter-gather reads; *global (term-partitioned)* = cheap reads / expensive, usually eventual writes.
+- **#1 misconception:** a good hash fixes hotspots — **false.** It spreads keys, not load-per-key; one **hot key** lives on one partition (salt/split it).
+- **Never use `hash(key) % N` with variable N** — adding a node remaps ~all keys. Stable schemes move only **~1/N** of data.
+- Scatter-gather: overall p99 trends toward each shard's **p99.99** — budget fan-out, don't normalize it.
+
+**Remember one thing:** Choose the partition key to match your dominant access pattern, not your data's natural identity — it's the most consequential, near-irreversible decision in the system.
+
 ## The Mental Model — first principles
 
 A single machine has hard ceilings. A beefy server tops out around a few TB of RAM, a few dozen TB of fast NVMe, maybe 64–128 cores, and a NIC that does ~10–25 Gbps. You can buy bigger boxes (vertical scaling) right up until you can't: the price curve goes superlinear, and there is a literal largest machine on the market. When your dataset is 500 TB, or you need 2 million writes/second, no single box exists that does it.

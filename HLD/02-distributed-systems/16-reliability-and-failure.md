@@ -6,6 +6,17 @@
 
 ---
 
+## ⚡ 60-Second TL;DR
+
+- **What/why:** at scale **failure is the steady state**, not an exception — design so a **fault** (component off-spec) never becomes a **failure** (system stops serving).
+- **Detect:** can't tell *dead* from *slow* from *partitioned* — detection trades false-positive vs false-negative; **phi-accrual** beats fixed heartbeats by adapting to a node's own jitter.
+- **Survive faults:** **timeouts** (every call — none = latent outage) + **retries w/ full jitter & budgets** + **idempotency keys** (precondition, else double-charge) + **N+k** (only if failures are *independent*).
+- **Contain spread:** **circuit breakers** (stop hammering dead deps), **bulkheads** (per-dep pools), **load shedding** + **backpressure** (unbounded queue = OOM), **cells** (shrink blast radius).
+- **#1 trap:** **metastable failure** — retries sustain overload *after* the trigger clears; only load-shedding breaks the loop.
+- **Numbers:** serial deps **multiply** (0.999³≈99.7%), parallel redundancy **1−(1−A)ⁿ**; timeout at **p99.9** not avg; cap retries to **~10%**.
+
+**Remember one thing:** reliability is the *containment* of failure — assume every dependency will die and ask who it takes down with it.
+
 ## The Mental Model — first principles: why does this thing exist?
 
 Start with a number. Suppose a single server has 99.9% availability — it's down ~8.7 hours a year. That sounds reliable. Now build a service out of 1,000 of them and say a request must touch all of them to succeed. The probability that *all 1,000 are simultaneously up* is `0.999^1000 ≈ 0.368`. Your beautiful 99.9% machines just composed into a system that's available **37% of the time**.

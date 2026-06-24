@@ -2,6 +2,17 @@
 
 > Where this fits: the capstone of the curriculum — the bridge from "I finished a course" to "I keep getting better for the next decade." **Principal-level takeaway:** the canon is not trivia to memorize; it is a set of *thinking templates*. You read GFS not to recall its block size but to internalize how its authors reasoned from a workload (huge files, append-heavy, commodity hardware that fails constantly) to a design. Read primary sources to steal the authors' judgment, not their facts.
 
+## ⚡ 60-Second TL;DR
+
+- **A sequenced syllabus, not a bibliography** — read primary sources to steal the authors' *judgment*, not their facts; blog posts strip the trade-off reasoning.
+- **DDIA** = the map (read it all); **papers** = the territory (read selectively, deep vs. skim).
+- **The recurring axis: consistency vs. availability/latency.** *Dynamo* = AP, always-writable, app reconciles; *Spanner* = CP, global linearizable via **TrueTime** commit-wait; *Raft/Paxos* = same consensus, Raft just teachable.
+- **Foundational limits are facts, not opinions:** **FLP** (no async deterministic consensus), **CAP** (C-vs-A *during* a partition), Lamport (no global "now").
+- **#1 failure mode:** collecting 40 papers, reading 2 — depth compounds, breadth evaporates.
+- **Must-know:** CAP is *not* "pick 2 of 3"; Dynamo's `N/R/W` knobs; FLP escaped via partial synchrony (timeouts).
+
+**Remember one thing:** the canon is a trade-off coordinate space — principal judgment is locating *your* problem in it and naming the nearest precedent.
+
 ## The Mental Model — first principles: why does this thing exist, what problem does it solve?
 
 Most engineers learn distributed systems through blog posts and Stack Overflow. Blog posts are *derived* knowledge: someone read the paper, formed an opinion, compressed it, and lost the trade-off reasoning along the way. You end up with conclusions ("use Raft, not Paxos") without the context that makes them conditional ("...if your team values understandability over the multi-decree flexibility Paxos gives you"). Conclusions without context produce cargo-cult architecture — copying Netflix's microservices at a 5-person startup.

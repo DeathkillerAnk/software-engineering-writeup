@@ -6,6 +6,17 @@
 
 ---
 
+## ⚡ 60-Second TL;DR
+
+- **What:** correct, auditable money movement via a **double-entry ledger** — every txn balances (**debits = credits**).
+- **Ledger = append-only log; balances are derived** (SUM), with a materialized cache you can rebuild and re-prove from the log.
+- **Idempotency keys** turn lost-response retries into exactly-once *effect*; **outbox + CDC** kills the dual-write trap (DB + processor).
+- **Sagas** (orchestrated, reversing entries) for multi-step flows — eventual completion, **not isolation**; pending states are visible.
+- **#1 trap:** "**exactly-once delivery**" doesn't exist — only at-least-once + idempotent consumers; lost-webhook audit gaps are caught only by **reconciliation**.
+- **Numbers/rules:** money as **integer cents, never float**; ledger **strongly consistent** (single primary); Stripe keys live **24h**; settle T+1–T+3.
+
+**Remember one thing:** Keep the internal ledger strongly consistent and append-only; treat the external world as eventual and bridge it with idempotency and reconciliation, never optimism.
+
 ## The Mental Model — first principles: why does money break our normal instincts?
 
 Most systems an early-career engineer builds tolerate small errors. A like-count that's off by 3, a feed that's 5 seconds stale, a cache that occasionally serves a deleted post — these are bugs you fix on Monday. Money is different in kind, not degree. Three properties make it special:

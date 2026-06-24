@@ -6,6 +6,17 @@
 
 ---
 
+## ⚡ 60-Second TL;DR
+
+- **Security is a design property** of the whole system, not a bolt-on; everything hangs off **trust boundaries** (where data crosses trust zones — authN/authZ/encrypt at each).
+- **AuthN** (who you are) vs **AuthZ** (what you may do) — never conflate; the classic breach is **IDOR**: logged-in ≠ authorized, so check ownership on *every* resource access.
+- **Sessions** (stateful, instant revoke, needs a store) vs **JWTs** (stateless, scale, *can't easily revoke*) — fix with short-lived access tokens **+ rotating refresh**.
+- **AuthZ models**: **RBAC** (simple, role-explosion) → **ABAC** (contextual, hard to audit) → **ReBAC**/Zanzibar (relationship graph, sharing-heavy apps).
+- **Envelope encryption**: per-object **DEK** wrapped by a **KEK** that never leaves KMS — cheap rotation, small blast radius.
+- Rules of thumb: **access tokens 5–15 min**, **never roll your own crypto**, hash passwords with a **slow KDF** (argon2/bcrypt, ~100–250ms), compare secrets **constant-time**.
+
+**Remember one thing:** If you can't draw your trust boundaries and name who's allowed to do what at each one — and what leaks when a credential does — you don't have a design yet.
+
 ## The Mental Model — first principles
 
 Every system has *assets* (data, money, compute, reputation) and *adversaries* who want them. Security is the discipline of making the cost of an attack exceed its reward, and of containing the blast radius when — not if — something gets through. That's it. Everything below is mechanism in service of that goal.

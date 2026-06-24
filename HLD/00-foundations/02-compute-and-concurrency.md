@@ -6,6 +6,17 @@
 
 ---
 
+## ⚡ 60-Second TL;DR
+
+- **Per-box physics**: throughput is set by whichever resource saturates first (CPU, memory bandwidth, NIC, or a lock) — never one magic RPS number.
+- **CPU-bound vs I/O-bound** is the master question: CPU work scales with cores; I/O work mostly *waits*, so pile on concurrency. Sizing: **threads ≈ cores × (1 + wait/compute)**.
+- **Concurrency units**, isolation → density: **process** (MBs) > **thread** (~MB, µs switch, races) > **coroutine** (KBs, ns switch, millions/box).
+- **Three camps**: thread-per-request (simple, caps at ~thousands), async event loop (KB/conn, but *blocking a callback stalls everyone*), lightweight threads (Go/Loom — async density, blocking-style code).
+- **#1 trap**: more cores/threads can make you *slower* — **USL's κ (N²) coherency term**; fix by removing shared state, not adding hardware.
+- **Numbers**: DC round-trip ~0.5 ms ≈ 5,000× a RAM read; cache line = 64 B (false sharing); watch **p99/p99.9** (GC tail), not the mean.
+
+**Remember one thing:** Name the bottleneck before you optimize — high CPU utilization is not the same as useful work, and the resource that saturates first is rarely the one you assumed.
+
 ## The Mental Model — first principles
 
 A server is a machine that takes requests in and pushes responses out. Between those two events it does some mix of two things: it *computes* (burns CPU cycles transforming data) and it *waits* (for a disk, a database, another service, the network). Almost every interesting question in this chapter reduces to one observation:

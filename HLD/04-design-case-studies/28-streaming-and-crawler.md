@@ -6,6 +6,17 @@
 
 ---
 
+## ⚡ 60-Second TL;DR
+
+- **Two capstones, one lesson:** build around the genuinely scarce resource — **edge bandwidth/egress $** for streaming, **politeness + dedup** for crawling. The DB is never the hard part.
+- **Streaming = ABR over a CDN:** client pulls a **manifest** + immutable **2–10s segments** and picks quality per segment; any dumb HTTP cache serves it, no origin logic.
+- **Transcode** async fan-out into a {resolution × codec} matrix; **per-title encoding** ~20% bits saved, **AV1/HEVC** ~30–50% fewer bits at higher encode cost.
+- **Crawler = the frontier:** **front queues** (priority) + **back queues** (per-host politeness timer); shard by **hostname hash** so politeness is local.
+- **Dedup:** **Bloom filter** for "seen?" (~10 bits/elem at ~1% FP) — no false negatives is the load-bearing property; **SimHash** for near-dup content/traps.
+- **#1 traps:** streaming cache-hit drop **95%→70% ≈ 6× egress**; crawler session-id/calendar **spider traps** mint infinite URLs.
+
+**Remember one thing:** Name the scarce/hard resource in the first 30 seconds and structure the entire design around protecting it.
+
 ## The Mental Model — first principles
 
 Strip both systems to their physics.

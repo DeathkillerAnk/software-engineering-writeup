@@ -6,6 +6,17 @@
 
 ---
 
+## ⚡ 60-Second TL;DR
+
+- **What:** an API is a long-lived **contract** between independently-evolving software; optimize for **evolvability + retry-safety** over protocol choice.
+- **REST** = resources + uniform verbs (public edge, cacheable); **gRPC** = binary/HTTP2/codegen (internal east-west, ~3–10x smaller); **GraphQL** = client picks fields (many client shapes, but N+1 + cost-DoS risk).
+- **Idempotency keys** make `POST` retries safe — store key→result atomically with the effect, else timeouts cause double charges (#1 money bug).
+- **Cursor (keyset) pagination**, not offset: offset is O(offset) and skips/dupes under concurrent writes.
+- **Errors:** single envelope, stable machine-readable `code` (never branch on `message`); honor the `4xx`-no-retry / `5xx`+`429`-retry split.
+- **Numbers/rules:** protobuf compat keys on **field number** (never reuse); deprecation windows ~6–12mo; GitHub GraphQL = 5000 pts/hr.
+
+**Remember one thing:** the contract is a deliberate projection of your data model, not a mirror — design for safe retries and additive evolution, because you cannot easily un-publish it.
+
 ## The Mental Model — first principles
 
 Strip away the buzzwords. An API exists to solve one problem: **two pieces of software, written by different people at different times, need to cooperate without coordinating.** Your mobile team ships on a 2-week cadence; your backend ships daily; a third-party integrator updates once a year. The API is the *only* thing they share, and you cannot force them all to upgrade at the same instant.

@@ -6,6 +6,17 @@
 
 ---
 
+## ⚡ 60-Second TL;DR
+
+- **Consensus** = make *N* flaky nodes agree on one value (leader, lock, log entry) with **linearizable** safety; you depend on it, rarely build it.
+- **Paxos** (proven, hard) vs **Raft** (same safety, understandable) vs **ZAB** (ZooKeeper) — identical steady-state cost; pick Raft for new work.
+- **Quorum rule:** majority = `⌊N/2⌋+1`; two majorities always overlap → size **3/5/7** (odd), tolerating `⌊(N-1)/2⌋` failures.
+- **#1 cost:** every write waits a **majority round-trip** and the cluster goes **read-only when a majority is unreachable** (CP, by FLP).
+- **#1 trap:** a distributed lock without a **fencing token** doesn't prevent two writers — a GC-paused holder double-writes.
+- **CFT, not BFT:** survives crashes/loss, *not* lying/malicious nodes (that needs `3f+1`).
+
+**Remember one thing:** Put the *smallest possible state* (metadata, leases, leader pointer) behind consensus and keep the bulk of data on cheaper replication — it's a scalpel, not a hammer.
+
 ## The Mental Model — why does this thing exist?
 
 Start with the problem that won't go away. You have several machines. They need to **agree on a single value** — which node is the primary, whether a lock is held, what the current cluster membership is, what the next entry in a replicated log should be. In a single-machine world this is trivial: there's one copy of the truth, protected by a mutex. The moment you have more than one machine and a network between them, "the truth" can fork.

@@ -6,6 +6,17 @@
 
 ---
 
+## ⚡ 60-Second TL;DR
+
+- **What/why:** stateful, real-time, delivery-guaranteed systems; chat fights **latency + ordering**, notifications fight **deliverability + cost** — same fan-out spine.
+- **WebSocket gateways:** stateless socket-holders behind an L4 LB; idle conns cost memory → budget **~100k/node, ~N/100k nodes**. Mandatory **ping/pong keepalives** or you leak ghost connections.
+- **Connection registry** (`user→{device→gateway}`): central TTL'd Redis (simple, exact) vs pub/sub (broadcast) vs consistent-hash home node (Discord). *Every device is a target.*
+- **Persist before push** with a **per-conversation sequence number** — durability precedes delivery, so offline catch-up = cursor advance. Order by **seq, never timestamp**.
+- **#1 misconception:** "exactly-once *delivery*" — impossible. Build **at-least-once + idempotent dedup on a stable client-assigned `msg_id`** = exactly-once *effect*.
+- **Notifications:** durable queue, preference check at **send time**, **separate priority queues** (OTP ≠ marketing), backoff+jitter retries, terminal-vs-retryable, monitored DLQ.
+
+**Remember one thing:** State the delivery guarantee explicitly and early — at-least-once + idempotency is the load-bearing decision everything else hangs off.
+
 ## The Mental Model — first principles
 
 Most systems an early-career engineer has built are **pull, stateless, request-scoped**: the client asks, the server answers, the connection dies, and the next request could land on any server. That model has three luxuries chat does not have:

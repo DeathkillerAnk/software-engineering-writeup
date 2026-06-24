@@ -26,6 +26,15 @@ Reading these documents will make you *feel* knowledgeable. That feeling is a tr
 
 > **The 3-pass rule for the case studies (Part 4):** Attempt every case study *cold* first (timer on, no peeking). *Then* read the writeup. *Then*, a week later, redo it from a blank page. The cold attempt is where the learning happens — reading first robs you of it.
 
+### In a hurry? The fast path
+Reading 31 deep chapters front-to-back is the *slow* way to learn. Do this instead:
+1. **Skim the [Master Cheat Sheet](CHEATSHEET.md)** (~20 min) — the whole curriculum as scannable tables and one-liners.
+2. **Read each chapter's ⚡ 60-Second TL;DR** (top of every writeup) to build the scaffold fast.
+3. **Self-test** with the chapter's Self-Check questions — recall, don't re-read.
+4. **Deep-dive only the sections you couldn't recall.** That gap is the only part worth your slow reading time.
+
+The full prose is there for when you *need* depth — not to be read cover-to-cover.
+
 ### Companion book
 This curriculum is designed to interleave with ***Designing Data-Intensive Applications* (DDIA) by Martin Kleppmann** — the single best book for this material. Most writeups end with a *"Go Deeper"* pointer to the relevant DDIA chapter. If you read one book alongside this, read that one. The full curated source list is in [Part 5 → Reading List](05-principal-skills/31-reading-list-and-papers.md).
 

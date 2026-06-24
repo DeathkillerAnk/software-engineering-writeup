@@ -4,6 +4,17 @@
 >
 > **Principal-level takeaway:** A database is mostly its storage engine. Once you know whether it uses a B-tree or an LSM-tree and how it reaches durability, you can predict its read/write/space amplification, its tail-latency shape, and the workloads it will be good or terrible at — *before* you run a single benchmark.
 
+## ⚡ 60-Second TL;DR
+
+- **Storage engine** = the layer turning logical rows into bytes on disk; it dictates a DB's speed, not the brand name.
+- **WAL** (write-ahead log): sequential `fsync`'d append before touching data → cheap durable commits + crash replay; every durable system has one.
+- **B-tree**: update-in-place, **low read amp**, great range scans, OLTP (Postgres, InnoDB). **LSM-tree**: append-only + compaction, **low write amp**, high ingest, spiky p99 (RocksDB, Cassandra).
+- **Row vs column store**: rows = OLTP point access; columns = OLAP scans, **5–20× compression**.
+- **#1 trap**: `write()` is *not* durable (page cache, volatile) — only `fsync` is; and "fast" is meaningless without naming the operation + percentile.
+- **Rule of thumb**: **RUM** — you can't minimize read, write, *and* space amplification at once; pick a point. N indexes ≈ writing the row N+1×.
+
+**Remember one thing:** Match the engine's *cheap* operation to your workload's hot path — characterize read/write ratio, access pattern, and retention, then map onto the amplification triangle.
+
 ## The Mental Model — first principles: why does this thing exist?
 
 Strip away SQL, replication, and query planners, and every database faces the same brutal physical fact: **persistent storage is slow, fails in chunks, and likes some access patterns far more than others.** The storage engine is the code that mediates between "I want to store and retrieve records" and "I have a device that reads and writes blocks." Everything interesting about a database's performance is a consequence of how it resolves that tension.

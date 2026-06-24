@@ -6,6 +6,17 @@
 
 ---
 
+## ⚡ 60-Second TL;DR
+
+- **What/why:** there are no right answers, only **right-for-the-constraints**; this skill turns vague situations into explicit, ranked forces — and **ADRs** preserve the *why* so it survives your absence.
+- **"It depends"** is the *start*: name the dependency → state the threshold → resolve for the likely case.
+- **One-way vs. two-way doors:** match rigor to reversibility — full ADR for irreversible (partition keys, API contracts, DB engine); decide fast for reversible. **Convert** one-way → two-way (interfaces, API versioning).
+- **Quantify:** capacity numbers + **SLOs** collapse religious debates into arithmetic — "200 vs. 200k writes/sec" are different problems.
+- **#1 trap:** fashion/resume-driven design (microservices because Netflix) — they scale **orgs, not traffic**.
+- **Rule of thumb:** build for **~10x**, not 100x; leave the rest behind a documented ADR trigger.
+
+**Remember one thing:** classify the door before you decide — and write down the reasoning and the trigger, because the *reasoning* is what decays fastest and matters most later.
+
 ## The Mental Model — first principles: why does this thing exist, what problem does it solve?
 
 Here is the uncomfortable truth that defines senior engineering: **there are almost no right answers, only right answers *for a given set of constraints*.** Kafka is not "better" than SQS. Strong consistency is not "better" than eventual consistency. A monolith is not "worse" than microservices. Each is a point in a trade-off space, and which point you want depends entirely on forces you have not yet made explicit.

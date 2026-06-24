@@ -4,6 +4,18 @@
 >
 > **Principal-level takeaway:** You almost never get to choose the destination *and* the path. The path is the hard part. The reusable skill is decomposing any large change into a sequence of *individually safe, individually reversible* steps, each of which keeps the old and new worlds coexisting — so that at no single moment is the system at risk, and you can stop or roll back from any step.
 
+## ⚡ 60-Second TL;DR
+
+- **What:** changing a system that's *already running and serving traffic* — brownfield, not whiteboard; the real architect's job.
+- **Master pattern — expand / contract:** add new alongside old, migrate behind a control, remove old. Each step **independently reversible**.
+- **Strangler Fig:** facade routes traffic old→new piece by piece — vs. the **Big Rewrite**, which famously fails.
+- **Dual writes are NOT atomic** across two stores → silent divergence. Fix: **transactional outbox + CDC**, one local transaction.
+- **Backfill safely:** keyset pagination (not OFFSET), persisted checkpoint, adaptive throttle on replication lag, idempotent upserts.
+- **Verify before cutover** with **shadow reads** — flip only when mismatch rate ≈ 0, measured not assumed.
+- **Conway's Law:** boundaries that cut across team lines re-couple; reshape the org first.
+
+**Remember one thing:** Never put the running system into a state you can't recover from — coexistence first, cutover last, removal last of all.
+
 ## The Mental Model — first principles: why does this thing exist, what problem does it solve?
 
 Junior engineers picture architecture as drawing boxes on a whiteboard for a system that does not exist yet. That is the rarest kind of architecture work. The overwhelming majority of what a principal engineer actually does is **change a system that is already in production**, under load, that someone depends on right now, whose original authors have left, and whose behavior is only partly documented (and partly *wrong* in the docs). Greenfield is a luxury; brownfield is the job.
