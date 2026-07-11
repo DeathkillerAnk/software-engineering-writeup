@@ -385,7 +385,154 @@ enum OrderState {
 
 ---
 
-## 8. Rapid-fire Q&A (the conceptual questions before the coding starts)
+## 8. Architectural patterns — zoom out from classes to the whole app
+
+**The one idea: the Dependency Rule** — source-code dependencies point *inward*, toward stable
+business policy. The domain imports **nothing** outward (no DB driver, web framework, or broker); you
+cross those boundaries through an interface the inner layer owns (DIP at app scale). **Scope:**
+intra-process here; microservices / sagas / gateways are **HLD**.
+
+```mermaid
+flowchart LR
+    REST["REST / CLI<br/>(detail)"] --> APP
+    DB["Postgres / Kafka<br/>(detail)"] --> APP
+    subgraph APP["application + domain — stable policy"]
+      CORE["business rules<br/>import NOTHING outward"]
+    end
+    style CORE fill:#0c2e22,color:#fff
+```
+
+### 8a. Layered (the default) — and what "leaky" concretely means
+
+```mermaid
+flowchart TD
+    W["web: OrderController"] --> A["app: PlaceOrderService"]
+    A --> D["domain: Order, Money"]
+    A --> I["infra: JpaOrderRepository"]
+    W -.->|"❌ leak: skips domain"| I
+    style D fill:#0c2e22,color:#fff
+```
+
+```text
+com.shop
+├─ web/     OrderController            ← HTTP in/out only
+├─ app/     PlaceOrderService          ← orchestrates ONE use case
+├─ domain/  Order, OrderLine, Money    ← rules; imports nothing below it
+└─ infra/   JpaOrderRepository, EmailSender
+```
+**Leak, concretely:** `OrderController` calling `JpaOrderRepository` directly (bypassing app+domain),
+or `Order` carrying `jakarta.persistence` annotations — now the domain depends on the ORM. Both kill the
+swap-ability the layering was for.
+
+### 8b. Hexagonal / Ports & Adapters — the concrete file map
+
+```mermaid
+flowchart LR
+    rest["REST adapter"] --> uc
+    cli["CLI adapter"] --> uc
+    uc["«port in»<br/>TransferUseCase"] --> core["CORE<br/>TransferService + Account"]
+    core --> repo["«port out»<br/>AccountRepository"]
+    repo -.implemented by.-> jdbc["JdbcAccountRepository"]
+    repo -.implemented by.-> mem["InMemoryAccountRepository (tests)"]
+    style core fill:#0c2e22,color:#fff
+```
+
+```text
+com.bank
+├─ domain/                  Account                 ← entity + invariants (no overdraft)
+├─ application/
+│   ├─ TransferService                              ← the use case = the CORE
+│   └─ port/
+│       ├─ in/  TransferUseCase                     ← DRIVING port (what callers invoke)
+│       └─ out/ AccountRepository                   ← DRIVEN port (what the core needs)
+└─ adapter/
+    ├─ in/  RestController, CliCommand              ← call the use case
+    └─ out/ JdbcAccountRepository, InMemoryAccountRepository   ← implement the driven port
+```
+**The invariant that makes it hexagonal:** `domain/` and `application/` import nothing from `adapter/`.
+Arrows only flow adapter → application → domain. Swap `Jdbc...` for `InMemory...` and the core is byte-identical.
+
+```java
+// The core depends ONLY on the port — never on a DB.
+interface AccountRepository {                       // DRIVEN PORT — owned by the domain
+    Optional<Account> findById(String id); void save(Account a);
+}
+final class TransferService {                       // CORE — zero knowledge of storage
+    private final AccountRepository accounts;        // injected (DIP)
+    TransferService(AccountRepository accounts) { this.accounts = accounts; }
+    void transfer(String from, String to, Money amt) {
+        var a = accounts.findById(from).orElseThrow(); var b = accounts.findById(to).orElseThrow();
+        a.debit(amt); b.credit(amt); accounts.save(a); accounts.save(b);   // talks to the interface
+    }
+}
+// test injects InMemoryAccountRepository (a HashMap); prod injects JdbcAccountRepository.
+```
+
+### 8c. Clean / Onion — identical rule, drawn concentric
+
+```mermaid
+flowchart TD
+    fw["frameworks & drivers (web, JPA)"] --> ia["interface adapters (controllers, gateways)"]
+    ia --> ucr["use cases (application rules)"]
+    ucr --> ent["entities (enterprise rules)"]
+    style ent fill:#0c2e22,color:#fff
+```
+Same arrows as Hexagonal, as rings: **entities** most stable, **frameworks** most disposable. If you
+know Hexagonal you know this — don't study it twice.
+
+### 8d. MVC / MVP / MVVM — where state and glue live
+
+```mermaid
+sequenceDiagram
+    actor U as User
+    U->>Controller: action (HTTP request)
+    Controller->>Model: update / query
+    Model-->>View: new state
+    View-->>U: render
+```
+| | View knows | Glue holding UI logic | Fits |
+|---|---|---|---|
+| **MVC** | the Model | Controller | Spring MVC (web) |
+| **MVP** | only the Presenter | Presenter | classic Android/desktop |
+| **MVVM** | a ViewModel via binding | ViewModel | JavaFX, Jetpack Compose |
+
+### 8e. Repository (driven port) & CQRS (split read/write)
+
+```mermaid
+flowchart LR
+    subgraph Repository
+      svc["TransferService"] --> p["«interface»<br/>AccountRepository"]
+      p -.-> r1["JdbcRepo"]
+      p -.-> r2["InMemoryRepo"]
+    end
+    subgraph CQRS
+      cmd["Commands (write)"] --> wm["write model<br/>normalized"]
+      wm -. events .-> rm["read model<br/>denormalized"]
+      qry["Queries (read)"] --> rm
+    end
+```
+**Repository** = the driven port (domain says "find account 42", not "run this SQL"); trap = a repo that
+only forwards to an ORM that's already one. **CQRS** = split write/read models only when their shapes
+*genuinely* diverge (complex writes + heavy read dashboards); otherwise it's pure overhead.
+
+### 8f. Choosing — the decision that actually matters
+
+```mermaid
+flowchart TD
+    q1{"Rich domain logic,<br/>or mostly CRUD?"}
+    q1 -->|mostly CRUD| L["LAYERED<br/>(rich entities + a repo)"]
+    q1 -->|rich logic| q2{"Swap edges / test<br/>core in isolation?"}
+    q2 -->|no| L
+    q2 -->|yes| H["HEXAGONAL / CLEAN"]
+    q2 -->|"read ≠ write shape"| C["+ consider CQRS"]
+    style L fill:#0c2e22,color:#fff
+```
+Senior asks "which pattern?"; **principal asks "does this domain justify *any* ceremony beyond plain
+layering?"** — and usually answers no. (Hexagonal + CQRS on a CRUD app = `§6` over-engineering at max blast radius.)
+
+---
+
+## 9. Rapid-fire Q&A (the conceptual questions before the coding starts)
 
 - **Abstract class vs interface?** Interface = contract of capability, multiple allowed, can have `default` methods but no state. Abstract class = shared state + partial implementation, burns the single inheritance slot. Prefer interface; add an abstract skeleton class only when there's real shared code.
 - **Why composition over inheritance?** Inheritance couples to the parent's implementation (fragile base class), is fixed at compile time, single slot. Composition couples to an interface, swappable at runtime, mockable. Inherit only true is-a with LSP intact.
@@ -398,10 +545,13 @@ enum OrderState {
 - **`final`, `finally`, `finalize`?** Keyword (no reassign/override/extend) / try-block cleanup (prefer try-with-resources) / deprecated GC hook — never use.
 - **Checked vs unchecked exceptions?** Checked = recoverable, caller must decide (mostly out of favor — they leak through signatures); unchecked = programming errors and most modern APIs. Throw early with context; catch only where you can act.
 - **What is an anemic domain model?** Data bags + a "service" with all the logic = procedural code in OO clothes. Push behavior into the entities that own the data (tell-don't-ask).
+- **What's the Dependency Rule (Hexagonal/Clean)?** Source-code dependencies point *inward* toward stable business policy; the domain never imports the DB/framework/broker. Cross boundaries via interfaces the inner layer owns. It's DIP applied to whole-app structure.
+- **Layered vs Hexagonal — when each?** Layered for most CRUD (simple, fine with a rich domain + a repo). Hexagonal when the domain is rich *and* you need swappable edges or to unit-test the core without a DB. Doing Hexagonal/CQRS on a CRUD app is over-engineering at max blast radius.
+- **Where's the LLD↔HLD line?** Inside one service = LLD architecture (Layered/Hexagonal/Repository). Across services (microservices, sagas, gateways, distributed event sourcing) = HLD.
 
 ---
 
-## 9. The 30-second pre-interview mantra
+## 10. The 30-second pre-interview mantra
 
 > Clarify and **de-scope** first. Nouns → entities, verbs → interface methods. Name the
 > **variation points** and inject a Strategy at each. Invariants live in **constructors**.

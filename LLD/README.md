@@ -41,6 +41,7 @@ the "in less time" — is in (1) and (4). This track front-loads the forces and 
 | 04 | [Domain Modeling & Concurrency](04-domain-modeling-and-concurrency/) | Model a domain so bad states can't compile, and keep it correct under threads. |
 | 05 | [Machine Coding & Case Studies](05-machine-coding/) | Solve 45–90 min LLD problems (parking lot, rate limiter, …) with a repeatable method and a scoring rubric. |
 | 06 | [Principal Skills](06-principal-skills/) | Make and defend trade-offs, review designs, evolve systems, and write LLD docs that align a team. |
+| 07 | [Architectural Patterns](07-architectural-patterns/) | Organize a whole app with the Dependency Rule (Layered, Hexagonal, Clean, Repository, CQRS) — and know when each is overkill. Bridges to the `HLD/` track. |
 
 See **[STUDY-METHOD.md](STUDY-METHOD.md)** for *how* to learn this fast (it matters more than the order).
 
@@ -64,6 +65,7 @@ and got feedback on**, not pages you highlighted.
 | 8       | `04` Modeling + concurrency | Model a small domain (e.g. a coffee-shop order) with illegal states unrepresentable; make one part thread-safe. |
 | 9–11    | `05` Machine coding | One full case study every ~2 days, timeboxed, then compared against a reference. |
 | 12+     | `06` Principal skills | Write one LLD design doc; do one design review of someone else's code; repeat forever. |
+| 12+     | `07` Architectural patterns | Redraw one feature as Hexagonal (find the ports); argue in writing why a given CRUD app should *stay* plain-layered. |
 
 You will not "finish" this. Sections `00`–`05` get you to *strong senior*. Section `06`, repeated
 across many real projects, is the work of becoming principal.

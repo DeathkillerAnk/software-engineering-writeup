@@ -33,7 +33,10 @@ If you're already comfortable with bytecode and class loading, skim Part 0 and s
 > **Companion, not replacement, for the [LLD track](../LLD/).** LLD asks *"what's the cleanest way
 > to structure the classes inside one component?"* This track asks *"what does the machine do with
 > those classes at runtime?"* They meet in the middle — e.g. *why* an immutable value type is cheap
-> (escape analysis, scalar replacement) is an internals answer to an LLD design choice.
+> (escape analysis, scalar replacement) is an internals answer to an LLD design choice. And the
+> **[Spring Boot track](../spring-boot/)** sits one layer up: when a Spring "why" bottoms out in the
+> JVM — AOP proxies, the memory model behind a thread-safe bean, native-image startup — it links back
+> here.
 
 ---
 
