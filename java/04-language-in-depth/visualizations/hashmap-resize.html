@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<!-- Self-contained. No build/deps/network. Harness: ../../../shared-viz/README.md -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HashMap — resize &amp; treeification</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--live:#3fb950;
+    --garbage:#6e7681;--active:#d29922;--accent:#58a6ff;--danger:#f85149;--frozen:#a371f7;--line:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>HashMap — resize &amp; treeification</h1>
+  <p class="sub">Entries rehash into a doubled table; a hot bucket treeifies past 8 collisions. <a class="back" href="../README.md">← Part 4 · The Language, In Depth</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="360"></canvas>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--accent)"></i> entry</span>
+    <span><i class="dot" style="background:var(--live)"></i> rehashed / tree (O(log n))</span>
+    <span><i class="dot" style="background:var(--danger)"></i> long chain (O(n))</span>
+    <span><i class="dot" style="background:var(--active)"></i> threshold crossed</span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Step</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="4" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> bucket = hash &amp; (capacity−1); collisions chain; a full table doubles and rehashes.</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+const PHASES=[
+ {mode:'table', cap:8, size:5, thr:6, exceed:false, resized:false,
+  b:{0:['E'],1:['A'],3:['B','C'],6:['D']},
+  label:'① A HashMap (capacity 8)',
+  cap_:'Each key lands in bucket = <code>hash &amp; (capacity−1)</code>. B and C collided → a 2-node <b>chain</b> in bucket 3. Load factor 0.75 → resize threshold = 8×0.75 = <b>6</b>.'},
+ {mode:'table', cap:8, size:7, thr:6, exceed:true, resized:false,
+  b:{0:['E'],1:['A'],3:['B','C'],5:['F'],6:['D'],7:['G']},
+  label:'② Two more inserts → size 7 &gt; threshold 6',
+  cap_:'Size (7) now exceeds the threshold (6). A <b>resize</b> is triggered on the next put.'},
+ {mode:'table', cap:16, size:7, thr:12, exceed:false, resized:true,
+  b:{2:['A'],4:['E'],7:['B'],9:['D'],11:['C'],13:['F'],15:['G']},
+  label:'③ Resize: table doubles to 16, everything rehashed',
+  cap_:'The table <b>doubles to 16</b> and <b>every entry is rehashed</b> into new buckets — spreading them out (B and C no longer collide). O(n) work, amortized O(1) per put. New threshold = 12.'},
+ {mode:'bucket', view:'chain',
+  label:'④ Pathological: 8 keys collide in one bucket',
+  cap_:'With colliding <code>hashCode</code>s, 8 keys pile into <b>one bucket</b> as a length-8 <b>linked list</b> — lookups there degrade toward <b>O(n)</b>.'},
+ {mode:'bucket', view:'tree',
+  label:'⑤ Treeify → red-black tree, O(log n)',
+  cap_:'At 8 nodes (on a table ≥ 64), that bucket <b>treeifies</b> from a list to a <b>red-black tree</b> → <b>O(log n)</b>. This hardened HashMap against hash-collision DoS (Java 8). (Smaller tables resize first.)'},
+];
+
+let i=0;
+function drawTable(P){
+  const x0=30, tableW=820, sw=tableW/P.cap, hy=92, hh=22;
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.textAlign='left';
+  ctx.fillText('bucket table (capacity '+P.cap+')', x0, 74);
+  for(let k=0;k<P.cap;k++){ const cx=x0+k*sw;
+    // slot header
+    ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv('--line'); ctx.lineWidth=1.2; rr(cx+2,hy,sw-4,hh,4); ctx.fill(); ctx.stroke();
+    ctx.fillStyle=cssv('--muted'); ctx.font='10px ui-monospace,Menlo,monospace'; ctx.textAlign='center'; ctx.fillText(k, cx+sw/2, hy+15);
+    const list=P.b[k]||[];
+    list.forEach((lbl,d)=>{ const ey=hy+hh+8+d*30, chain=list.length>1;
+      const col = P.resized?'--live':(chain?'--danger':'--accent');
+      ctx.fillStyle=cssv(col); ctx.globalAlpha=.85; rr(cx+4,ey,sw-8,24,4); ctx.fill(); ctx.globalAlpha=1;
+      ctx.fillStyle=cssv('--bg'); ctx.font='600 12px system-ui'; ctx.textAlign='center'; ctx.fillText(lbl, cx+sw/2, ey+16);
+      if(d>0){ ctx.strokeStyle=cssv('--danger'); ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(cx+sw/2,ey-8); ctx.lineTo(cx+sw/2,ey); ctx.stroke(); }
+    });
+  }
+  // readout
+  ctx.textAlign='left'; ctx.font='13px system-ui';
+  ctx.fillStyle=cssv(P.exceed?'--active':'--muted');
+  ctx.fillText('size '+P.size+'  ·  capacity '+P.cap+'  ·  threshold '+P.thr+(P.exceed?'   → EXCEEDED, resize triggered':(P.resized?'   → doubled & rehashed':'')), x0, 336);
+}
+function drawBucket(P){
+  const chainX=180, treeX=620;
+  // left: chain
+  ctx.fillStyle=cssv(P.view==='chain'?'--danger':'--muted'); ctx.font='600 13px system-ui'; ctx.textAlign='center';
+  ctx.fillText('linked list · O(n)', chainX, 78);
+  for(let d=0;d<8;d++){ const y=92+d*30, on=P.view==='chain';
+    ctx.fillStyle=cssv(on?'--danger':'--garbage'); ctx.globalAlpha=on?.85:.4; rr(chainX-45,y,90,24,4); ctx.fill(); ctx.globalAlpha=1;
+    ctx.fillStyle=cssv('--bg'); ctx.font='600 11px system-ui'; ctx.textAlign='center'; ctx.fillText('k'+(d+1), chainX, y+16);
+    if(d<7){ ctx.strokeStyle=cssv(on?'--danger':'--line'); ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(chainX,y+24); ctx.lineTo(chainX,y+30); ctx.stroke(); } }
+  // arrow between
+  if(P.view==='tree'){ ctx.strokeStyle=cssv('--live'); ctx.lineWidth=2.5; ctx.beginPath(); ctx.moveTo(chainX+70,190); ctx.lineTo(treeX-160,190); ctx.stroke();
+    ctx.fillStyle=cssv('--live'); ctx.beginPath(); ctx.moveTo(treeX-160,185); ctx.lineTo(treeX-152,190); ctx.lineTo(treeX-160,195); ctx.closePath(); ctx.fill();
+    ctx.fillStyle=cssv('--live'); ctx.font='11px system-ui'; ctx.textAlign='center'; ctx.fillText('treeify (≥8)', (chainX+70+treeX-160)/2, 180); }
+  // right: red-black tree (8 nodes)
+  const on=P.view==='tree';
+  ctx.fillStyle=cssv(on?'--live':'--muted'); ctx.font='600 13px system-ui'; ctx.textAlign='center'; ctx.fillText('red-black tree · O(log n)', treeX, 78);
+  const nodes=[[treeX,110],[treeX-90,160],[treeX+90,160],[treeX-135,210],[treeX-45,210],[treeX+45,210],[treeX+135,210],[treeX-135,260]];
+  const edges=[[0,1],[0,2],[1,3],[1,4],[2,5],[2,6],[3,7]];
+  ctx.strokeStyle=cssv(on?'--live':'--line'); ctx.lineWidth=1.5;
+  edges.forEach(([a,c])=>{ ctx.beginPath(); ctx.moveTo(nodes[a][0],nodes[a][1]); ctx.lineTo(nodes[c][0],nodes[c][1]); ctx.stroke(); });
+  nodes.forEach((n,idx)=>{ ctx.globalAlpha=on?1:.4; ctx.fillStyle=cssv(idx%2===0?'--ink':'--danger'); ctx.beginPath(); ctx.arc(n[0],n[1],13,0,7); ctx.fill(); ctx.globalAlpha=1;
+    ctx.fillStyle=cssv('--bg'); ctx.font='600 10px system-ui'; ctx.textAlign='center'; ctx.fillText('k'+(idx+1), n[0], n[1]+3); });
+}
+function draw(){ const P=PHASES[i]; ctx.clearRect(0,0,cv.width,cv.height);
+  if(P.mode==='table') drawTable(P); else drawBucket(P);
+  elCount.textContent = P.mode==='table'?('capacity '+P.cap):(P.view==='chain'?'O(n) chain':'O(log n) tree'); }
+function setPhase(n){ i=Math.max(0,Math.min(PHASES.length-1,n)); elPhase.textContent=PHASES[i].label; elCap.innerHTML='<b>What to notice:</b> '+PHASES[i].cap_; elScrub.value=i; }
+function reset(){ elScrub.max=PHASES.length-1; setPhase(0); draw(); }
+let playing=false,raf=null,lastT=0,pause=0;
+function tick(ts){ if(!playing){raf=null;return;} const dur=1600-elSpeed.value*100; if(!lastT)lastT=ts; pause+=ts-lastT; lastT=ts;
+  if(pause>dur){ pause=0; if(i<PHASES.length-1){ setPhase(i+1); draw(); } else { playing=false; elPlay.textContent='▶ Play'; } } if(playing) raf=requestAnimationFrame(tick); }
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{ playing=false; elPlay.textContent='▶ Play'; if(i<PHASES.length-1) setPhase(i+1); else setPhase(0); draw(); };
+elPlay.onclick=()=>{ playing=!playing; elPlay.textContent=playing?'⏸ Pause':'▶ Play'; lastT=0; pause=0; if(playing){ if(i>=PHASES.length-1) setPhase(0); raf=requestAnimationFrame(tick); } };
+elScrub.oninput=()=>{ playing=false; elPlay.textContent='▶ Play'; setPhase(+elScrub.value); draw(); };
+reset();
+</script>
+</body>
+</html>

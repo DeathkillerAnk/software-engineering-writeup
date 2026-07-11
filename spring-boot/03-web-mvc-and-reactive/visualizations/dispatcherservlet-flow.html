@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<!-- Self-contained. No build/deps/network. Harness: ../../../shared-viz/README.md -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spring MVC — a request through the DispatcherServlet</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--live:#3fb950;
+    --garbage:#6e7681;--active:#d29922;--accent:#58a6ff;--danger:#f85149;--frozen:#a371f7;--line:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Spring MVC — a request through the DispatcherServlet</h1>
+  <p class="sub">One front controller, a pipeline of strategy interfaces. Watch the payload transform request → object → JSON. <a class="back" href="../README.md">← Part 3 · Web: MVC, REST &amp; Reactive</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="330"></canvas>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--accent)"></i> the request/response (in flight)</span>
+    <span><i class="dot" style="background:var(--live)"></i> active stage</span>
+    <span><i class="dot" style="background:var(--active)"></i> response returning</span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Step</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="6" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> every request funnels through the DispatcherServlet and a fixed pipeline of named stages.</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function fit(t,m){t=String(t);if(ctx.measureText(t).width<=m)return t;let s=t;while(s.length>1&&ctx.measureText(s+'…').width>m)s=s.slice(0,-1);return s+'…';}
+
+const NODES=[
+ {cx:79,  t:'Client', s:''},
+ {cx:224, t:'Dispatcher', s:'front controller'},
+ {cx:369, t:'HandlerMapping', s:'URL → handler'},
+ {cx:514, t:'HandlerAdapter', s:'resolvers + invoke'},
+ {cx:659, t:'@Controller', s:'OrderController.get'},
+ {cx:804, t:'MsgConverter', s:'object ↔ JSON'},
+];
+const NW=132, NY=104, NH=62;
+const PHASES=[
+ {label:'① Client sends a request', cap:'A client issues <code>GET /orders/42</code>. It’s about to enter the one front controller.', tok:0, ret:false, pay:'GET /orders/42'},
+ {label:'② DispatcherServlet.doDispatch', cap:'The <b>DispatcherServlet</b> (a single servlet) receives every request and orchestrates the pipeline.', tok:1, ret:false, pay:'GET /orders/42'},
+ {label:'③ HandlerMapping resolves the handler', cap:'<code>RequestMappingHandlerMapping</code> matches URL+method to a handler → <code>OrderController#get</code> (+ its interceptors). No match ⇒ 404.', tok:2, ret:false, pay:'matched: OrderController#get'},
+ {label:'④ HandlerAdapter: bind args & invoke', cap:'<code>preHandle</code> runs; <b>ArgumentResolvers</b> bind params — here <code>@PathVariable id = 42</code> (a <code>@RequestBody</code> would use the converter; <code>@Valid</code> validates here).', tok:3, ret:false, pay:'bind @PathVariable id = 42'},
+ {label:'⑤ Your controller method runs', cap:'<code>OrderController.get(42)</code> executes and returns a domain object.', tok:4, ret:false, pay:'returns → Order(42, …)'},
+ {label:'⑥ HttpMessageConverter writes the body', cap:'For <code>@ResponseBody</code>, a <b>ReturnValueHandler</b> + <code>HttpMessageConverter</code> (Jackson) serialize the <code>Order</code> to JSON (chosen by <code>Accept</code>).', tok:5, ret:false, pay:'writes → {"id":42,"total":…}'},
+ {label:'⑦ Response returns to the client', cap:'<code>postHandle</code>/<code>afterCompletion</code> run and the serialized response flows back out. Blocking, thread-per-request (one thread carried it all).', tok:0, ret:true, pay:'200 OK · application/json'},
+];
+
+let i=0,t=1,tokX=NODES[0].cx,tokPX=NODES[0].cx;
+function node(n,active){ const x=n.cx-NW/2;
+  ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=active?cssv('--live'):cssv('--line'); ctx.lineWidth=active?2.5:1.4; rr(x,NY,NW,NH,7); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=active?cssv('--live'):cssv('--ink'); ctx.font='600 12px system-ui'; ctx.textAlign='center'; ctx.fillText(fit(n.t,NW-10),n.cx,NY+26);
+  if(n.s){ ctx.fillStyle=cssv('--muted'); ctx.font='10px system-ui'; ctx.fillText(fit(n.s,NW-8),n.cx,NY+44); } }
+
+function draw(){
+  const P=PHASES[i];
+  ctx.clearRect(0,0,cv.width,cv.height);
+  // forward edges
+  for(let k=0;k<NODES.length-1;k++){ const x1=NODES[k].cx+NW/2, x2=NODES[k+1].cx-NW/2, y=NY+NH/2;
+    const on=!P.ret && P.tok===k+1; ctx.strokeStyle=on?cssv('--live'):cssv('--line'); ctx.lineWidth=on?2.5:1.3;
+    ctx.beginPath(); ctx.moveTo(x1,y); ctx.lineTo(x2-6,y); ctx.stroke();
+    ctx.fillStyle=on?cssv('--live'):cssv('--line'); ctx.beginPath(); ctx.moveTo(x2-6,y-4); ctx.lineTo(x2,y); ctx.lineTo(x2-6,y+4); ctx.closePath(); ctx.fill(); }
+  // return arrow along the bottom (client ← converter)
+  if(P.ret){ const y=NY+NH+34; ctx.strokeStyle=cssv('--active'); ctx.lineWidth=2.5; ctx.setLineDash([6,4]);
+    ctx.beginPath(); ctx.moveTo(NODES[5].cx,NY+NH); ctx.lineTo(NODES[5].cx,y); ctx.lineTo(NODES[0].cx,y); ctx.lineTo(NODES[0].cx,NY+NH); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle=cssv('--active'); ctx.beginPath(); ctx.moveTo(NODES[0].cx-4,NY+NH+8); ctx.lineTo(NODES[0].cx+4,NY+NH+8); ctx.lineTo(NODES[0].cx,NY+NH); ctx.closePath(); ctx.fill();
+    ctx.fillStyle=cssv('--active'); ctx.font='11px system-ui'; ctx.textAlign='center'; ctx.fillText('response', (NODES[0].cx+NODES[5].cx)/2, y+16); }
+  // nodes
+  NODES.forEach((n,k)=>node(n, P.tok===k));
+  // token
+  const x=tokPX+(tokX-tokPX)*t, y=NY+NH/2;
+  ctx.fillStyle=cssv(P.ret?'--active':'--accent'); ctx.beginPath(); ctx.arc(x,y,11,0,7); ctx.fill();
+  // payload chip
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.textAlign='left'; ctx.fillText('payload:', 30, 250);
+  ctx.fillStyle=cssv(i>=5?'--live':'--accent'); ctx.globalAlpha=.14; rr(96,236,520,26,6); ctx.fill(); ctx.globalAlpha=1;
+  ctx.fillStyle=cssv('--ink'); ctx.font='600 13px ui-monospace,Menlo,monospace'; ctx.fillText(fit(P.pay,500), 106, 253);
+  elCount.textContent = P.ret?'thread-per-request':'in the pipeline';
+}
+function setPhase(n){ i=Math.max(0,Math.min(PHASES.length-1,n)); tokPX=tokX; tokX=NODES[PHASES[i].tok].cx;
+  elPhase.textContent=PHASES[i].label; elCap.innerHTML='<b>What to notice:</b> '+PHASES[i].cap; elScrub.value=i; }
+function reset(){ tokX=NODES[0].cx; tokPX=tokX; elScrub.max=PHASES.length-1; setPhase(0); t=1; draw(); }
+function animateOnce(){ let l=0; (function f(ts){ if(!l)l=ts; t=Math.min(1,t+(ts-l)/500); l=ts; draw(); if(t<1)requestAnimationFrame(f); })(performance.now()); }
+let playing=false,raf=null,lastT=0,pause=0;
+function tick(ts){ if(!playing){raf=null;return;} const dur=1300-elSpeed.value*100; if(!lastT)lastT=ts; const dt=ts-lastT; lastT=ts;
+  if(t<1){ t=Math.min(1,t+dt/dur); } else { pause+=dt; if(pause>dur*0.5){ pause=0; if(i<PHASES.length-1){ setPhase(i+1); t=0; } else { playing=false; elPlay.textContent='▶ Play'; } } }
+  draw(); if(playing) raf=requestAnimationFrame(tick); }
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{ playing=false; elPlay.textContent='▶ Play'; if(i<PHASES.length-1) setPhase(i+1); else setPhase(0); t=0; animateOnce(); };
+elPlay.onclick=()=>{ playing=!playing; elPlay.textContent=playing?'⏸ Pause':'▶ Play'; lastT=0; pause=0; if(playing){ if(i>=PHASES.length-1){ setPhase(0); t=1; } raf=requestAnimationFrame(tick); } };
+elScrub.oninput=()=>{ playing=false; elPlay.textContent='▶ Play'; setPhase(+elScrub.value); t=1; draw(); };
+reset();
+</script>
+</body>
+</html>

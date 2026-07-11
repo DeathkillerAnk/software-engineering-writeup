@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<!-- Self-contained. No build/deps/network. Harness: ../../../shared-viz/README.md -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The operand stack — how the JVM runs a + b*c</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--live:#3fb950;
+    --garbage:#6e7681;--active:#d29922;--accent:#58a6ff;--danger:#f85149;--frozen:#a371f7;--line:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>The operand stack — how the JVM runs <code>a + b*c</code></h1>
+  <p class="sub">No registers: instructions push locals onto the operand stack and compute there. <a class="back" href="../README.md">← Part 0 · The Platform &amp; Mental Model</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="380"></canvas>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--active)"></i> instruction / stack top</span>
+    <span><i class="dot" style="background:var(--accent)"></i> local being loaded</span>
+    <span><i class="dot" style="background:var(--live)"></i> result pushed</span>
+    <span>method: <code>int f(int a,int b,int c){ return a + b*c; }</code>, a=2 b=3 c=4</span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Step</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="6" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> the JVM is a stack machine — operands are pushed, consumed, and results pushed back.</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+const CODE=[
+ ['iload_0','push local a'],
+ ['iload_1','push local b'],
+ ['iload_2','push local c'],
+ ['imul','pop c,b → push b·c'],
+ ['iadd','pop (b·c),a → push a+(b·c)'],
+ ['ireturn','pop → return'],
+];
+const PHASES=[
+ {label:'① Frame ready', cap:'A new frame: the <b>local variable array</b> holds the args (a=2, b=3, c=4); the <b>operand stack</b> is empty. Bytecode is already precedence-ordered (imul before iadd).', instr:-1, stack:[], load:null, ret:null},
+ {label:'② iload_0', cap:'<code>iload_0</code> pushes local <b>a (2)</b> onto the operand stack.', instr:0, stack:[2], load:0, ret:null},
+ {label:'③ iload_1', cap:'<code>iload_1</code> pushes local <b>b (3)</b>.', instr:1, stack:[2,3], load:1, ret:null},
+ {label:'④ iload_2', cap:'<code>iload_2</code> pushes local <b>c (4)</b>. Three operands are now on the stack.', instr:2, stack:[2,3,4], load:2, ret:null},
+ {label:'⑤ imul', cap:'<code>imul</code> <b>pops</b> the top two (4 and 3), multiplies, and <b>pushes</b> 3·4 = <b>12</b>. Consumes two, produces one.', instr:3, stack:[2,12], load:null, ret:null},
+ {label:'⑥ iadd', cap:'<code>iadd</code> pops 12 and 2, pushes 2+12 = <b>14</b>. Precedence "just works" because imul ran first.', instr:4, stack:[14], load:null, ret:null},
+ {label:'⑦ ireturn', cap:'<code>ireturn</code> pops the top (<b>14</b>) and returns it to the caller. The operand stack is empty again.', instr:5, stack:[], load:null, ret:14},
+];
+
+let i=0;
+const localNames=['a','b','c'], localVals=[2,3,4];
+function draw(){
+  const P=PHASES[i];
+  ctx.clearRect(0,0,cv.width,cv.height);
+  // ---- bytecode listing (left) ----
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.textAlign='left'; ctx.fillText('bytecode (Code attribute)', 24, 40);
+  CODE.forEach((c,k)=>{ const y=58+k*40, on=P.instr===k, done=k<P.instr;
+    if(on){ ctx.fillStyle=cssv('--active'); ctx.globalAlpha=.16; rr(18,y,300,34,6); ctx.fill(); ctx.globalAlpha=1; }
+    ctx.fillStyle= on?cssv('--active'):(done?cssv('--live'):cssv('--ink')); ctx.font='600 15px ui-monospace,Menlo,monospace';
+    ctx.fillText((done?'✓ ':on?'▸ ':'  ')+c[0], 26, y+22);
+    ctx.fillStyle=cssv('--muted'); ctx.font='11px system-ui'; ctx.fillText('// '+c[1], 150, y+21); });
+  // ---- operand stack (center) ----
+  const sx=430, sw=140, base=330, eh=40;
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.textAlign='center'; ctx.fillText('operand stack', sx+sw/2, 56);
+  // stack frame outline
+  ctx.strokeStyle=cssv('--line'); ctx.lineWidth=1.5; ctx.setLineDash([4,4]); ctx.strokeRect(sx, base-5*eh-6, sw, 5*eh+6); ctx.setLineDash([]);
+  ctx.fillStyle=cssv('--muted'); ctx.font='10px system-ui'; ctx.fillText('(grows up)', sx+sw/2, base+18);
+  P.stack.forEach((v,k)=>{ const y=base-(k+1)*eh; const top=k===P.stack.length-1;
+    ctx.fillStyle=top?cssv(P.ret!==null?'--live':'--active'):cssv('--accent'); ctx.globalAlpha=top?0.32:0.18; rr(sx+6,y+3,sw-12,eh-6,5); ctx.fill(); ctx.globalAlpha=1;
+    ctx.strokeStyle=top?cssv(P.ret!==null?'--live':'--active'):cssv('--accent'); ctx.lineWidth=top?2:1.3; rr(sx+6,y+3,sw-12,eh-6,5); ctx.stroke();
+    ctx.fillStyle=cssv('--ink'); ctx.font='600 16px ui-monospace,Menlo,monospace'; ctx.textAlign='center'; ctx.fillText(v, sx+sw/2, y+eh/2+4); });
+  if(P.ret!==null){ ctx.fillStyle=cssv('--live'); ctx.font='600 13px system-ui'; ctx.textAlign='center'; ctx.fillText('→ returned '+P.ret, sx+sw/2, base-6*eh-4); }
+  // ---- locals (right) ----
+  const lx=640; ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.textAlign='left'; ctx.fillText('local variable array', lx, 56);
+  localNames.forEach((nm,k)=>{ const y=72+k*54, on=P.load===k;
+    ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=on?cssv('--accent'):cssv('--line'); ctx.lineWidth=on?2.5:1.5; rr(lx,y,200,44,7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle=cssv('--muted'); ctx.font='11px ui-monospace,Menlo,monospace'; ctx.textAlign='left'; ctx.fillText('slot '+k, lx+12, y+18);
+    ctx.fillStyle=cssv(on?'--accent':'--ink'); ctx.font='600 15px ui-monospace,Menlo,monospace'; ctx.fillText(nm+' = '+localVals[k], lx+12, y+36); });
+  elCount.textContent = P.instr<0?'frame ready':(P.ret!==null?'returned '+P.ret:'executing '+CODE[P.instr][0]);
+}
+function setPhase(n){ i=Math.max(0,Math.min(PHASES.length-1,n)); elPhase.textContent=PHASES[i].label; elCap.innerHTML='<b>What to notice:</b> '+PHASES[i].cap; elScrub.value=i; }
+function reset(){ elScrub.max=PHASES.length-1; setPhase(0); draw(); }
+let playing=false,raf=null,lastT=0,pause=0;
+function tick(ts){ if(!playing){raf=null;return;} const dur=1400-elSpeed.value*100; if(!lastT)lastT=ts; pause+=ts-lastT; lastT=ts;
+  if(pause>dur){ pause=0; if(i<PHASES.length-1){ setPhase(i+1); draw(); } else { playing=false; elPlay.textContent='▶ Play'; } } if(playing) raf=requestAnimationFrame(tick); }
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{ playing=false; elPlay.textContent='▶ Play'; if(i<PHASES.length-1) setPhase(i+1); else setPhase(0); draw(); };
+elPlay.onclick=()=>{ playing=!playing; elPlay.textContent=playing?'⏸ Pause':'▶ Play'; lastT=0; pause=0; if(playing){ if(i>=PHASES.length-1) setPhase(0); raf=requestAnimationFrame(tick); } };
+elScrub.oninput=()=>{ playing=false; elPlay.textContent='▶ Play'; setPhase(+elScrub.value); draw(); };
+reset();
+</script>
+</body>
+</html>

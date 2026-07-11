@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<!-- Self-contained. No build/deps/network. Harness: ../../../shared-viz/README.md -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BFPP & BPP — the two extension points</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--live:#3fb950;
+    --garbage:#6e7681;--active:#d29922;--accent:#58a6ff;--danger:#f85149;--frozen:#a371f7;--line:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>BFPP &amp; BPP — the two extension points</h1>
+  <p class="sub">A BeanFactoryPostProcessor edits the <i>definitions</i>; each instance then flows through the BeanPostProcessor chain. <a class="back" href="../README.md">← Part 1 · Extension Model &amp; AOP</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="380"></canvas>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--accent)"></i> bean definition / raw bean</span>
+    <span><i class="dot" style="background:var(--active)"></i> processor running now</span>
+    <span><i class="dot" style="background:var(--frozen)"></i> proxy (wrapped)</span>
+    <span><i class="dot" style="background:var(--live)"></i> ready in container</span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Step</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="6" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> two hooks — one on the blueprints, one on the instances — power most of Spring.</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+const NODES=[{x:40,w:210,t:'AutowiredAnnotation BPP',s:'injects @Autowired / @Value'},
+             {x:330,w:210,t:'CommonAnnotation BPP',s:'invokes @PostConstruct'},
+             {x:620,w:220,t:'AutoProxyCreator BPP',s:'wraps in AOP proxy'}];
+const TOKX={pre:30,n0:145,n1:435,n2:730,done:862};
+const NY=250, NH=64;
+
+const PHASES=[
+ {label:'① Two hooks: definitions vs instances',
+  cap:'Top: bean <b>definitions</b> (blueprints). Bottom: the <b>BeanPostProcessor</b> chain that every instance passes through. These two hooks implement most of Spring.',
+  bfpp:false, resolved:false, tok:null, active:-1},
+ {label:'② BeanFactoryPostProcessor edits the blueprints',
+  cap:'A BFPP runs first, on the <b>definitions</b> — before any object exists. Here it resolves the <code>${db.url}</code> placeholder right in the blueprint.',
+  bfpp:true, resolved:true, tok:null, active:-1},
+ {label:'③ Instantiate from the finalized definitions',
+  cap:'Now the container instantiates a bean from a (finalized) definition. The <b>raw</b> instance enters the BeanPostProcessor pipeline.',
+  bfpp:false, resolved:true, tok:'pre', active:-1},
+ {label:'④ BPP: inject dependencies',
+  cap:'<code>AutowiredAnnotationBeanPostProcessor</code> populates <code>@Autowired</code>/<code>@Value</code> fields.',
+  bfpp:false, resolved:true, tok:'n0', active:0},
+ {label:'⑤ BPP: run @PostConstruct',
+  cap:'<code>CommonAnnotationBeanPostProcessor</code> invokes <code>@PostConstruct</code> (before-init). The bean is still your raw object here.',
+  bfpp:false, resolved:true, tok:'n1', active:1},
+ {label:'⑥ BPP: wrap in a proxy (after-init)',
+  cap:'<code>AnnotationAwareAspectJAutoProxyCreator</code> <b>returns a proxy</b> in place of your bean — this is where <code>@Transactional</code> advice is attached.',
+  bfpp:false, resolved:true, tok:'n2', active:2, proxy:true},
+ {label:'⑦ Ready in the container',
+  cap:'The <b>proxy</b> is registered and injected everywhere. Every bean flows through this same pipeline — that’s how Spring (and you) extend the container.',
+  bfpp:false, resolved:true, tok:'done', active:-1, proxy:true},
+];
+
+let i=0,t=1, tokX=TOKX.pre, tokPX=TOKX.pre;
+function nodeBox(n,k,active){ ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=active?cssv('--active'):cssv('--line'); ctx.lineWidth=active?2.5:1.5; rr(n.x,NY,n.w,NH,8); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=active?cssv('--active'):cssv('--ink'); ctx.font='600 12px system-ui'; ctx.textAlign='center'; ctx.fillText(n.t,n.x+n.w/2,NY+26);
+  ctx.fillStyle=cssv('--muted'); ctx.font='11px system-ui'; ctx.fillText(n.s,n.x+n.w/2,NY+46); }
+
+function draw(){
+  const P=PHASES[i];
+  ctx.clearRect(0,0,cv.width,cv.height);
+  // top: bean definitions
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.textAlign='left'; ctx.fillText('Bean definitions (blueprints)', 40, 52);
+  if(P.bfpp){ ctx.fillStyle=cssv('--active'); ctx.font='600 12px system-ui'; ctx.textAlign='right'; ctx.fillText('◀ BeanFactoryPostProcessor editing definitions', 840, 52); }
+  const defs=[{t:'OrderService'},{t:'DataConfig',v:P.resolved?'db.url = jdbc:postgresql://…':'db.url = ${db.url}'},{t:'AuditService'}];
+  defs.forEach((d,k)=>{ const x=40+k*210, w=190;
+    const hot=P.bfpp; ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=hot?cssv('--active'):cssv('--accent'); ctx.lineWidth=hot?2:1.5; ctx.globalAlpha=1; rr(x,66,w,58,7); ctx.stroke();
+    ctx.fillStyle=cssv('--accent'); ctx.globalAlpha=.12; rr(x,66,w,58,7); ctx.fill(); ctx.globalAlpha=1;
+    ctx.fillStyle=cssv('--ink'); ctx.font='600 13px system-ui'; ctx.textAlign='center'; ctx.fillText(d.t,x+w/2,88);
+    if(d.v){ ctx.fillStyle=cssv(P.resolved?'--live':'--muted'); ctx.font='11px ui-monospace,Menlo,monospace'; ctx.fillText(d.v,x+w/2,108); }
+  });
+  // instantiate arrow
+  ctx.strokeStyle=cssv('--line'); ctx.setLineDash([4,4]); ctx.beginPath(); ctx.moveTo(135,124); ctx.lineTo(135,NY-10); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle=cssv('--muted'); ctx.font='11px system-ui'; ctx.textAlign='left'; ctx.fillText('instantiate ↓', 142, 195);
+  // BPP pipeline label + nodes
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.fillText('BeanPostProcessor pipeline — every instance flows through, in order', 40, 232);
+  NODES.forEach((n,k)=>nodeBox(n,k,P.active===k));
+  // ready chip
+  ctx.fillStyle=cssv('--live'); ctx.globalAlpha=.18; rr(TOKX.done-26,NY+8,1,1,1); ctx.globalAlpha=1;
+  ctx.fillStyle=cssv('--muted'); ctx.font='11px system-ui'; ctx.textAlign='center'; ctx.fillText('container', TOKX.done-16, NY-6);
+  // the bean token
+  if(P.tok){ const x=tokPX+(tokX-tokPX)*t, y=NY+NH/2;
+    const col = P.proxy?cssv('--frozen'):(i>=6?cssv('--live'):cssv('--accent'));
+    if(P.proxy){ ctx.strokeStyle=cssv('--frozen'); ctx.lineWidth=2; ctx.beginPath(); ctx.arc(x,y,18,0,7); ctx.stroke(); }
+    ctx.fillStyle = i>=6?cssv('--live'):col; ctx.beginPath(); ctx.arc(x,y,12,0,7); ctx.fill();
+    ctx.fillStyle=cssv('--bg'); ctx.font='600 10px system-ui'; ctx.textAlign='center'; ctx.fillText(P.proxy?'proxy':'bean', x, y+3);
+  }
+  elCount.textContent = i<2?'BeanFactoryPostProcessor':(i<6?'BeanPostProcessor chain':'ready');
+}
+function setPhase(n){ i=Math.max(0,Math.min(PHASES.length-1,n)); const P=PHASES[i];
+  tokPX=tokX; tokX = P.tok?TOKX[P.tok]:tokX;
+  elPhase.textContent=P.label; elCap.innerHTML='<b>What to notice:</b> '+P.cap; elScrub.value=i; }
+function reset(){ tokX=TOKX.pre; tokPX=TOKX.pre; elScrub.max=PHASES.length-1; setPhase(0); t=1; draw(); }
+function animateOnce(){ let l=0; (function f(ts){ if(!l)l=ts; t=Math.min(1,t+(ts-l)/480); l=ts; draw(); if(t<1)requestAnimationFrame(f); })(performance.now()); }
+let playing=false,raf=null,lastT=0,pause=0;
+function tick(ts){ if(!playing){raf=null;return;} const dur=1350-elSpeed.value*100; if(!lastT)lastT=ts; const dt=ts-lastT; lastT=ts;
+  if(t<1){ t=Math.min(1,t+dt/dur); } else { pause+=dt; if(pause>dur*0.5){ pause=0; if(i<PHASES.length-1){ setPhase(i+1); t=0; } else { playing=false; elPlay.textContent='▶ Play'; } } }
+  draw(); if(playing) raf=requestAnimationFrame(tick); }
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{ playing=false; elPlay.textContent='▶ Play'; if(i<PHASES.length-1) setPhase(i+1); else setPhase(0); t=0; animateOnce(); };
+elPlay.onclick=()=>{ playing=!playing; elPlay.textContent=playing?'⏸ Pause':'▶ Play'; lastT=0; pause=0; if(playing){ if(i>=PHASES.length-1){ setPhase(0); t=1; } raf=requestAnimationFrame(tick); } };
+elScrub.oninput=()=>{ playing=false; elPlay.textContent='▶ Play'; setPhase(+elScrub.value); t=1; draw(); };
+reset();
+</script>
+</body>
+</html>

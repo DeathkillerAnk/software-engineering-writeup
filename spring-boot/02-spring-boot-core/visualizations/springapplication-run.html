@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<!-- Self-contained. No build/deps/network. Harness: ../../../shared-viz/README.md -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SpringApplication.run() — the startup sequence</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--live:#3fb950;
+    --garbage:#6e7681;--active:#d29922;--accent:#58a6ff;--danger:#f85149;--frozen:#a371f7;--line:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>SpringApplication.run() — the startup sequence</h1>
+  <p class="sub"><code>run()</code> orchestrates <i>around</i> <code>refresh()</code>; the embedded server boots <b>inside</b> refresh. <a class="back" href="../README.md">← Part 2 · Spring Boot Core</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="430"></canvas>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--live)"></i> done</span>
+    <span><i class="dot" style="background:var(--active)"></i> running now</span>
+    <span><i class="dot" style="background:var(--accent)"></i> server LISTENING</span>
+    <span>★ = embedded server starts (inside refresh)</span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Step</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="7" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> the server starts listening mid-startup (inside refresh), before your runners fire.</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+const STEPS=[
+ 'Deduce WebApplicationType',
+ 'listeners.starting() · prepare Environment',
+ 'print banner · create ApplicationContext',
+ 'prepareContext (initializers · load sources)',
+ 'refreshContext → refresh()   ★ embedded server STARTS',
+ 'afterRefresh · ApplicationStartedEvent',
+ 'call ApplicationRunner / CommandLineRunner · Ready',
+];
+const CAPS=[
+ 'Nothing has run yet. <code>run()</code> is about to orchestrate startup around the container’s <code>refresh()</code>.',
+ 'Spring inspects the classpath and picks the app type — here <b>SERVLET</b> — which decides the context type and whether a web server boots at all.',
+ 'The <code>starting</code> listeners fire and the <code>Environment</code> is prepared (this loads <code>application.yml</code>; <code>EnvironmentPreparedEvent</code>).',
+ 'The banner prints and the chosen <b>ApplicationContext</b> is created (still empty; server not started).',
+ '<code>prepareContext</code> applies <code>ApplicationContextInitializer</code>s and registers your <code>@SpringBootApplication</code> as a bean source.',
+ '<b>refreshContext → refresh()</b>: singletons are instantiated and <code>onRefresh()</code> <b>creates &amp; starts the embedded server — now LISTENING</b>. The app can take requests here.',
+ 'Refresh finished; <code>ApplicationStartedEvent</code> fires (context up, server listening).',
+ 'Your <code>ApplicationRunner</code>/<code>CommandLineRunner</code> beans run, then <code>ApplicationReadyEvent</code> — the app is fully ready.',
+];
+// server: 0=not created, 1=created(stopped), 2=listening ; events cumulative
+const SERVER=[0,0,0,1,1,2,2,2];
+const WEB=['—','SERVLET','SERVLET','SERVLET','SERVLET','SERVLET','SERVLET','SERVLET'];
+const EV=[[],[],['Starting','EnvironmentPrepared'],['Starting','EnvironmentPrepared'],
+ ['Starting','EnvironmentPrepared','ContextPrepared','ContextLoaded'],
+ ['Starting','EnvironmentPrepared','ContextPrepared','ContextLoaded'],
+ ['Starting','EnvironmentPrepared','ContextPrepared','ContextLoaded','Started'],
+ ['Starting','EnvironmentPrepared','ContextPrepared','ContextLoaded','Started','Ready']];
+
+let i=0;
+function draw(){
+  ctx.clearRect(0,0,cv.width,cv.height);
+  // left: step list
+  const LX=22, LW=520, sy=80, rh=44;
+  ctx.textBaseline='alphabetic';
+  for(let s=0;s<STEPS.length;s++){ const n=s+1, y=sy+s*rh, done=n<i, active=n===i, star=(s===4);
+    if(active){ ctx.fillStyle=cssv('--active'); ctx.globalAlpha=.16; rr(LX-4,y-4,LW,rh-6,6); ctx.fill(); ctx.globalAlpha=1; }
+    const dc = active?cssv('--active'):(done?cssv('--live'):cssv('--line'));
+    ctx.fillStyle=dc; ctx.beginPath(); ctx.arc(LX+8,y+9,7,0,7); ctx.fill();
+    if(done){ ctx.strokeStyle=cssv('--bg'); ctx.lineWidth=1.6; ctx.beginPath(); ctx.moveTo(LX+5,y+9); ctx.lineTo(LX+7.5,y+12); ctx.lineTo(LX+11.5,y+5.5); ctx.stroke(); }
+    ctx.fillStyle= active?cssv('--ink'):(star&&!done?cssv('--accent'):(done?cssv('--muted'):cssv('--ink')));
+    ctx.font=(active||star)?'600 13px system-ui':'13px system-ui'; ctx.textAlign='left';
+    ctx.fillText(n+'.  '+STEPS[s], LX+24, y+13);
+  }
+  // right: state panel
+  const RX=560, RW=296;
+  ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv('--line'); ctx.lineWidth=1.5; rr(RX,80,RW,300,8); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.textAlign='left';
+  ctx.fillText('web application type', RX+16, 106);
+  ctx.fillStyle=cssv(i>=1?'--ink':'--muted'); ctx.font='600 15px ui-monospace,Menlo,monospace'; ctx.fillText(WEB[i], RX+16, 128);
+  // server badge
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.fillText('embedded server', RX+16, 162);
+  const sv=SERVER[i]; const svcol = sv===2?'--accent':sv===1?'--muted':'--line';
+  const svtxt = sv===2?'▶ LISTENING on :8080':sv===1?'created (not started)':'not created';
+  ctx.fillStyle=cssv(svcol); ctx.globalAlpha= sv===2?0.18:0.1; rr(RX+16,172,RW-32,34,6); ctx.fill(); ctx.globalAlpha=1;
+  ctx.strokeStyle=cssv(svcol); ctx.lineWidth= sv===2?2:1.3; rr(RX+16,172,RW-32,34,6); ctx.stroke();
+  ctx.fillStyle=cssv(sv===2?'--accent':'--muted'); ctx.font='600 13px system-ui'; ctx.textAlign='center'; ctx.fillText(svtxt, RX+RW/2, 194);
+  if(i===5){ ctx.fillStyle=cssv('--accent'); ctx.font='10px system-ui'; ctx.textAlign='center'; ctx.fillText('↑ started here, inside refresh()', RX+RW/2, 220); }
+  // events
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.textAlign='left'; ctx.fillText('events fired', RX+16, 244);
+  EV[i].forEach((e,k)=>{ const y=256+k*22; ctx.fillStyle=cssv(e==='Ready'?'--live':'--muted'); ctx.font='11px ui-monospace,Menlo,monospace'; ctx.fillText('• Application'+e+'Event', RX+16, y+12); });
+  if(EV[i].length===0){ ctx.fillStyle=cssv('--muted'); ctx.font='11px system-ui'; ctx.fillText('(none yet)', RX+16, 268); }
+  elCount.textContent = i===0?'run() starting':(SERVER[i]===2?'server up':'preparing');
+}
+function setPhase(n){ i=Math.max(0,Math.min(7,n)); elPhase.textContent = i===0?'SpringApplication.run() begins':('Step '+i+' · '+STEPS[i-1].split(' ·')[0].split(' →')[0]); elCap.innerHTML='<b>What to notice:</b> '+CAPS[i]; elScrub.value=i; }
+function reset(){ elScrub.max=7; setPhase(0); draw(); }
+let playing=false,raf=null,lastT=0,pause=0;
+function tick(ts){ if(!playing){raf=null;return;} const dur=1400-elSpeed.value*100; if(!lastT)lastT=ts; pause+=ts-lastT; lastT=ts;
+  if(pause>dur){ pause=0; if(i<7){ setPhase(i+1); draw(); } else { playing=false; elPlay.textContent='▶ Play'; } } if(playing) raf=requestAnimationFrame(tick); }
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{ playing=false; elPlay.textContent='▶ Play'; if(i<7) setPhase(i+1); else setPhase(0); draw(); };
+elPlay.onclick=()=>{ playing=!playing; elPlay.textContent=playing?'⏸ Pause':'▶ Play'; lastT=0; pause=0; if(playing){ if(i>=7) setPhase(0); raf=requestAnimationFrame(tick); } };
+elScrub.oninput=()=>{ playing=false; elPlay.textContent='▶ Play'; setPhase(+elScrub.value); draw(); };
+reset();
+</script>
+</body>
+</html>

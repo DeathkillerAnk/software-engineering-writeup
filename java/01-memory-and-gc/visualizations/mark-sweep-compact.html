@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<!-- Self-contained. No build/deps/network. Harness: ../../../shared-viz/README.md -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mark · Sweep · Compact — and why fragmentation matters</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--live:#3fb950;
+    --garbage:#6e7681;--active:#d29922;--accent:#58a6ff;--danger:#f85149;--frozen:#a371f7;--line:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Mark · Sweep · Compact — and why fragmentation matters</h1>
+  <p class="sub">One heap of 12 slots. Watch a sweep leave scattered holes, and compaction restore one contiguous free block. <a class="back" href="../README.md">← Part 1 · Memory &amp; GC</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="300"></canvas>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--live)"></i> live (reachable)</span>
+    <span><i class="dot" style="background:var(--garbage)"></i> garbage</span>
+    <span><i class="dot" style="background:var(--active)"></i> moving / new</span>
+    <span><i class="dot" style="border:1px dashed var(--line)"></i> free slot</span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Step</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="4" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> the heap below holds live and dead objects.</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+
+const N=12, LIVE=[0,2,4,6,8,10];               // even slots reachable, odd = garbage
+const ids=Array.from({length:N},(_,i)=>'o'+i);
+const X0=40, CW=64, Y=150, BW=54, BH=50;
+const slotX=s=>X0+s*CW+CW/2;
+
+let model;
+function buildModel(){ const o={}; ids.forEach((id,i)=>o[id]={id,slot:i,present:true,state:'new',x:slotX(i),y:Y,px:slotX(i),py:Y}); return {o, big:null}; }
+function base(m){ for(const id in m.o) m.o[id].present=false; m.big=null; }
+function isLive(i){ return LIVE.includes(i); }
+
+// largest contiguous run of free slots, given occupied set
+function freeReadout(occupied){ let best=0,cur=0; for(let s=0;s<N;s++){ if(occupied.has(s)){cur=0;} else {cur++; best=Math.max(best,cur);} } const free=N-occupied.size; return {free,best}; }
+function occupiedOf(m){ const set=new Set(); for(const id in m.o){const o=m.o[id]; if(o.present)set.add(o.slot);} if(m.big) m.big.slots.forEach(s=>set.add(s)); return set; }
+
+const PHASES=[
+ {label:'① A heap with live and dead objects',
+  cap:'A single contiguous heap of 12 slots, full of objects. Some are still reachable from the GC roots; most are not — but we don’t know which yet.',
+  enter(m){ base(m); ids.forEach((id,i)=>{const o=m.o[id];o.present=true;o.slot=i;o.state='new';}); }},
+
+ {label:'② Mark: trace from the roots',
+  cap:'Tracing from the GC roots marks the reachable objects <span style="color:var(--live)">live</span>; everything unreached is <span style="color:var(--garbage)">garbage</span>. Marking visits only the live set.',
+  enter(m){ base(m); ids.forEach((id,i)=>{const o=m.o[id];o.present=true;o.slot=i;o.state=isLive(i)?'live':'garbage';}); }},
+
+ {label:'③ Sweep: free the dead in place',
+  cap:'Mark-<b>sweep</b> frees dead objects where they lie — fast, nothing moves. But the free space is now <b>fragmented</b>: 6 slots free, yet the largest contiguous gap is 1. A 3-slot object cannot be allocated despite half the heap being free.',
+  enter(m){ base(m); LIVE.forEach(i=>{const o=m.o['o'+i];o.present=true;o.slot=i;o.state='live';}); }},
+
+ {label:'④ Compact: slide survivors together',
+  cap:'Mark-<b>compact</b> slides the live objects to one end, leaving one contiguous free block — allocation becomes a pointer bump again. The cost: every reference to a moved object must be updated (pointer fix-up).',
+  enter(m){ base(m); LIVE.forEach((i,k)=>{const o=m.o['o'+i];o.present=true;o.slot=k;o.state='moving';}); }},
+
+ {label:'⑤ Now the 3-slot object fits',
+  cap:'Same 6 free slots as after the sweep — but now they’re <b>contiguous</b>, so a large object allocates instantly. Fragmentation is exactly the problem compaction exists to solve.',
+  enter(m){ base(m); LIVE.forEach((i,k)=>{const o=m.o['o'+i];o.present=true;o.slot=k;o.state='live';}); m.big={slots:[6,7,8]}; }},
+];
+
+const COL={new:'--accent',live:'--live',garbage:'--garbage',moving:'--active'};
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+let i=0,t=1,playing=false,pause=0,raf=null,lastT=0,stepRaf=null;
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+function draw(){
+  ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.textAlign='left';
+  ctx.fillText('Heap — one contiguous region of 12 slots', X0, Y-48);
+  // memory cells (the address space)
+  for(let s=0;s<N;s++){ ctx.strokeStyle=cssv('--line'); ctx.lineWidth=1; ctx.setLineDash([4,4]);
+    rr(X0+s*CW+3, Y-BH/2-3, CW-6, BH+6, 4); ctx.stroke(); ctx.setLineDash([]); }
+  // big incoming object
+  if(model.big){ const lx=X0+model.big.slots[0]*CW+5, w=model.big.slots.length*CW-10;
+    let a = i===4 ? t : 1; ctx.globalAlpha=a; ctx.fillStyle=cssv('--active');
+    rr(lx, Y-BH/2-(1-a)*40, w, BH, 6); ctx.fill();
+    ctx.fillStyle=cssv('--bg'); ctx.font='600 12px system-ui'; ctx.textAlign='center';
+    ctx.fillText('new 3-slot object', lx+w/2, Y+1); ctx.globalAlpha=1; }
+  // objects
+  for(const id in model.o){const o=model.o[id]; let alpha=1,x=o.x,y=o.y;
+    if(o.present){ x=o.px+(o.x-o.px)*t; y=o.py+(o.y-o.py)*t; if(o.appearing)alpha=t; }
+    else if(o.wasPresent){ x=o.px; y=o.py; alpha=1-t; } else continue;
+    ctx.globalAlpha=alpha; ctx.fillStyle=cssv(COL[o.state]||'--garbage');
+    rr(x-BW/2,y-BH/2,BW,BH,5); ctx.fill(); ctx.globalAlpha=1;
+  }
+  // readout
+  const occ=occupiedOf(model); const {free,best}=freeReadout(occ);
+  ctx.textAlign='left'; ctx.font='13px system-ui';
+  ctx.fillStyle=cssv('--muted'); ctx.fillText('free slots: '+free, X0, Y+70);
+  const fits = best>=3 && i>=2;
+  ctx.fillStyle = (i>=2)? (best>=3?cssv('--live'):cssv('--danger')) : cssv('--muted');
+  ctx.fillText('largest contiguous free run: '+best+(i===2?'  →  ✗ a 3-slot object cannot fit':(i===3?'  →  ✓ a 3-slot object now fits':'')), X0+110, Y+70);
+  elCount.textContent = `live ${LIVE.length} · garbage ${N-LIVE.length}`;
+}
+function setPhase(n){ i=Math.max(0,Math.min(PHASES.length-1,n));
+  const prev={}; for(const id in model.o){const o=model.o[id];prev[id]={x:o.x,y:o.y,present:o.present};}
+  PHASES[i].enter(model);
+  for(const id in model.o){const o=model.o[id];
+    if(o.present){ const nx=slotX(o.slot),ny=Y; o.appearing=!prev[id].present;
+      o.px=prev[id].present?prev[id].x:nx; o.py=prev[id].present?prev[id].y:ny; o.x=nx; o.y=ny; o.wasPresent=false; }
+    else { o.px=prev[id].x; o.py=prev[id].y; o.x=prev[id].x; o.y=prev[id].y; o.wasPresent=prev[id].present; } }
+  elPhase.textContent=PHASES[i].label; elCap.innerHTML='<b>What to notice:</b> '+PHASES[i].cap; elScrub.value=i; pause=0; }
+function reset(){ model=buildModel(); elScrub.max=PHASES.length-1; setPhase(0); t=1; draw(); }
+function animateOnce(){ if(stepRaf)cancelAnimationFrame(stepRaf); let l=0; (function f(ts){ if(!l)l=ts; t=Math.min(1,t+(ts-l)/520); l=ts; draw(); if(t<1)stepRaf=requestAnimationFrame(f); })(performance.now()); }
+function tick(ts){ if(!playing){raf=null;return;} const dur=1300-elSpeed.value*100; if(!lastT)lastT=ts; const dt=ts-lastT; lastT=ts;
+  if(t<1){ t=Math.min(1,t+dt/dur); } else { pause+=dt; if(pause>dur*0.6){ if(i<PHASES.length-1){ setPhase(i+1); t=0; } else { playing=false; elPlay.textContent='▶ Play'; } } }
+  draw(); if(playing) raf=requestAnimationFrame(tick); }
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{ playing=false; elPlay.textContent='▶ Play'; if(i<PHASES.length-1) setPhase(i+1); else setPhase(0); t=0; animateOnce(); };
+elPlay.onclick=()=>{ playing=!playing; elPlay.textContent=playing?'⏸ Pause':'▶ Play'; lastT=0; if(playing){ if(i>=PHASES.length-1){ setPhase(0); t=1; } raf=requestAnimationFrame(tick); } };
+elScrub.oninput=()=>{ playing=false; elPlay.textContent='▶ Play'; setPhase(+elScrub.value); t=1; draw(); };
+reset();
+</script>
+</body>
+</html>

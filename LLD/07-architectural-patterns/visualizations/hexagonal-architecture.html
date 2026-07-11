@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hexagonal / Ports & Adapters — LLD 07</title>
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --ink:#e2e8f0; --muted:#94a3b8; --line:#475569;
+    --ok:#34d399; --bad:#f87171; --core:#34d399; --drive:#60a5fa; --driven:#fbbf24;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5;padding:24px}
+  h1{font-size:1.35rem;margin:0 0 4px}
+  .sub{color:var(--muted);margin:0 0 18px;font-size:.95rem}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px}
+  .grid{display:grid;grid-template-columns:1fr auto 1.1fr auto 1fr;gap:10px;align-items:center}
+  @media(max-width:780px){.grid{grid-template-columns:1fr;gap:14px}.arrow{display:none}}
+  .col h3{font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:center;margin:0 0 10px}
+  .adapter{border:2px solid var(--line);border-radius:10px;padding:10px;margin:8px 0;background:#0b1220;cursor:pointer;font-family:ui-monospace,monospace;font-size:.8rem;text-align:center;transition:all .3s;color:var(--muted)}
+  .adapter.drive.active{border-color:var(--drive);color:var(--drive);box-shadow:0 0 0 3px rgba(96,165,250,.2)}
+  .adapter.driven.active{border-color:var(--driven);color:var(--driven);box-shadow:0 0 0 3px rgba(251,191,36,.2)}
+  .adapter:hover{filter:brightness(1.15)}
+  .core{border:2px solid var(--core);border-radius:14px;padding:18px 14px;background:rgba(52,211,153,.08);text-align:center}
+  .core .t{font-family:ui-monospace,monospace;font-weight:800;color:var(--core)}
+  .core .port{font-family:ui-monospace,monospace;font-size:.72rem;color:var(--muted);margin-top:8px;border-top:1px dashed var(--line);padding-top:6px}
+  .core.pulse{animation:pulse .5s}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(52,211,153,.5)}100%{box-shadow:0 0 0 14px rgba(52,211,153,0)}}
+  .arrow{font-size:1.4rem;color:var(--muted);text-align:center}
+  .meter{display:flex;gap:18px;justify-content:center;margin-top:18px;font-family:ui-monospace,monospace;font-size:.82rem}
+  .meter b{font-size:1.3rem}
+  .ok{color:var(--ok)}
+  .log{font-family:ui-monospace,monospace;font-size:.82rem;color:var(--muted);margin-top:14px;background:#0b1220;border:1px solid var(--line);border-radius:8px;padding:9px 12px;min-height:38px}
+  .foot{color:var(--muted);font-size:.85rem;margin-top:22px;border-top:1px solid var(--line);padding-top:14px}
+  code{background:#0b1220;padding:1px 6px;border-radius:5px;font-size:.85em}
+</style>
+</head>
+<body>
+  <h1>Hexagonal architecture — swap the edges, the core never moves</h1>
+  <p class="sub">LLD · 07 — click an adapter on either side to plug it in. Watch the domain core's edit count stay at zero.</p>
+
+  <div class="panel">
+    <div class="grid">
+      <div class="col">
+        <h3>Driving adapters →</h3>
+        <div class="adapter drive active" data-side="drive" data-name="REST controller">REST controller</div>
+        <div class="adapter drive" data-side="drive" data-name="CLI command">CLI command</div>
+        <div class="adapter drive" data-side="drive" data-name="Test harness">Test harness</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="col">
+        <div class="core" id="core">
+          <div class="t">DOMAIN CORE</div>
+          <div style="font-size:.78rem;color:var(--muted)">TransferService + entities</div>
+          <div class="port">↰ port: UseCase</div>
+          <div class="port">port: Repository ↱</div>
+        </div>
+      </div>
+      <div class="arrow">←</div>
+      <div class="col">
+        <h3>← Driven adapters</h3>
+        <div class="adapter driven active" data-side="driven" data-name="Postgres repo">Postgres repo</div>
+        <div class="adapter driven" data-side="driven" data-name="In-memory repo">In-memory repo</div>
+        <div class="adapter driven" data-side="driven" data-name="DynamoDB repo">DynamoDB repo</div>
+      </div>
+    </div>
+
+    <div class="meter">
+      <div>swaps: <b id="swaps">0</b></div>
+      <div>domain core edits: <b class="ok" id="edits">0</b></div>
+    </div>
+    <div class="log" id="log">The core depends on its <b>ports</b> (interfaces). Adapters depend on the core, never the reverse.</div>
+  </div>
+
+  <div class="foot">
+    <strong>Takeaway:</strong> dependencies point <em>inward</em>. The core owns the <code>UseCase</code> and
+    <code>Repository</code> interfaces; every adapter implements/consumes them. Swapping Postgres → DynamoDB, or REST → CLI,
+    is a <b>new adapter</b> — the business rules don't change. That's the Dependency Rule, and it's what makes the core
+    testable with an in-memory adapter (the <code>src/</code> drill).
+  </div>
+
+<script>
+(function(){
+  let swaps=0;
+  const swapsEl=document.getElementById('swaps'), editsEl=document.getElementById('edits'),
+        log=document.getElementById('log'), core=document.getElementById('core');
+  document.querySelectorAll('.adapter').forEach(a=>{
+    a.onclick=()=>{
+      const side=a.dataset.side;
+      const wasActive=a.classList.contains('active');
+      if(wasActive) return;
+      document.querySelectorAll('.adapter.'+side).forEach(x=>x.classList.remove('active'));
+      a.classList.add('active');
+      swaps++; swapsEl.textContent=swaps;
+      core.classList.add('pulse'); setTimeout(()=>core.classList.remove('pulse'),500);
+      const which = side==='drive' ? 'driving' : 'driven';
+      log.innerHTML='Plugged in <code>'+a.dataset.name+'</code> on the '+which+' side. Domain core edits: <b class="ok">0</b> — it only knows the port.';
+    };
+  });
+})();
+</script>
+</body>
+</html>

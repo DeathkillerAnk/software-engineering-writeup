@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<!-- Self-contained. No build/deps/network. Harness: ../../../shared-viz/README.md -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Auto-configuration — conditions evaluated, beans contributed</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--live:#3fb950;
+    --garbage:#6e7681;--active:#d29922;--accent:#58a6ff;--danger:#f85149;--frozen:#a371f7;--line:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Auto-configuration — conditions evaluated, beans contributed</h1>
+  <p class="sub">Each candidate is conditional <code>@Configuration</code>. It fires only if its <code>@Conditional</code> guards pass. <a class="back" href="../README.md">← Part 2 · Spring Boot Core</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="430"></canvas>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--live)"></i> condition passed / applied</span>
+    <span><i class="dot" style="background:var(--danger)"></i> condition failed</span>
+    <span><i class="dot" style="background:var(--garbage)"></i> excluded / pending</span>
+    <span><i class="dot" style="background:var(--active)"></i> backed off (your bean wins)</span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Step</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="4" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> auto-config is not magic — it's conditional @Configuration, and Boot will tell you every decision.</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function fit(txt,maxw){ txt=String(txt); if(ctx.measureText(txt).width<=maxw) return txt; let s=txt; while(s.length>1&&ctx.measureText(s+'…').width>maxw)s=s.slice(0,-1); return s+'…'; }
+
+const CANDS=[
+ {name:'DataSourceAutoConfiguration', beans:'→ HikariDataSource',
+  conds:[{l:'@OnClass DataSource',t:'pass'},{l:'@OnMissingBean DataSource',t:'missing'}], reason:''},
+ {name:'HibernateJpaAutoConfiguration', beans:'→ EntityManagerFactory, TxManager',
+  conds:[{l:'@OnClass EntityManager',t:'pass'},{l:'@OnBean DataSource',t:'pass'}], reason:''},
+ {name:'DispatcherServletAutoConfiguration', beans:'→ DispatcherServlet',
+  conds:[{l:'@OnClass DispatcherServlet',t:'pass'},{l:'@OnWebApplication',t:'pass'}], reason:''},
+ {name:'RabbitAutoConfiguration', beans:'',
+  conds:[{l:'@OnClass RabbitTemplate',t:'fail'}], reason:'RabbitTemplate not on classpath'},
+ {name:'GsonAutoConfiguration', beans:'',
+  conds:[{l:'@OnClass Gson',t:'fail'}], reason:'Gson not on classpath'},
+];
+// condition state by phase: 0 pending; pass→pass; fail→fail; missing→pass until P3 then fail
+function condState(t,p){ if(p===0) return 'pending'; if(t==='pass') return 'pass'; if(t==='fail') return 'fail'; return p<=2?'pass':'fail'; }
+// outcome: pending(0,1); then applied / skipped / backoff
+function outcome(c,p){ if(p<2) return 'pending';
+  const states=c.conds.map(cd=>condState(cd.t,p));
+  if(states.every(s=>s==='pass')) return 'applied';
+  // a failed 'missing' → backoff; a failed 'fail' → skipped
+  if(c.conds.some(cd=>cd.t==='missing') && condState('missing',p)==='fail') return 'backoff';
+  return 'skipped';
+}
+
+const PHASES=[
+ {label:'① ~150 candidate auto-configurations', cap:'Boot reads the candidate list from <code>AutoConfiguration.imports</code>. Each is a <code>@Configuration</code> guarded by <code>@Conditional</code> annotations — none have fired yet.'},
+ {label:'② Evaluate each @Conditional guard', cap:'Boot tests every guard against your classpath, beans, and properties. <span style="color:var(--live)">Green</span> = passed; <span style="color:var(--danger)">red</span> = failed.'},
+ {label:'③ Matched configs contribute their beans', cap:'Candidates whose guards all pass <b>apply</b> and register their beans. Those with a failed guard are <b>excluded</b>, with the exact reason recorded.'},
+ {label:'④ You define your own DataSource @Bean', cap:'Now <code>DataSourceAutoConfiguration</code>’s <code>@ConditionalOnMissingBean</code> <b>fails</b> — so it <b>backs off</b>. That’s how your bean always wins over the default.'},
+ {label:'⑤ The ConditionEvaluationReport', cap:'Every decision is in the report — positive matches, negative matches (with reasons), back-offs. This is what <code>--debug</code> and <code>/actuator/conditions</code> show you.'},
+];
+
+let i=0;
+const RY=72, RH=64, RX=20, RW=840;
+function chip(x,y,w,label,state){ const col = state==='pass'?'--live':state==='fail'?'--danger':'--garbage';
+  ctx.fillStyle=cssv(col); ctx.globalAlpha=.16; rr(x,y,w,24,6); ctx.fill(); ctx.globalAlpha=1;
+  ctx.strokeStyle=cssv(col); ctx.lineWidth=1.2; rr(x,y,w,24,6); ctx.stroke();
+  ctx.fillStyle=cssv(state==='pending'?'--muted':col); ctx.font='11px ui-monospace,Menlo,monospace'; ctx.textAlign='left';
+  const mark = state==='pass'?'✓ ':state==='fail'?'✗ ':''; ctx.fillText(fit(mark+label,w-10), x+6, y+16); }
+
+function draw(){
+  ctx.clearRect(0,0,cv.width,cv.height);
+  if(i>=3){ ctx.fillStyle=cssv('--active'); ctx.font='600 12px system-ui'; ctx.textAlign='left'; ctx.fillText('you defined:  @Bean DataSource', RX, 56); }
+  CANDS.forEach((c,k)=>{ const y=RY+k*RH, oc=outcome(c,i);
+    // row background by outcome
+    const ocCol = oc==='applied'?'--live':oc==='skipped'?'--garbage':oc==='backoff'?'--active':'--line';
+    ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv(ocCol); ctx.lineWidth=oc==='pending'?1:1.8; rr(RX,y,RW,RH-8,7); ctx.fill(); ctx.stroke();
+    if(oc==='applied'){ ctx.fillStyle=cssv('--live'); ctx.globalAlpha=.07; rr(RX,y,RW,RH-8,7); ctx.fill(); ctx.globalAlpha=1; }
+    // name
+    ctx.fillStyle=cssv(oc==='skipped'?'--muted':'--ink'); ctx.font='600 13px system-ui'; ctx.textAlign='left'; ctx.fillText(fit(c.name,230), RX+12, y+24);
+    if(c.beans && oc==='applied'){ ctx.fillStyle=cssv('--live'); ctx.font='11px system-ui'; ctx.fillText(c.beans, RX+12, y+42); }
+    // condition chips
+    c.conds.forEach((cd,ci)=>chip(RX+260+ci*180, y+15, 170, cd.l, condState(cd.t,i)));
+    // outcome badge
+    const bx=RX+RW-150, by=y+15;
+    const txt = oc==='applied'?'✓ applied':oc==='skipped'?'✗ excluded':oc==='backoff'?'↩ backed off':'…evaluating';
+    ctx.fillStyle=cssv(ocCol); ctx.font='600 12px system-ui'; ctx.textAlign='right'; ctx.fillText(txt, RX+RW-12, y+20);
+    const reason = oc==='skipped'?c.reason : oc==='backoff'?'your DataSource @Bean exists' : '';
+    if(reason){ ctx.fillStyle=cssv('--muted'); ctx.font='10px system-ui'; ctx.fillText(fit(reason,200), RX+RW-12, y+38); }
+  });
+  if(i>=4){ const apply=CANDS.filter(c=>outcome(c,i)==='applied').length, skip=CANDS.filter(c=>outcome(c,i)==='skipped').length, back=CANDS.filter(c=>outcome(c,i)==='backoff').length;
+    ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.textAlign='left';
+    ctx.fillText('Positive matches: '+apply+'   ·   Negative matches: '+skip+'   ·   Back-offs: '+back+'   (— ConditionEvaluationReport)', RX, RY+CANDS.length*RH+8); }
+  elCount.textContent = i<2?'candidates loaded':(i<3?'evaluating @Conditional':(i<4?'beans contributed':'report'));
+}
+function setPhase(n){ i=Math.max(0,Math.min(PHASES.length-1,n)); elPhase.textContent=PHASES[i].label; elCap.innerHTML='<b>What to notice:</b> '+PHASES[i].cap; elScrub.value=i; }
+function reset(){ elScrub.max=PHASES.length-1; setPhase(0); draw(); }
+let playing=false,raf=null,lastT=0,pause=0;
+function tick(ts){ if(!playing){raf=null;return;} const dur=1600-elSpeed.value*100; if(!lastT)lastT=ts; pause+=ts-lastT; lastT=ts;
+  if(pause>dur){ pause=0; if(i<PHASES.length-1){ setPhase(i+1); draw(); } else { playing=false; elPlay.textContent='▶ Play'; } } if(playing) raf=requestAnimationFrame(tick); }
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{ playing=false; elPlay.textContent='▶ Play'; if(i<PHASES.length-1) setPhase(i+1); else setPhase(0); draw(); };
+elPlay.onclick=()=>{ playing=!playing; elPlay.textContent=playing?'⏸ Pause':'▶ Play'; lastT=0; pause=0; if(playing){ if(i>=PHASES.length-1) setPhase(0); raf=requestAnimationFrame(tick); } };
+elScrub.oninput=()=>{ playing=false; elPlay.textContent='▶ Play'; setPhase(+elScrub.value); draw(); };
+reset();
+</script>
+</body>
+</html>

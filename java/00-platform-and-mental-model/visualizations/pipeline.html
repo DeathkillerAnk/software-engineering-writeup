@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<!-- Self-contained. No build/deps/network. Harness: ../../../shared-viz/README.md -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The execution pipeline — source → bytecode → interpret → JIT → native</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--live:#3fb950;
+    --garbage:#6e7681;--active:#d29922;--accent:#58a6ff;--danger:#f85149;--frozen:#a371f7;--line:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:19px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>The execution pipeline — source → bytecode → interpret → JIT → native</h1>
+  <p class="sub">Two compilers and an interpret-first runtime. Follow one method all the way through. <a class="back" href="../README.md">← Part 0 · The Platform &amp; Mental Model</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="320"></canvas>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--accent)"></i> the method (flowing through)</span>
+    <span><i class="dot" style="background:var(--live)"></i> active stage</span>
+    <span><i class="dot" style="background:var(--danger)"></i> deoptimize</span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Step</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="5" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> javac compiles once to portable bytecode; the JVM interprets, then compiles the hot code at runtime.</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+const NODES=[
+ {cx:86,  t:'Foo.java',     s:'source'},
+ {cx:262, t:'Foo.class',    s:'bytecode · portable'},
+ {cx:440, t:'Interpreter',  s:'runs bytecode now'},
+ {cx:618, t:'JIT C1→C2',    s:'compiles hot code'},
+ {cx:794, t:'native code',  s:'runs on the CPU'},
+];
+const NW=150, NY=120, NH=66;
+const EDGES=[{a:0,b:1,l:'javac · once'},{a:1,b:2,l:'class loader'},{a:2,b:3,l:'profiler: hot'},{a:3,b:4,l:'→ native'}];
+
+const PHASES=[
+ {label:'① You write source', cap:'You write <code>Foo.java</code>. Nothing has run yet.', tok:0, edge:-1, deopt:false},
+ {label:'② javac → portable bytecode', cap:'<code>javac</code> compiles <b>once, ahead of time</b>, to <code>.class</code> <b>bytecode</b> — <i>not</i> native code. The same <code>.class</code> runs on any OS/JVM ("write once, run anywhere").', tok:1, edge:0, deopt:false},
+ {label:'③ Loaded and interpreted', cap:'At runtime the class loader loads the bytecode and the JVM <b>interprets</b> it immediately — instant startup, no compile cost yet.', tok:2, edge:1, deopt:false},
+ {label:'④ Hot → JIT compiles to native', cap:'The profiler notices this method is <b>hot</b>, so the JIT (C1 then C2) compiles just it to optimized <b>native</b> code.', tok:3, edge:2, deopt:false},
+ {label:'⑤ Native code runs at peak', cap:'The compiled native code runs directly on the CPU — peak performance. (This is why Java "starts slow, gets fast.")', tok:4, edge:3, deopt:false},
+ {label:'⑥ Assumption breaks → deoptimize', cap:'If a speculative assumption the JIT made is violated, the JVM <b>deoptimizes</b>: it discards the native code and falls back to the interpreter to re-profile. (Detail: tiered-compilation.html)', tok:2, edge:-1, deopt:true},
+];
+
+let i=0,t=1,tokX=NODES[0].cx,tokPX=NODES[0].cx;
+function node(n,active){ const x=n.cx-NW/2;
+  ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=active?cssv('--live'):cssv('--line'); ctx.lineWidth=active?2.5:1.5; rr(x,NY,NW,NH,8); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=active?cssv('--live'):cssv('--ink'); ctx.font='600 14px system-ui'; ctx.textAlign='center'; ctx.fillText(n.t,n.cx,NY+27);
+  ctx.fillStyle=cssv('--muted'); ctx.font='11px system-ui'; ctx.fillText(n.s,n.cx,NY+46); }
+
+function draw(){
+  const P=PHASES[i];
+  ctx.clearRect(0,0,cv.width,cv.height);
+  // phase brackets: compile-time vs runtime
+  ctx.strokeStyle=cssv('--line'); ctx.lineWidth=1; ctx.font='11px system-ui'; ctx.textAlign='center';
+  ctx.beginPath(); ctx.moveTo(NODES[0].cx-NW/2,92); ctx.lineTo(NODES[1].cx+NW/2,92); ctx.stroke();
+  ctx.fillStyle=cssv('--muted'); ctx.fillText('ahead of time · javac', (NODES[0].cx+NODES[1].cx)/2, 84);
+  ctx.beginPath(); ctx.moveTo(NODES[2].cx-NW/2,92); ctx.lineTo(NODES[4].cx+NW/2,92); ctx.stroke();
+  ctx.fillStyle=cssv('--muted'); ctx.fillText('at runtime · the JVM', (NODES[2].cx+NODES[4].cx)/2, 84);
+  // edges
+  EDGES.forEach((e,k)=>{ const x1=NODES[e.a].cx+NW/2, x2=NODES[e.b].cx-NW/2, y=NY+NH/2; const on=P.edge===k;
+    ctx.strokeStyle=on?cssv('--live'):cssv('--line'); ctx.lineWidth=on?2.5:1.5;
+    ctx.beginPath(); ctx.moveTo(x1,y); ctx.lineTo(x2-7,y); ctx.stroke();
+    ctx.fillStyle=on?cssv('--live'):cssv('--line'); ctx.beginPath(); ctx.moveTo(x2-7,y-5); ctx.lineTo(x2,y); ctx.lineTo(x2-7,y+5); ctx.closePath(); ctx.fill(); });
+  // deopt arrow: native (4) back to interpreter (2), curved below
+  { const x1=NODES[4].cx, x2=NODES[2].cx, y=NY+NH+34; const on=P.deopt;
+    ctx.strokeStyle=on?cssv('--danger'):cssv('--line'); ctx.lineWidth=on?2.5:1.2; ctx.setLineDash([6,4]);
+    ctx.beginPath(); ctx.moveTo(x1,NY+NH); ctx.bezierCurveTo(x1,y+20,x2,y+20,x2,NY+NH); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle=on?cssv('--danger'):cssv('--line'); ctx.beginPath(); ctx.moveTo(x2-5,NY+NH+8); ctx.lineTo(x2+5,NY+NH+8); ctx.lineTo(x2,NY+NH); ctx.closePath(); ctx.fill();
+    ctx.fillStyle=on?cssv('--danger'):cssv('--muted'); ctx.font=(on?'600 ':'')+'11px system-ui'; ctx.textAlign='center'; ctx.fillText('deoptimize',(x1+x2)/2,y+22); }
+  // nodes
+  NODES.forEach((n,k)=>node(n, P.tok===k));
+  // token
+  const x=tokPX+(tokX-tokPX)*t, y=NY+NH/2;
+  ctx.fillStyle=cssv(P.deopt?'--danger':'--accent'); ctx.beginPath(); ctx.arc(x,y,12,0,7); ctx.fill();
+  ctx.fillStyle=cssv('--bg'); ctx.font='600 9px system-ui'; ctx.textAlign='center'; ctx.fillText('m()', x, y+3);
+  elCount.textContent = i===0?'source':(i===1?'compile time':(i<5?'runtime':'deopt'));
+}
+function setPhase(n){ i=Math.max(0,Math.min(PHASES.length-1,n)); tokPX=tokX; tokX=NODES[PHASES[i].tok].cx;
+  elPhase.textContent=PHASES[i].label; elCap.innerHTML='<b>What to notice:</b> '+PHASES[i].cap; elScrub.value=i; }
+function reset(){ tokX=NODES[0].cx; tokPX=tokX; elScrub.max=PHASES.length-1; setPhase(0); t=1; draw(); }
+function animateOnce(){ let l=0; (function f(ts){ if(!l)l=ts; t=Math.min(1,t+(ts-l)/520); l=ts; draw(); if(t<1)requestAnimationFrame(f); })(performance.now()); }
+let playing=false,raf=null,lastT=0,pause=0;
+function tick(ts){ if(!playing){raf=null;return;} const dur=1400-elSpeed.value*100; if(!lastT)lastT=ts; const dt=ts-lastT; lastT=ts;
+  if(t<1){ t=Math.min(1,t+dt/dur); } else { pause+=dt; if(pause>dur*0.5){ pause=0; if(i<PHASES.length-1){ setPhase(i+1); t=0; } else { playing=false; elPlay.textContent='▶ Play'; } } }
+  draw(); if(playing) raf=requestAnimationFrame(tick); }
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{ playing=false; elPlay.textContent='▶ Play'; if(i<PHASES.length-1) setPhase(i+1); else setPhase(0); t=0; animateOnce(); };
+elPlay.onclick=()=>{ playing=!playing; elPlay.textContent=playing?'⏸ Pause':'▶ Play'; lastT=0; pause=0; if(playing){ if(i>=PHASES.length-1){ setPhase(0); t=1; } raf=requestAnimationFrame(tick); } };
+elScrub.oninput=()=>{ playing=false; elPlay.textContent='▶ Play'; setPhase(+elScrub.value); t=1; draw(); };
+reset();
+</script>
+</body>
+</html>

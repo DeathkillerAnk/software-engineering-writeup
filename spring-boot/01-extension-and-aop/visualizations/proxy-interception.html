@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<!-- Self-contained. No build/deps/network. Harness: ../../../shared-viz/README.md -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spring AOP — the proxy, and the self-invocation trap</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--live:#3fb950;
+    --garbage:#6e7681;--active:#d29922;--accent:#58a6ff;--danger:#f85149;--frozen:#a371f7;--line:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Spring AOP — the proxy, and the self-invocation trap</h1>
+  <p class="sub">An external call is advised because it crosses the proxy; a <code>this.method()</code> call is not. <a class="back" href="../README.md">← Part 1 · Extension Model &amp; AOP</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="320"></canvas>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--accent)"></i> the call</span>
+    <span><i class="dot" style="background:var(--live)"></i> advice runs (tx active)</span>
+    <span><i class="dot" style="background:var(--danger)"></i> advice skipped</span>
+    <span>injected ref → <b style="color:var(--ink)">the proxy</b>, not your bean</span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Step</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="7" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> the object other beans hold is the proxy, not your class.</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+
+const BOX={caller:{x:55,y:120,w:150,h:96,t:'Caller',s:'(another bean)'},
+           proxy :{x:360,y:120,w:170,h:96,t:'Proxy',s:'@Transactional advice'},
+           target:{x:680,y:120,w:150,h:96,t:'OrderService',s:'save() · audit()'}};
+const TOK={caller:[130,168],proxy:[445,168],target:[755,168]};
+
+const PHASES=[
+ {label:'① The injected reference is the proxy',
+  cap:'A <code>BeanPostProcessor</code> wrapped your bean in a <b>proxy</b>. Other beans inject and call the proxy — not your <code>OrderService</code> directly.',
+  s:{tok:'caller',method:null,begin:0,commit:0,tx:'none',self:0,trap:0}},
+ {label:'② External call: orderService.save()',
+  cap:'The caller invokes <code>save()</code> on the proxy. The call <b>crosses the proxy boundary</b> — so advice gets a chance to run.',
+  s:{tok:'proxy',method:'save()',begin:0,commit:0,tx:'none',self:0,trap:0}},
+ {label:'③ Before-advice: begin transaction',
+  cap:'The proxy runs the <code>@Transactional</code> before-advice: it <b>begins a transaction</b> before delegating.',
+  s:{tok:'proxy',method:'save()',begin:1,commit:0,tx:'active',self:0,trap:0}},
+ {label:'④ Invoke the real method',
+  cap:'The proxy delegates to the <b>target</b> — your real <code>save()</code> runs, inside the active transaction.',
+  s:{tok:'target',method:'save()',begin:1,commit:0,tx:'active',self:0,trap:0}},
+ {label:'⑤ After-advice: commit',
+  cap:'Control returns to the proxy, which runs the after-advice and <b>commits</b> the transaction (or rolls back on an unchecked exception).',
+  s:{tok:'proxy',method:'save()',begin:1,commit:1,tx:'active',self:0,trap:0}},
+ {label:'⑥ Return — save() was transactional ✓',
+  cap:'The proxy returns to the caller. Because the call crossed the proxy, <code>save()</code> ran <b>inside a transaction</b>. This is the happy path.',
+  s:{tok:'caller',method:'save()',begin:0,commit:1,tx:'committed',self:0,trap:0}},
+ {label:'⑦ Now: inside save(), it calls this.audit()',
+  cap:'A different call. Inside <code>save()</code>, the code calls <code>this.audit()</code> — a method on the <i>same object</i>. The call goes target → target and <b>never reaches the proxy</b>.',
+  s:{tok:'target',method:'this.audit()',begin:0,commit:0,tx:'none',self:1,trap:0}},
+ {label:'⑧ The trap: audit()’s @Transactional is skipped',
+  cap:'<code>audit()</code> is annotated <code>@Transactional(REQUIRES_NEW)</code> — but the self-call bypassed the proxy, so its advice <b>never ran</b>. No new transaction. It compiles, runs, and is silently wrong.',
+  s:{tok:'target',method:'this.audit()',begin:0,commit:0,tx:'none',self:1,trap:1}},
+];
+
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+let model, i=0,t=1,playing=false,pause=0,raf=null,lastT=0,stepRaf=null, tok={x:130,y:168,px:130,py:168};
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function box(b,hot){ ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=hot?cssv('--accent'):cssv('--line'); ctx.lineWidth=hot?2:1.5;
+  rr(b.x,b.y,b.w,b.h,8); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=cssv('--ink'); ctx.font='600 14px system-ui'; ctx.textAlign='center'; ctx.fillText(b.t,b.x+b.w/2,b.y+34);
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.fillText(b.s,b.x+b.w/2,b.y+58); }
+function pill(cx,cy,txt,on,struck){ const w=92,h=24; ctx.fillStyle= on?cssv('--live'):cssv('--panel');
+  ctx.strokeStyle= struck?cssv('--danger'):(on?cssv('--live'):cssv('--line')); ctx.lineWidth=1.5;
+  rr(cx-w/2,cy-h/2,w,h,12); ctx.fill(); ctx.stroke();
+  ctx.fillStyle= on?cssv('--bg'):(struck?cssv('--danger'):cssv('--muted')); ctx.font='11px system-ui'; ctx.textAlign='center'; ctx.fillText(txt,cx,cy+4);
+  if(struck){ ctx.strokeStyle=cssv('--danger'); ctx.beginPath(); ctx.moveTo(cx-w/2,cy-h/2); ctx.lineTo(cx+w/2,cy+h/2); ctx.stroke(); } }
+
+function draw(){
+  const s=model;
+  ctx.clearRect(0,0,cv.width,cv.height);
+  // connecting path
+  ctx.strokeStyle=cssv('--line'); ctx.lineWidth=2; ctx.setLineDash([5,5]);
+  ctx.beginPath(); ctx.moveTo(205,168); ctx.lineTo(360,168); ctx.moveTo(530,168); ctx.lineTo(680,168); ctx.stroke(); ctx.setLineDash([]);
+  // boxes (highlight where the token is / target when running)
+  box(BOX.caller, s.tok==='caller');
+  box(BOX.proxy, s.tok==='proxy');
+  box(BOX.target, s.tok==='target');
+  // advice pills on the proxy
+  pill(445,96,'begin tx', s.begin, false);
+  pill(445,250,'commit tx', s.commit, false);
+  // self-invocation arc on the target
+  if(s.self){ ctx.strokeStyle=cssv(s.trap?'--danger':'--active'); ctx.lineWidth=2.5; ctx.setLineDash([6,4]);
+    ctx.beginPath(); ctx.arc(755,236,40,Math.PI*1.15,Math.PI*-0.15,false); ctx.stroke(); ctx.setLineDash([]);
+    // arrowhead
+    ctx.fillStyle=cssv(s.trap?'--danger':'--active'); ctx.beginPath(); ctx.moveTo(792,214); ctx.lineTo(800,226); ctx.lineTo(786,228); ctx.closePath(); ctx.fill();
+    ctx.fillStyle=cssv(s.trap?'--danger':'--active'); ctx.font='12px system-ui'; ctx.textAlign='center'; ctx.fillText('this.audit()',755,290);
+    if(s.trap) pill(560,250,'advice skipped', false, true);
+  }
+  // the moving call token
+  if(s.method && !s.self){ const x=tok.px+(tok.x-tok.px)*t, y=tok.py+(tok.y-tok.py)*t;
+    ctx.fillStyle=cssv('--accent'); ctx.beginPath(); ctx.arc(x,y,11,0,7); ctx.fill();
+    ctx.fillStyle=cssv('--ink'); ctx.font='12px system-ui'; ctx.textAlign='center'; ctx.fillText(s.method, x, y-18); }
+  // tx status
+  ctx.textAlign='left'; ctx.font='13px system-ui';
+  const map={none:['Transaction: none',cssv('--muted')],active:['Transaction: ACTIVE',cssv('--live')],committed:['Transaction: committed ✓',cssv('--live')]};
+  ctx.fillStyle=map[s.tx][1]; ctx.fillText(map[s.tx][0], 55, 40);
+  if(s.trap){ ctx.fillStyle=cssv('--danger'); ctx.fillText('✗ audit() ran with NO transaction — advice bypassed', 55, 60); }
+  elCount.textContent = i<6 ? 'external call · crosses the proxy' : 'self-invocation · bypasses the proxy';
+}
+function setPhase(n){ i=Math.max(0,Math.min(PHASES.length-1,n)); model=PHASES[i].s;
+  const [nx,ny]=TOK[model.tok]; tok.px=tok.x; tok.py=tok.y; tok.x=nx; tok.y=ny;
+  elPhase.textContent=PHASES[i].label; elCap.innerHTML='<b>What to notice:</b> '+PHASES[i].cap; elScrub.value=i; pause=0; }
+function reset(){ tok={x:TOK.caller[0],y:TOK.caller[1],px:TOK.caller[0],py:TOK.caller[1]}; elScrub.max=PHASES.length-1; setPhase(0); t=1; draw(); }
+function animateOnce(){ if(stepRaf)cancelAnimationFrame(stepRaf); let l=0; (function f(ts){ if(!l)l=ts; t=Math.min(1,t+(ts-l)/520); l=ts; draw(); if(t<1)stepRaf=requestAnimationFrame(f); })(performance.now()); }
+function tick(ts){ if(!playing){raf=null;return;} const dur=1300-elSpeed.value*100; if(!lastT)lastT=ts; const dt=ts-lastT; lastT=ts;
+  if(t<1){ t=Math.min(1,t+dt/dur); } else { pause+=dt; if(pause>dur*0.6){ if(i<PHASES.length-1){ setPhase(i+1); t=0; } else { playing=false; elPlay.textContent='▶ Play'; } } }
+  draw(); if(playing) raf=requestAnimationFrame(tick); }
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{ playing=false; elPlay.textContent='▶ Play'; if(i<PHASES.length-1) setPhase(i+1); else setPhase(0); t=0; animateOnce(); };
+elPlay.onclick=()=>{ playing=!playing; elPlay.textContent=playing?'⏸ Pause':'▶ Play'; lastT=0; if(playing){ if(i>=PHASES.length-1){ setPhase(0); t=1; } raf=requestAnimationFrame(tick); } };
+elScrub.oninput=()=>{ playing=false; elPlay.textContent='▶ Play'; setPhase(+elScrub.value); t=1; draw(); };
+reset();
+</script>
+</body>
+</html>

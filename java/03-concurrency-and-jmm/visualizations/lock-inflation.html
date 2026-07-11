@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<!-- Self-contained. No build/deps/network. Harness: ../../../shared-viz/README.md -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lock inflation — lightweight CAS to heavyweight monitor</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--live:#3fb950;
+    --garbage:#6e7681;--active:#d29922;--accent:#58a6ff;--danger:#f85149;--frozen:#a371f7;--line:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Lock inflation — lightweight CAS to heavyweight monitor</h1>
+  <p class="sub">Uncontended <code>synchronized</code> = one CAS on the mark word. Contention inflates to an OS-level monitor. <a class="back" href="../README.md">← Part 3 · Concurrency &amp; the JMM</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="380"></canvas>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--live)"></i> owns the lock / cheap</span>
+    <span><i class="dot" style="background:var(--active)"></i> CAS / spinning</span>
+    <span><i class="dot" style="background:var(--danger)"></i> parked (OS) / expensive</span>
+    <span><i class="dot" style="background:var(--frozen)"></i> mark word state</span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Step</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="5" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> the lock's implementation escalates with contention — and so does its cost.</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function fit(t,m){t=String(t);if(ctx.measureText(t).width<=m)return t;let s=t;while(s.length>1&&ctx.measureText(s+'…').width>m)s=s.slice(0,-1);return s+'…';}
+
+// t1/t2: idle | own | cas | spin | park ; mark: unlocked | light | fat ; mon: show ObjectMonitor
+const PHASES=[
+ {label:'① Unlocked object',
+  cap:'The object is unlocked: its <b>mark word</b> holds the identity hash + GC age, lock tag <code>01</code>. Two threads approach the same <code>synchronized(obj)</code>.',
+  t1:'idle', t2:'idle', mark:'unlocked', mon:false, cost:'—'},
+ {label:'② T1 enters — one CAS → lightweight',
+  cap:'T1 copies the mark word to a <b>lock record on its own stack</b> and <b>CASes</b> the mark word to point there. One atomic instruction, no OS — <b>nanoseconds</b>. This is the common, cheap case.',
+  t1:'own', t2:'idle', mark:'light', mon:false, cost:'~ns · 1 CAS, no system call'},
+ {label:'③ T2 arrives — CAS fails',
+  cap:'T2 tries the same CAS and <b>fails</b> (the mark word already points at T1’s lock record). It spins briefly hoping T1 exits… contention has begun.',
+  t1:'own', t2:'spin', mark:'light', mon:false, cost:'~ns→µs · spinning burns CPU'},
+ {label:'④ Persistent contention → INFLATE',
+  cap:'The JVM allocates an <b>ObjectMonitor</b> (owner + entry queue + wait set) and repoints the mark word at it (tag <code>10</code>), displacing the hash/age into the monitor. T2 <b>parks</b> — a system call; the OS deschedules it.',
+  t1:'own', t2:'park', mark:'fat', mon:true, cost:'~µs · park = system call + context switch'},
+ {label:'⑤ T1 exits → unpark T2',
+  cap:'T1 releases; the monitor <b>unparks</b> T2 from the entry queue, which wakes, acquires, and runs. Every handoff under contention pays park/unpark + cache-cooling.',
+  t1:'idle', t2:'own', mark:'fat', mon:true, cost:'~µs per contended handoff'},
+ {label:'⑥ The cliff (and two footnotes)',
+  cap:'Uncontended: <b>~nanoseconds</b> (CAS). Contended: <b>~microseconds+</b> (OS). Inflation is effectively one-way. ⚡ Biased locking is <b>removed</b> (JDK 18) — and this monitor is why <code>synchronized</code> <b>pins virtual threads</b> on Java 21 (→ ch.19).',
+  t1:'idle', t2:'own', mark:'fat', mon:true, cost:'ns (uncontended)  vs  µs+ (contended)'},
+];
+
+const T1={x:40,y:96}, T2={x:40,y:196}, TW=170, TH=64;
+const OBJ={x:330,y:96,w:250,h:88};
+const MON={x:330,y:230,w:250,h:104};
+const TSTATE={idle:['idle','--garbage'], own:['owns the lock','--live'], cas:['CAS…','--active'], spin:['CAS failed — spinning','--active'], park:['PARKED (OS)','--danger']};
+
+function draw(){
+  const P=PHASES[i];
+  ctx.clearRect(0,0,cv.width,cv.height);
+  // threads
+  [[T1,'Thread 1',P.t1],[T2,'Thread 2',P.t2]].forEach(([t,nm,st])=>{
+    const [lbl,col]=TSTATE[st];
+    ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv(col); ctx.lineWidth= st==='own'||st==='park'?2.5:1.5; rr(t.x,t.y,TW,TH,8); ctx.fill(); ctx.stroke();
+    ctx.fillStyle=cssv('--ink'); ctx.font='600 14px system-ui'; ctx.textAlign='left'; ctx.fillText(nm, t.x+14, t.y+26);
+    ctx.fillStyle=cssv(col); ctx.font='11px system-ui'; ctx.fillText(lbl, t.x+14, t.y+46);
+    // arrow to object
+    const on = st!=='idle';
+    if(on){ ctx.strokeStyle=cssv(col); ctx.lineWidth=2; ctx.setLineDash(st==='spin'?[5,4]:[]);
+      ctx.beginPath(); ctx.moveTo(t.x+TW, t.y+TH/2); ctx.lineTo(OBJ.x-8, OBJ.y+OBJ.h/2 + (t===T2?18:-18)); ctx.stroke(); ctx.setLineDash([]); }
+  });
+  // object + mark word
+  ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv('--ink'); ctx.lineWidth=1.5; rr(OBJ.x,OBJ.y,OBJ.w,OBJ.h,8); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=cssv('--ink'); ctx.font='600 14px system-ui'; ctx.textAlign='left'; ctx.fillText('obj  (the monitor)', OBJ.x+14, OBJ.y+24);
+  const mk = P.mark==='unlocked' ? ['hash | age | 01  — unlocked','--frozen']
+           : P.mark==='light'    ? ['→ lock record on T1 stack | 00','--live']
+                                  : ['→ ObjectMonitor | 10  — inflated','--danger'];
+  ctx.fillStyle=cssv(mk[1]); ctx.globalAlpha=.15; rr(OBJ.x+14,OBJ.y+38,OBJ.w-28,34,6); ctx.fill(); ctx.globalAlpha=1;
+  ctx.strokeStyle=cssv(mk[1]); ctx.lineWidth=1.8; rr(OBJ.x+14,OBJ.y+38,OBJ.w-28,34,6); ctx.stroke();
+  ctx.fillStyle=cssv('--ink'); ctx.font='600 12px ui-monospace,Menlo,monospace'; ctx.textAlign='center';
+  ctx.fillText(fit('mark word: '+mk[0], OBJ.w-40), OBJ.x+OBJ.w/2, OBJ.y+60);
+  // ObjectMonitor
+  if(P.mon){
+    ctx.strokeStyle=cssv('--line'); ctx.setLineDash([4,4]); ctx.beginPath(); ctx.moveTo(OBJ.x+OBJ.w/2, OBJ.y+OBJ.h); ctx.lineTo(MON.x+MON.w/2, MON.y); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv('--danger'); ctx.lineWidth=2; rr(MON.x,MON.y,MON.w,MON.h,8); ctx.fill(); ctx.stroke();
+    ctx.fillStyle=cssv('--danger'); ctx.font='600 13px system-ui'; ctx.textAlign='left'; ctx.fillText('ObjectMonitor (native, OS-backed)', MON.x+14, MON.y+24);
+    const owner = P.t1==='own'?'T1':(P.t2==='own'?'T2':'—');
+    ctx.fillStyle=cssv('--ink'); ctx.font='12px ui-monospace,Menlo,monospace';
+    ctx.fillText('owner:  '+owner, MON.x+14, MON.y+48);
+    ctx.fillText('entry queue:  '+(P.t2==='park'?'[ T2 — parked ]':'[ ]'), MON.x+14, MON.y+68);
+    ctx.fillText('wait set:  [ ]   (wait()/notify)', MON.x+14, MON.y+88);
+  }
+  // cost meter
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.textAlign='left'; ctx.fillText('cost of acquiring:', 640, 110);
+  const costly = P.mark==='fat';
+  ctx.fillStyle=cssv(costly?'--danger':'--live'); ctx.font='600 14px system-ui';
+  wrapText(P.cost, 640, 132, 210, 20);
+  elCount.textContent = P.mark==='unlocked'?'unlocked':(P.mark==='light'?'lightweight · CAS':'heavyweight · OS');
+}
+function wrapText(txt,x,y,maxw,lh){ const words=String(txt).split(' '); let line='',yy=y;
+  for(const w of words){ const t=line?line+' '+w:w; if(ctx.measureText(t).width>maxw && line){ ctx.fillText(line,x,yy); line=w; yy+=lh; } else line=t; }
+  ctx.fillText(line,x,yy); }
+let i=0;
+function setPhase(n){ i=Math.max(0,Math.min(PHASES.length-1,n)); elPhase.textContent=PHASES[i].label; elCap.innerHTML='<b>What to notice:</b> '+PHASES[i].cap; elScrub.value=i; }
+function reset(){ elScrub.max=PHASES.length-1; setPhase(0); draw(); }
+let playing=false,raf=null,lastT=0,pause=0;
+function tick(ts){ if(!playing){raf=null;return;} const dur=1700-elSpeed.value*110; if(!lastT)lastT=ts; pause+=ts-lastT; lastT=ts;
+  if(pause>dur){ pause=0; if(i<PHASES.length-1){ setPhase(i+1); draw(); } else { playing=false; elPlay.textContent='▶ Play'; } } if(playing) raf=requestAnimationFrame(tick); }
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{ playing=false; elPlay.textContent='▶ Play'; if(i<PHASES.length-1) setPhase(i+1); else setPhase(0); draw(); };
+elPlay.onclick=()=>{ playing=!playing; elPlay.textContent=playing?'⏸ Pause':'▶ Play'; lastT=0; pause=0; if(playing){ if(i>=PHASES.length-1) setPhase(0); raf=requestAnimationFrame(tick); } };
+elScrub.oninput=()=>{ playing=false; elPlay.textContent='▶ Play'; setPhase(+elScrub.value); draw(); };
+reset();
+</script>
+</body>
+</html>

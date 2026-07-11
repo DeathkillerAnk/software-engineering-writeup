@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<!-- Self-contained. No build/deps/network. Harness: ../../../shared-viz/README.md -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Circular dependencies — the three-level cache (and why constructor cycles can't be saved)</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--live:#3fb950;
+    --garbage:#6e7681;--active:#d29922;--accent:#58a6ff;--danger:#f85149;--frozen:#a371f7;--line:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:19px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Circular dependencies — the three-level cache</h1>
+  <p class="sub">A↔B resolves with setter injection (an early reference breaks the cycle); with constructor injection it can’t. <a class="back" href="../README.md">← Part 0 · The Container &amp; IoC</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="420"></canvas>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--accent)"></i> raw (instantiated, fields empty)</span>
+    <span><i class="dot" style="background:var(--active)"></i> early reference</span>
+    <span><i class="dot" style="background:var(--live)"></i> fully initialized</span>
+    <span><i class="dot" style="background:var(--danger)"></i> deadlocked</span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Step</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="6" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> A needs B and B needs A — the container must hand out a half-built bean to break the loop.</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+const PHASES=[
+ {label:'① Two beans, a mutual dependency',
+  cap:'<code>A</code> needs <code>B</code> and <code>B</code> needs <code>A</code> (setter/field injection). The container must create both — but each needs the other first.',
+  a:'none', b:'none', l1:[], l2:[], l3:[], arrow:null},
+ {label:'② Instantiate A → expose an early reference',
+  cap:'<code>A</code> is instantiated (raw — fields not set yet). A factory for its <b>early reference</b> is placed in <b>L3 (singletonFactories)</b> immediately, before A is finished.',
+  a:'raw', b:'none', l1:[], l2:[], l3:['A'], arrow:null},
+ {label:'③ Populate A: it needs B → create B',
+  cap:'To finish <code>A</code>, the container must inject <code>B</code> — so it pauses A and starts creating <code>B</code>.',
+  a:'raw', b:'none', l1:[], l2:[], l3:['A'], arrow:{from:'A',to:'B',label:'needs B',col:'--accent'}},
+ {label:'④ Instantiate B → expose its early reference too',
+  cap:'<code>B</code> is instantiated (raw); its early-reference factory goes to <b>L3</b> as well. Now to finish B, it needs <code>A</code>…',
+  a:'raw', b:'raw', l1:[], l2:[], l3:['A','B'], arrow:null},
+ {label:'⑤ B asks for A → finds the early reference',
+  cap:'<code>B</code> requests <code>A</code>. The container finds A’s <b>early reference</b> (L3 → promoted to <b>L2</b>), injects it into B, and <b>B finishes</b> → moves to <b>L1 (ready)</b>.',
+  a:'early', b:'complete', l1:['B'], l2:['A'], l3:[], arrow:{from:'B',to:'A',label:'needs A → early ref',col:'--active'}},
+ {label:'⑥ A finishes with the complete B → cycle resolved',
+  cap:'Back in <code>A</code>: the now-complete <code>B</code> is injected, <b>A finishes</b> → <b>L1</b>. Both beans are ready. The half-built early reference was the escape hatch.',
+  a:'complete', b:'complete', l1:['A','B'], l2:[], l3:[], arrow:null},
+ {label:'⑦ Constructor injection: unrescuable',
+  cap:'With <b>constructor</b> injection, A can’t be <i>instantiated</i> until B exists, and B can’t until A exists — neither object exists, so there’s <b>no early reference to expose</b>. → <code>BeanCurrentlyInCreationException</code>. (Boot 2.6+ prohibits cycles by default anyway — break the cycle.)',
+  a:'error', b:'error', l1:[], l2:[], l3:[], arrow:{from:'A',to:'B',label:'needs B (in ctor)',col:'--danger'}, ctor:true},
+];
+
+let i=0;
+const A={x:40,y:96,w:200,h:92}, B={x:40,y:252,w:200,h:92};
+const BIN={l1:{x:470,y:92,w:380,h:78,t:'L1 · singletonObjects (ready)'},
+           l2:{x:470,y:188,w:380,h:64,t:'L2 · earlySingletonObjects'},
+           l3:{x:470,y:270,w:380,h:64,t:'L3 · singletonFactories (early-ref producers)'}};
+const SC={none:'--line',raw:'--accent',early:'--active',complete:'--live',error:'--danger'};
+const SLABEL={none:'(not created)',raw:'raw — fields empty',early:'early ref exposed',complete:'fully initialized',error:'deadlocked'};
+
+function beanBox(o,name,state,needs){ const col=cssv(SC[state]);
+  ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=col; ctx.lineWidth=state==='none'?1.5:2.5; rr(o.x,o.y,o.w,o.h,8); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=cssv('--ink'); ctx.font='600 16px system-ui'; ctx.textAlign='left'; ctx.fillText('Bean '+name, o.x+16, o.y+30);
+  ctx.fillStyle=col; ctx.font='12px system-ui'; ctx.fillText(SLABEL[state], o.x+16, o.y+52);
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.fillText('needs: '+needs, o.x+16, o.y+74);
+}
+function chip(x,y,name,col){ ctx.fillStyle=cssv(col); ctx.globalAlpha=.85; rr(x,y,34,26,5); ctx.fill(); ctx.globalAlpha=1;
+  ctx.fillStyle=cssv('--bg'); ctx.font='600 14px system-ui'; ctx.textAlign='center'; ctx.fillText(name,x+17,y+18); }
+function bin(b,items,chipCol){ ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv('--line'); ctx.lineWidth=1.5; rr(b.x,b.y,b.w,b.h,7); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=cssv('--muted'); ctx.font='11px system-ui'; ctx.textAlign='left'; ctx.fillText(b.t, b.x+12, b.y+18);
+  items.forEach((nm,k)=>chip(b.x+14+k*44, b.y+b.h-36, nm, chipCol)); }
+
+function draw(){
+  const P=PHASES[i];
+  ctx.clearRect(0,0,cv.width,cv.height);
+  beanBox(A,'A',P.a,'B');
+  beanBox(B,'B',P.b,'A');
+  // dependency arrow between A and B
+  if(P.arrow){ const col=cssv(P.arrow.col); ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=2.5;
+    const up = P.arrow.from==='B';
+    const x=A.x+A.w/2;
+    ctx.beginPath();
+    if(up){ ctx.moveTo(x+24,B.y); ctx.bezierCurveTo(x+90,B.y-40,x+90,A.y+A.h+40,x+24,A.y+A.h); }
+    else  { ctx.moveTo(x-24,A.y+A.h); ctx.bezierCurveTo(x-90,A.y+A.h+40,x-90,B.y-40,x-24,B.y); }
+    ctx.stroke();
+    const ax = up? x+24 : x-24, ay = up? A.y+A.h : B.y;
+    ctx.beginPath(); ctx.moveTo(ax-5,ay+ (up?6:-6)); ctx.lineTo(ax+5,ay+(up?6:-6)); ctx.lineTo(ax,ay+(up?-3:3)); ctx.closePath(); ctx.fill();
+    ctx.font='12px system-ui'; ctx.textAlign='center'; ctx.fillText(P.arrow.label, x+(up?92:-92), (A.y+A.h+B.y)/2+4);
+  }
+  if(P.ctor){
+    // red mutual arrows + exception
+    ctx.fillStyle=cssv('--danger'); ctx.font='600 13px system-ui'; ctx.textAlign='left';
+    ctx.fillText('⛔ BeanCurrentlyInCreationException', BIN.l1.x, 120);
+    ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui';
+    ctx.fillText('No object exists yet → no early reference', BIN.l1.x, 146);
+    ctx.fillText('can be exposed. The cycle is structural.', BIN.l1.x, 164);
+    ctx.fillText('Boot 2.6+: cycles prohibited by default.', BIN.l1.x, 188);
+  } else {
+    bin(BIN.l1,P.l1,'--live'); bin(BIN.l2,P.l2,'--active'); bin(BIN.l3,P.l3,'--active');
+  }
+  elCount.textContent = P.ctor?'constructor cycle · fails':'setter cycle · resolves';
+}
+function setPhase(n){ i=Math.max(0,Math.min(PHASES.length-1,n)); elPhase.textContent=PHASES[i].label; elCap.innerHTML='<b>What to notice:</b> '+PHASES[i].cap; elScrub.value=i; }
+function reset(){ elScrub.max=PHASES.length-1; setPhase(0); draw(); }
+let playing=false,raf=null,lastT=0,pause=0;
+function tick(ts){ if(!playing){raf=null;return;} const dur=1500-elSpeed.value*100; if(!lastT)lastT=ts; pause+=ts-lastT; lastT=ts;
+  if(pause>dur){ pause=0; if(i<PHASES.length-1){ setPhase(i+1); draw(); } else { playing=false; elPlay.textContent='▶ Play'; } } if(playing) raf=requestAnimationFrame(tick); }
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{ playing=false; elPlay.textContent='▶ Play'; if(i<PHASES.length-1) setPhase(i+1); else setPhase(0); draw(); };
+elPlay.onclick=()=>{ playing=!playing; elPlay.textContent=playing?'⏸ Pause':'▶ Play'; lastT=0; pause=0; if(playing){ if(i>=PHASES.length-1) setPhase(0); raf=requestAnimationFrame(tick); } };
+elScrub.oninput=()=>{ playing=false; elPlay.textContent='▶ Play'; setPhase(+elScrub.value); draw(); };
+reset();
+</script>
+</body>
+</html>

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<!-- Self-contained. No build/deps/network. Harness: ../../../shared-viz/README.md -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spring Security — the filter chain</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--live:#3fb950;
+    --garbage:#6e7681;--active:#d29922;--accent:#58a6ff;--danger:#f85149;--frozen:#a371f7;--line:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Spring Security — the filter chain</h1>
+  <p class="sub">An ordered chain of servlet filters in front of your controller. Auth fills the SecurityContext; rejects short-circuit. <a class="back" href="../README.md">← Part 5 · Production</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="360"></canvas>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--accent)"></i> request in flight</span>
+    <span><i class="dot" style="background:var(--live)"></i> passed / 200</span>
+    <span><i class="dot" style="background:var(--danger)"></i> rejected (401/403)</span>
+    <span>controller runs only if the whole chain passes</span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Step</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="5" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> security is filters in a fixed order — every 401/403 is "which filter, and why."</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function fit(t,m){t=String(t);if(ctx.measureText(t).width<=m)return t;let s=t;while(s.length>1&&ctx.measureText(s+'…').width>m)s=s.slice(0,-1);return s+'…';}
+
+const NODES=[
+ {cx:90,  t:'SecurityContext', s:'Holder filter'},
+ {cx:262, t:'BearerToken', s:'authentication'},
+ {cx:434, t:'ExceptionTransl.', s:'401 / 403'},
+ {cx:606, t:'Authorization', s:'rules check'},
+ {cx:778, t:'@Controller', s:'your code'},
+];
+const NW=150, NY=96, NH=58;
+
+const PHASES=[
+ {label:'① The SecurityFilterChain', cap:'<code>DelegatingFilterProxy → FilterChainProxy</code> route every request through this <b>ordered</b> filter list — all <i>before</i> the <code>DispatcherServlet</code>.',
+  tok:-1, state:[], sc:'(empty)', scCol:'--muted', verdict:null},
+ {label:'② GET /api/orders — valid JWT', cap:'A request with a valid bearer token enters the chain. The context-holder filter sets up an empty <b>SecurityContext</b> for the request.',
+  tok:0, state:['pass'], sc:'(empty)', scCol:'--muted', verdict:null},
+ {label:'③ Authentication succeeds → SecurityContext filled', cap:'<code>BearerTokenAuthenticationFilter</code> validates the JWT via the <b>AuthenticationManager</b> and stores the result: <b>alice · [ROLE_USER]</b> in the <code>SecurityContextHolder</code>.',
+  tok:1, state:['pass','pass'], sc:'alice · [ROLE_USER]', scCol:'--live', verdict:null},
+ {label:'④ Authorization passes → controller runs', cap:'<code>AuthorizationFilter</code> (last) checks the rules — <code>anyRequest().authenticated()</code> ✓ — and the request finally reaches your controller. <b>200 OK</b>.',
+  tok:4, state:['pass','pass','pass','pass','pass'], sc:'alice · [ROLE_USER]', scCol:'--live', verdict:{txt:'200 OK', col:'--live'}},
+ {label:'⑤ Bad token → 401, short-circuit', cap:'A tampered JWT fails authentication. <code>ExceptionTranslationFilter</code> turns it into <b>401 Unauthorized</b> — the request <b>never reaches</b> authorization or your controller.',
+  tok:2, state:['pass','fail','fail','skip','skip'], sc:'(empty — auth failed)', scCol:'--danger', verdict:{txt:'401 Unauthorized', col:'--danger'}},
+ {label:'⑥ Authenticated but forbidden → 403', cap:'bob · [ROLE_USER] calls <code>/api/admin</code>, which requires <code>ROLE_ADMIN</code>. Authentication passed, but the <b>AuthorizationFilter</b> denies: <b>403 Forbidden</b>. 401 = who are you; 403 = you may not.',
+  tok:3, state:['pass','pass','pass','fail','skip'], sc:'bob · [ROLE_USER]', scCol:'--active', verdict:{txt:'403 Forbidden', col:'--danger'}},
+];
+
+let i=0;
+function draw(){
+  const P=PHASES[i];
+  ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.textAlign='left';
+  ctx.fillText('SecurityFilterChain — ordered servlet filters (before the DispatcherServlet)', 24, 66);
+  // edges
+  for(let k=0;k<NODES.length-1;k++){ const x1=NODES[k].cx+NW/2-8, x2=NODES[k+1].cx-NW/2+8, y=NY+NH/2;
+    ctx.strokeStyle=cssv('--line'); ctx.lineWidth=1.3; ctx.beginPath(); ctx.moveTo(x1,y); ctx.lineTo(x2-6,y); ctx.stroke();
+    ctx.fillStyle=cssv('--line'); ctx.beginPath(); ctx.moveTo(x2-6,y-4); ctx.lineTo(x2,y); ctx.lineTo(x2-6,y+4); ctx.closePath(); ctx.fill(); }
+  // nodes
+  NODES.forEach((n,k)=>{ const st=P.state[k]||'idle', x=n.cx-NW/2;
+    const col = st==='pass'?'--live':st==='fail'?'--danger':st==='skip'?'--garbage':'--line';
+    ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv(col); ctx.lineWidth= st==='fail'?2.5:(st==='pass'?2:1.4);
+    ctx.globalAlpha= st==='skip'?0.5:1; rr(x,NY,NW,NH,7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle= st==='skip'?cssv('--muted'):cssv('--ink'); ctx.font='600 12px system-ui'; ctx.textAlign='center'; ctx.fillText(fit(n.t,NW-10), n.cx, NY+24);
+    ctx.fillStyle=cssv(st==='fail'?'--danger':'--muted'); ctx.font='10px system-ui';
+    ctx.fillText(st==='fail'?'✗ rejects here':(st==='skip'?'(never reached)':n.s), n.cx, NY+42);
+    ctx.globalAlpha=1; });
+  // token
+  if(P.tok>=0){ const x=NODES[P.tok].cx, y=NY-16;
+    ctx.fillStyle=cssv(P.verdict&&P.verdict.col==='--danger'?'--danger':'--accent'); ctx.beginPath(); ctx.arc(x,y,9,0,7); ctx.fill(); }
+  // SecurityContext panel
+  const px=24, py=210, pw=500, ph=64;
+  ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv(P.scCol); ctx.lineWidth=1.8; rr(px,py,pw,ph,8); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.textAlign='left'; ctx.fillText('SecurityContextHolder (thread-bound)', px+14, py+22);
+  ctx.fillStyle=cssv(P.scCol); ctx.font='600 15px ui-monospace,Menlo,monospace'; ctx.fillText(P.sc, px+14, py+46);
+  // verdict
+  if(P.verdict){ const vx=560, vy=210, vw=296, vh=64;
+    ctx.fillStyle=cssv(P.verdict.col); ctx.globalAlpha=.15; rr(vx,vy,vw,vh,8); ctx.fill(); ctx.globalAlpha=1;
+    ctx.strokeStyle=cssv(P.verdict.col); ctx.lineWidth=2; rr(vx,vy,vw,vh,8); ctx.stroke();
+    ctx.fillStyle=cssv(P.verdict.col); ctx.font='600 20px system-ui'; ctx.textAlign='center'; ctx.fillText(P.verdict.txt, vx+vw/2, vy+39); }
+  // footnote
+  ctx.fillStyle=cssv('--muted'); ctx.font='11px system-ui'; ctx.textAlign='left';
+  ctx.fillText('config (Security 6): a SecurityFilterChain @Bean — WebSecurityConfigurerAdapter is gone', 24, 330);
+  elCount.textContent = P.verdict? P.verdict.txt : (P.tok>=0?'in the chain':'idle');
+}
+function setPhase(n){ i=Math.max(0,Math.min(PHASES.length-1,n)); elPhase.textContent=PHASES[i].label; elCap.innerHTML='<b>What to notice:</b> '+PHASES[i].cap; elScrub.value=i; }
+function reset(){ elScrub.max=PHASES.length-1; setPhase(0); draw(); }
+let playing=false,raf=null,lastT=0,pause=0;
+function tick(ts){ if(!playing){raf=null;return;} const dur=1600-elSpeed.value*100; if(!lastT)lastT=ts; pause+=ts-lastT; lastT=ts;
+  if(pause>dur){ pause=0; if(i<PHASES.length-1){ setPhase(i+1); draw(); } else { playing=false; elPlay.textContent='▶ Play'; } } if(playing) raf=requestAnimationFrame(tick); }
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{ playing=false; elPlay.textContent='▶ Play'; if(i<PHASES.length-1) setPhase(i+1); else setPhase(0); draw(); };
+elPlay.onclick=()=>{ playing=!playing; elPlay.textContent=playing?'⏸ Pause':'▶ Play'; lastT=0; pause=0; if(playing){ if(i>=PHASES.length-1) setPhase(0); raf=requestAnimationFrame(tick); } };
+elScrub.oninput=()=>{ playing=false; elPlay.textContent='▶ Play'; setPhase(+elScrub.value); draw(); };
+reset();
+</script>
+</body>
+</html>

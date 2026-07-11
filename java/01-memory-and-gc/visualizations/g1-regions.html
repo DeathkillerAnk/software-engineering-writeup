@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<!-- Self-contained. No build/deps/network. Harness: ../../../shared-viz/README.md -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>G1 — region-based, garbage-first collection</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--live:#3fb950;
+    --garbage:#6e7681;--active:#d29922;--accent:#58a6ff;--danger:#f85149;--frozen:#a371f7;--line:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>G1 — region-based, garbage-first collection</h1>
+  <p class="sub">The heap is a grid of equal regions; G1 collects the ones with the <i>most</i> garbage first, to hit a pause target. <a class="back" href="../README.md">← Part 1 · Memory &amp; GC</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="380"></canvas>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--accent)"></i> Eden</span>
+    <span><i class="dot" style="background:var(--frozen)"></i> Survivor</span>
+    <span><i class="dot" style="background:var(--live)"></i> Old (live)</span>
+    <span><i class="dot" style="background:var(--garbage)"></i> garbage in region</span>
+    <span><i class="dot" style="border:2px solid var(--active)"></i> selected to collect</span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Step</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="5" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> G1 splits the heap into equal regions; any region can be any generation.</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+const COLS=8, ROWS=5, N=COLS*ROWS;
+// old-region garbage values used from the marking phase on
+const OLDG={16:85,17:30,18:72,19:20,20:90,21:40,22:68,23:15,24:78,25:25,26:88,27:35};
+function mk(type,garbage){ return {type,garbage:garbage||0}; }
+function buildPhase(setup){ const r=Array.from({length:N},()=>mk('free')); setup(r); return r; }
+
+const PHASES=[
+ {label:'① The heap is a grid of equal regions',
+  cap:'G1 divides the heap into ~2,048 equal-size <b>regions</b>. Each can independently be Eden, Survivor, Old, or Humongous — generations are not contiguous.',
+  build:r=>{ for(let i=0;i<8;i++) r[i]=mk('eden'); }},
+ {label:'② The app runs — regions fill, garbage accrues',
+  cap:'As objects are allocated (Eden) and promoted (Old), G1 tracks how much <b>garbage</b> each region accumulates. Old regions hold a mix of live data and dead objects.',
+  build:r=>{ for(let i=0;i<16;i++) r[i]=mk('eden'); for(const k in OLDG) r[k]=mk('old',OLDG[k]); }},
+ {label:'③ Young collection — evacuate Eden in one shot',
+  cap:'A young collection copies the survivors out of all Eden/Survivor regions and frees them <b>wholesale</b>. Eden regions become free again.',
+  build:r=>{ r[0]=mk('surv'); r[1]=mk('surv'); for(const k in OLDG) r[k]=mk('old',OLDG[k]); }},
+ {label:'④ Concurrent marking estimates garbage per region',
+  cap:'<b>Without a pause</b>, G1 marks live objects and computes the garbage percentage of each Old region. Now it knows which regions would pay off most to collect.',
+  build:r=>{ r[0]=mk('surv'); r[1]=mk('surv'); for(const k in OLDG) r[k]=mk('old',OLDG[k]); }, pct:true},
+ {label:'⑤ Garbage-FIRST: pick the highest-garbage regions',
+  cap:'G1 sorts Old regions by garbage and selects the <b>fullest-of-garbage</b> ones — the most space reclaimed per unit of copying — collecting only as many as fit the pause target (<code>MaxGCPauseMillis</code>).',
+  build:r=>{ r[0]=mk('surv'); r[1]=mk('surv'); for(const k in OLDG) r[k]=mk('old',OLDG[k]); }, pct:true, select:true},
+ {label:'⑥ Mixed collection — profitable regions reclaimed',
+  cap:'The selected high-garbage regions are evacuated and freed; the low-garbage ones are left for a later cycle. Big space reclaimed, pause stays within target. That’s "garbage first".',
+  build:r=>{ r[0]=mk('surv'); r[1]=mk('surv'); const keep={17:30,19:20,21:40,23:15,25:25,27:35}; for(const k in keep) r[k]=mk('old',keep[k]); }, pct:true, collected:true},
+];
+const SELECTED = Object.keys(OLDG).filter(k=>OLDG[k]>=65).map(Number); // 16,18,20,22,24,26
+
+let i=0;
+const GX=30, GY=70, CW=104, CH=56, GAP=6;
+function draw(){
+  const P=PHASES[i]; const regions=buildPhase(P.build);
+  ctx.clearRect(0,0,cv.width,cv.height);
+  for(let idx=0; idx<N; idx++){ const reg=regions[idx], c=idx%COLS, r=(idx/COLS|0);
+    const x=GX+c*CW, y=GY+r*CH, w=CW-GAP, h=CH-GAP;
+    if(reg.type==='free'){ ctx.strokeStyle=cssv('--line'); ctx.setLineDash([4,4]); ctx.lineWidth=1; rr(x,y,w,h,5); ctx.stroke(); ctx.setLineDash([]); continue; }
+    let base = reg.type==='eden'?'--accent': reg.type==='surv'?'--frozen':'--live';
+    ctx.fillStyle=cssv(base); ctx.globalAlpha=.30; rr(x,y,w,h,5); ctx.fill(); ctx.globalAlpha=1;
+    // garbage overlay (top portion) for old regions
+    if(reg.type==='old' && reg.garbage){ const gh=(h-4)*(reg.garbage/100); ctx.fillStyle=cssv('--garbage'); ctx.globalAlpha=.55; rr(x+2,y+2,w-4,gh,4); ctx.fill(); ctx.globalAlpha=1; }
+    ctx.strokeStyle=cssv(base); ctx.lineWidth=1.5; rr(x,y,w,h,5); ctx.stroke();
+    // selection / collected border
+    const sel = (P.select||P.collected) && SELECTED.includes(idx) && reg.type==='old';
+    if(P.select && sel){ ctx.strokeStyle=cssv('--active'); ctx.lineWidth=3; rr(x,y,w,h,5); ctx.stroke(); }
+    // label
+    ctx.textAlign='center';
+    ctx.fillStyle=cssv('--ink'); ctx.font='600 12px system-ui';
+    const tl = reg.type==='eden'?'Eden':reg.type==='surv'?'Surv':'Old';
+    ctx.fillText(tl, x+w/2, y+h/2-2);
+    if(P.pct && reg.type==='old'){ ctx.fillStyle=cssv(reg.garbage>=65?'--active':'--muted'); ctx.font='11px system-ui'; ctx.fillText(reg.garbage+'% garbage', x+w/2, y+h/2+14); }
+  }
+  // freed annotation in last phase
+  ctx.textAlign='left'; ctx.font='12px system-ui'; ctx.fillStyle=cssv('--muted');
+  if(i===4) { ctx.fillStyle=cssv('--active'); ctx.fillText('selected: 6 highest-garbage Old regions (≥65%)', GX, GY+ROWS*CH+18); }
+  if(i===5) { ctx.fillStyle=cssv('--live'); ctx.fillText('6 regions freed · low-garbage Old regions left for later', GX, GY+ROWS*CH+18); }
+  elCount.textContent = i<3?'allocating':(i===3?'concurrent mark':(i===4?'garbage-first select':'mixed collection'));
+}
+function setPhase(n){ i=Math.max(0,Math.min(PHASES.length-1,n)); elPhase.textContent=PHASES[i].label; elCap.innerHTML='<b>What to notice:</b> '+PHASES[i].cap; elScrub.value=i; }
+function reset(){ elScrub.max=PHASES.length-1; setPhase(0); draw(); }
+let playing=false,raf=null,lastT=0,pause=0;
+function tick(ts){ if(!playing){raf=null;return;} const dur=1500-elSpeed.value*100; if(!lastT)lastT=ts; pause+=ts-lastT; lastT=ts;
+  if(pause>dur){ pause=0; if(i<PHASES.length-1){ setPhase(i+1); draw(); } else { playing=false; elPlay.textContent='▶ Play'; } } if(playing) raf=requestAnimationFrame(tick); }
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{ playing=false; elPlay.textContent='▶ Play'; if(i<PHASES.length-1) setPhase(i+1); else setPhase(0); draw(); };
+elPlay.onclick=()=>{ playing=!playing; elPlay.textContent=playing?'⏸ Pause':'▶ Play'; lastT=0; pause=0; if(playing){ if(i>=PHASES.length-1) setPhase(0); raf=requestAnimationFrame(tick); } };
+elScrub.oninput=()=>{ playing=false; elPlay.textContent='▶ Play'; setPhase(+elScrub.value); draw(); };
+reset();
+</script>
+</body>
+</html>

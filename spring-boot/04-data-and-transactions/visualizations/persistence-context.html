@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<!-- Self-contained. No build/deps/network. Harness: ../../../shared-viz/README.md -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The persistence context — L1 cache, dirty checking, lazy traps</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--live:#3fb950;
+    --garbage:#6e7681;--active:#d29922;--accent:#58a6ff;--danger:#f85149;--frozen:#a371f7;--line:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>The persistence context — L1 cache, dirty checking, lazy traps</h1>
+  <p class="sub">Managed entities, flush-on-commit, and what happens when the session is gone. <a class="back" href="../README.md">← Part 4 · Data &amp; Transactions</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="380"></canvas>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--live)"></i> managed (tracked)</span>
+    <span><i class="dot" style="background:var(--active)"></i> dirty (differs from snapshot)</span>
+    <span><i class="dot" style="background:var(--garbage)"></i> detached (no session)</span>
+    <span><i class="dot" style="background:var(--danger)"></i> exception / N+1</span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Step</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="6" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> every data bug here is really "is there an open session, and what's managed in it?"</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function fit(t,m){t=String(t);if(ctx.measureText(t).width<=m)return t;let s=t;while(s.length>1&&ctx.measureText(s+'…').width>m)s=s.slice(0,-1);return s+'…';}
+
+// entity: state managed|dirty|detached ; val/snap shown
+const PHASES=[
+ {label:'① @Transactional begins — context empty',
+  cap:'A transaction opens an <code>EntityManager</code>/Session with an empty <b>persistence context</b> (the L1 cache).',
+  open:true, ent:null, sql:[], note:null},
+ {label:'② find(42) → SELECT → managed',
+  cap:'<code>find(Order.class, 42)</code> hits the DB once. The entity becomes <b>managed</b> — stored in the context <i>with a snapshot</i> of its loaded state.',
+  open:true, ent:{state:'managed', val:'total = 100', snap:'total = 100'}, sql:['SELECT * FROM orders WHERE id=42'], note:null},
+ {label:'③ find(42) again → L1 cache hit, NO SQL',
+  cap:'The same id in the same context returns the <b>same instance</b> — no second query. That’s the identity guarantee of the first-level cache.',
+  open:true, ent:{state:'managed', val:'total = 100', snap:'total = 100'}, sql:['SELECT * FROM orders WHERE id=42','-- find(42) again: cache hit, no SQL'], note:null},
+ {label:'④ setter — no save() called',
+  cap:'<code>order.setTotal(120)</code>. The managed entity now <b>differs from its snapshot</b> — it’s <i>dirty</i>. No SQL yet; nothing to call.',
+  open:true, ent:{state:'dirty', val:'total = 120', snap:'total = 100'}, sql:['SELECT * FROM orders WHERE id=42','-- find(42) again: cache hit, no SQL'], note:null},
+ {label:'⑤ commit → flush → dirty check → UPDATE',
+  cap:'At commit, Hibernate <b>flushes</b>: it diffs entities against snapshots and emits an <code>UPDATE</code> for the change — <b>no <code>save()</code> ever called</b>. Then the context closes.',
+  open:false, ent:{state:'detached', val:'total = 120', snap:null}, sql:['SELECT * FROM orders WHERE id=42','-- find(42) again: cache hit, no SQL','UPDATE orders SET total=120 WHERE id=42','COMMIT'], note:null},
+ {label:'⑥ Detached + lazy touch → LazyInitializationException',
+  cap:'The controller touches <code>order.getItems()</code> — a <b>lazy proxy</b> — but the session is closed and the entity is <b>detached</b>: <code>LazyInitializationException</code>. Fix: DTO/projection or <code>join fetch</code>/<code>@EntityGraph</code> inside the tx (not OSIV).',
+  open:false, ent:{state:'detached', val:'items = lazy proxy ⚡', snap:null}, sql:['SELECT * FROM orders WHERE id=42','-- find(42) again: cache hit, no SQL','UPDATE orders SET total=120 WHERE id=42','COMMIT'], note:{txt:'⛔ LazyInitializationException — no Session', col:'--danger'}},
+ {label:'⑦ The other lazy trap: N+1 in a loop',
+  cap:'Inside a tx, looping 3 orders and touching each lazy <code>items</code> fires <b>1 + 3 queries</b> — the <b>N+1 problem</b>. Detect with SQL logging/statistics; kill with <code>join fetch</code>, <code>@EntityGraph</code>, or <code>@BatchSize</code>.',
+  open:true, ent:{state:'managed', val:'3 orders + lazy items', snap:'…'}, sql:['SELECT * FROM orders            -- 1','SELECT * FROM items WHERE o=1   -- +1','SELECT * FROM items WHERE o=2   -- +1','SELECT * FROM items WHERE o=3   -- +1'], note:{txt:'⚡ 4 round-trips for 3 orders → join fetch = 1', col:'--danger'}},
+];
+
+let i=0;
+const PC={x:30,y:86,w:400,h:200}, DB={x:470,y:86,w:386,h:200};
+function draw(){
+  const P=PHASES[i];
+  ctx.clearRect(0,0,cv.width,cv.height);
+  // persistence context panel
+  const pcCol = P.open?'--live':'--garbage';
+  ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv(pcCol); ctx.lineWidth=P.open?2:1.5; rr(PC.x,PC.y,PC.w,PC.h,8); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.textAlign='left';
+  ctx.fillText('persistence context (L1 cache) — '+(P.open?'OPEN (tx active)':'CLOSED (tx done)'), PC.x, PC.y-12);
+  ctx.fillStyle=cssv(pcCol); ctx.font='600 12px system-ui'; ctx.fillText(P.open?'● session open':'○ session closed', PC.x+14, PC.y+24);
+  if(P.ent){ const e=P.ent, ey=PC.y+44;
+    const eCol = e.state==='managed'?'--live':e.state==='dirty'?'--active':'--garbage';
+    ctx.fillStyle=cssv(eCol); ctx.globalAlpha=.14; rr(PC.x+14,ey,PC.w-28,96,7); ctx.fill(); ctx.globalAlpha=1;
+    ctx.strokeStyle=cssv(eCol); ctx.lineWidth=2; rr(PC.x+14,ey,PC.w-28,96,7); ctx.stroke();
+    ctx.fillStyle=cssv('--ink'); ctx.font='600 14px ui-monospace,Menlo,monospace'; ctx.fillText('Order#42 · '+e.state.toUpperCase(), PC.x+28, ey+26);
+    ctx.fillStyle=cssv(e.state==='dirty'?'--active':'--ink'); ctx.font='13px ui-monospace,Menlo,monospace'; ctx.fillText(fit(e.val, PC.w-60), PC.x+28, ey+50);
+    ctx.fillStyle=cssv('--muted'); ctx.font='12px ui-monospace,Menlo,monospace';
+    ctx.fillText(e.snap!==null?('snapshot: '+e.snap+(e.state==='dirty'?'   ← differs!':'')):'snapshot: gone (context closed)', PC.x+28, ey+74);
+  } else { ctx.fillStyle=cssv('--muted'); ctx.font='13px system-ui'; ctx.fillText('(empty)', PC.x+28, PC.y+70); }
+  // DB / SQL log panel
+  ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv('--line'); ctx.lineWidth=1.5; rr(DB.x,DB.y,DB.w,DB.h,8); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.fillText('database — SQL actually executed', DB.x+14, DB.y+24);
+  P.sql.forEach((q,k)=>{ const qy=DB.y+46+k*26; const danger=q.includes('+1'); const info=q.startsWith('--');
+    ctx.fillStyle=cssv(danger?'--danger':(info?'--muted':(q.startsWith('UPDATE')?'--active':'--ink')));
+    ctx.font=(q.startsWith('UPDATE')?'600 ':'')+'12px ui-monospace,Menlo,monospace'; ctx.fillText(fit(q, DB.w-28), DB.x+14, qy); });
+  // note banner
+  if(P.note){ ctx.fillStyle=cssv(P.note.col); ctx.font='600 14px system-ui'; ctx.textAlign='left'; ctx.fillText(P.note.txt, 30, 330); }
+  else { ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.fillText('flush happens at commit (or before a query) — not when the setter runs', 30, 330); }
+  elCount.textContent = P.sql.filter(q=>!q.startsWith('--')).length + ' SQL statements';
+}
+function setPhase(n){ i=Math.max(0,Math.min(PHASES.length-1,n)); elPhase.textContent=PHASES[i].label; elCap.innerHTML='<b>What to notice:</b> '+PHASES[i].cap; elScrub.value=i; }
+function reset(){ elScrub.max=PHASES.length-1; setPhase(0); draw(); }
+let playing=false,raf=null,lastT=0,pause=0;
+function tick(ts){ if(!playing){raf=null;return;} const dur=1700-elSpeed.value*110; if(!lastT)lastT=ts; pause+=ts-lastT; lastT=ts;
+  if(pause>dur){ pause=0; if(i<PHASES.length-1){ setPhase(i+1); draw(); } else { playing=false; elPlay.textContent='▶ Play'; } } if(playing) raf=requestAnimationFrame(tick); }
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{ playing=false; elPlay.textContent='▶ Play'; if(i<PHASES.length-1) setPhase(i+1); else setPhase(0); draw(); };
+elPlay.onclick=()=>{ playing=!playing; elPlay.textContent=playing?'⏸ Pause':'▶ Play'; lastT=0; pause=0; if(playing){ if(i>=PHASES.length-1) setPhase(0); raf=requestAnimationFrame(tick); } };
+elScrub.oninput=()=>{ playing=false; elPlay.textContent='▶ Play'; setPhase(+elScrub.value); draw(); };
+reset();
+</script>
+</body>
+</html>

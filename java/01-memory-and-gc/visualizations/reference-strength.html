@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<!-- Self-contained. No build/deps/network. Harness: ../../../shared-viz/README.md -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reference strengths — what survives a GC</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--live:#3fb950;
+    --garbage:#6e7681;--active:#d29922;--accent:#58a6ff;--danger:#f85149;--frozen:#a371f7;--line:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Reference strengths — what survives a GC</h1>
+  <p class="sub">Four objects, each reachable by exactly one reference type. Watch which survive a normal GC vs. a memory-pressure GC. <a class="back" href="../README.md">← Part 1 · Memory &amp; GC</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="400"></canvas>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--live)"></i> alive</span>
+    <span><i class="dot" style="background:var(--garbage)"></i> collected</span>
+    <span><i class="dot" style="background:var(--accent)"></i> heap usage</span>
+    <span>cleared refs → ReferenceQueue (for cleanup)</span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Step</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="3" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> an object’s fate is decided by the strongest reference to it.</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+const TYPES=[
+ {key:'strong', name:'Strong ref', note:'ordinary reference', reach:'strongly reachable'},
+ {key:'soft',   name:'SoftReference', note:'memory-sensitive cache', reach:'softly reachable'},
+ {key:'weak',   name:'WeakReference', note:'get() → obj, until cleared', reach:'weakly reachable'},
+ {key:'phantom',name:'PhantomReference', note:'get() → null always', reach:'phantom reachable'},
+];
+const CX=[120,320,520,720], CW=150;
+
+const PHASES=[
+ {label:'① Four objects, four reference strengths',
+  cap:'Each object is reachable by exactly one reference. <code>Strong</code> is an ordinary reference; the other three are <code>java.lang.ref</code> types registered with a <b>ReferenceQueue</b>.',
+  alive:{strong:1,soft:1,weak:1,phantom:1}, queue:[], pressure:0.30},
+ {label:'② A normal GC (plenty of memory)',
+  cap:'<b>Weakly</b>-reachable objects are collected at the next GC. The <b>phantom</b>-reachable one is collected too, and its reference is <b>enqueued</b> for cleanup. Soft survives — memory is fine.',
+  alive:{strong:1,soft:1,weak:0,phantom:0}, queue:['Weak','Phantom'], pressure:0.40},
+ {label:'③ A GC under memory pressure',
+  cap:'When the heap runs low, the GC reclaims <b>softly</b>-reachable objects too — a last resort before <code>OutOfMemoryError</code>. That’s why soft refs make a memory-sensitive cache.',
+  alive:{strong:1,soft:0,weak:0,phantom:0}, queue:['Weak','Phantom','Soft'], pressure:0.95},
+ {label:'④ The ladder: strong > soft > weak > phantom',
+  cap:'Only the strongly-held object always survives. Cleared refs landed in the <b>ReferenceQueue</b> so you can release associated resources — the modern replacement for the dead <code>finalize()</code> (use <code>Cleaner</code> / try-with-resources).',
+  alive:{strong:1,soft:0,weak:0,phantom:0}, queue:['Weak','Phantom','Soft'], pressure:0.95},
+];
+
+let i=0;
+function draw(){
+  const P=PHASES[i];
+  ctx.clearRect(0,0,cv.width,cv.height);
+  // memory meter (top-right)
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.textAlign='left'; ctx.fillText('heap usage', 600, 30);
+  const mx=600,my=36,mw=240,mh=14; ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv('--line'); ctx.lineWidth=1.5; rr(mx,my,mw,mh,4); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = P.pressure>0.8?cssv('--danger'):cssv('--accent'); ctx.globalAlpha=.6; rr(mx+2,my+2,(mw-4)*P.pressure,mh-4,3); ctx.fill(); ctx.globalAlpha=1;
+  if(P.pressure>0.8){ ctx.fillStyle=cssv('--danger'); ctx.font='600 11px system-ui'; ctx.fillText('memory pressure!', mx, my+30); }
+  // columns
+  TYPES.forEach((ty,k)=>{ const cx=CX[k], alive=P.alive[ty.key];
+    // holder box
+    ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv('--ink'); ctx.lineWidth=1.5; rr(cx-CW/2,70,CW,52,7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle=cssv('--ink'); ctx.font='600 13px system-ui'; ctx.textAlign='center'; ctx.fillText(ty.name, cx, 92);
+    ctx.fillStyle=cssv('--muted'); ctx.font='10px system-ui'; ctx.fillText(ty.note, cx, 110);
+    // arrow holder -> object
+    ctx.strokeStyle=cssv(alive?'--line':'--line'); ctx.globalAlpha=alive?1:.3; ctx.lineWidth=2; ctx.setLineDash(alive?[]:[4,4]);
+    ctx.beginPath(); ctx.moveTo(cx,122); ctx.lineTo(cx,176); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha=1;
+    // object circle
+    const oy=204, r=28;
+    if(alive){ ctx.fillStyle=cssv('--live'); ctx.globalAlpha=.85; ctx.beginPath(); ctx.arc(cx,oy,r,0,7); ctx.fill(); ctx.globalAlpha=1;
+      ctx.fillStyle=cssv('--bg'); ctx.font='600 12px system-ui'; ctx.fillText('obj', cx, oy+4);
+      ctx.fillStyle=cssv('--live'); ctx.font='11px system-ui'; ctx.fillText(ty.reach, cx, oy+r+18);
+    } else {
+      ctx.strokeStyle=cssv('--garbage'); ctx.setLineDash([4,4]); ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(cx,oy,r,0,7); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle=cssv('--garbage'); ctx.font='11px system-ui'; ctx.fillText('collected', cx, oy+4);
+      ctx.fillText('ref cleared', cx, oy+r+18);
+    }
+  });
+  // ReferenceQueue panel
+  const qx=40,qy=300,qw=800,qh=64;
+  ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv('--line'); ctx.lineWidth=1.5; rr(qx,qy,qw,qh,8); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.textAlign='left'; ctx.fillText('ReferenceQueue — cleared refs enqueued for cleanup', qx+14, qy+22);
+  P.queue.forEach((nm,k)=>{ const chx=qx+16+k*120; ctx.fillStyle=cssv('--active'); ctx.globalAlpha=.85; rr(chx,qy+32,108,22,5); ctx.fill(); ctx.globalAlpha=1;
+    ctx.fillStyle=cssv('--bg'); ctx.font='600 12px system-ui'; ctx.textAlign='center'; ctx.fillText(nm+'Reference', chx+54, qy+47); });
+  if(P.queue.length===0){ ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.textAlign='left'; ctx.fillText('(empty)', qx+16, qy+47); }
+  elCount.textContent = i===0?'4 objects':(i===1?'normal GC':(i===2?'pressure GC':'summary'));
+}
+function setPhase(n){ i=Math.max(0,Math.min(PHASES.length-1,n)); elPhase.textContent=PHASES[i].label; elCap.innerHTML='<b>What to notice:</b> '+PHASES[i].cap; elScrub.value=i; }
+function reset(){ elScrub.max=PHASES.length-1; setPhase(0); draw(); }
+let playing=false,raf=null,lastT=0,pause=0;
+function tick(ts){ if(!playing){raf=null;return;} const dur=1600-elSpeed.value*100; if(!lastT)lastT=ts; pause+=ts-lastT; lastT=ts;
+  if(pause>dur){ pause=0; if(i<PHASES.length-1){ setPhase(i+1); draw(); } else { playing=false; elPlay.textContent='▶ Play'; } } if(playing) raf=requestAnimationFrame(tick); }
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{ playing=false; elPlay.textContent='▶ Play'; if(i<PHASES.length-1) setPhase(i+1); else setPhase(0); draw(); };
+elPlay.onclick=()=>{ playing=!playing; elPlay.textContent=playing?'⏸ Pause':'▶ Play'; lastT=0; pause=0; if(playing){ if(i>=PHASES.length-1) setPhase(0); raf=requestAnimationFrame(tick); } };
+elScrub.oninput=()=>{ playing=false; elPlay.textContent='▶ Play'; setPhase(+elScrub.value); draw(); };
+reset();
+</script>
+</body>
+</html>

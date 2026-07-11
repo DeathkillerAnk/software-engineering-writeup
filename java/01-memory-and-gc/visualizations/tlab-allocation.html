@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<!-- Self-contained. No build/deps/network. Harness: ../../../shared-viz/README.md -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TLAB allocation — why making an object is nearly free</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--live:#3fb950;
+    --garbage:#6e7681;--active:#d29922;--accent:#58a6ff;--danger:#f85149;--frozen:#a371f7;--line:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>TLAB allocation — why making an object is nearly free</h1>
+  <p class="sub">Each thread bump-allocates in its own slice of Eden, with no lock. <a class="back" href="../README.md">← Part 1 · Memory &amp; GC</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="380"></canvas>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--accent)"></i> allocated object</span>
+    <span><i class="dot" style="background:var(--active)"></i> bump pointer / slow path</span>
+    <span><i class="dot" style="background:var(--live)"></i> unclaimed Eden</span>
+    <span><i class="dot" style="border:1px dashed var(--active)"></i> scalar-replaced (never allocated)</span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Step</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="5" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> allocation is a pointer add in a private buffer — no locking.</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+const CAP=12;             // object slots per TLAB
+const THREADS=['Thread A','Thread B','Thread C'];
+// per phase: each thread {objs, tlab}; edenFree 0..1; refill index; eden full; escape index
+const PHASES=[
+ {label:'① Each thread gets its own TLAB',
+  cap:'Eden is shared, but each thread is handed a private slice — a <b>TLAB</b> (thread-local allocation buffer) — with its own bump pointer.',
+  th:[{o:0,t:1},{o:0,t:1},{o:0,t:1}], eden:1.0},
+ {label:'② Allocate = bump the pointer (no lock)',
+  cap:'A <code>new</code> just writes the object at the pointer and advances it by the object’s size. Because each TLAB is private, three threads allocate <b>at once with zero contention</b> — no lock.',
+  th:[{o:3,t:1},{o:2,t:1},{o:2,t:1}], eden:0.84},
+ {label:'③ Keep filling',
+  cap:'Each thread races ahead in its own buffer. Still no synchronization — the fast path is a handful of instructions.',
+  th:[{o:8,t:1},{o:5,t:1},{o:4,t:1}], eden:0.66},
+ {label:'④ TLAB full → refill (the slow path)',
+  cap:'Thread A’s TLAB fills. <b>Now</b> it takes the one synchronized step: atomically claim a fresh TLAB from the shared Eden top. Rare — once per TLAB-worth of objects, not per object.',
+  th:[{o:2,t:2},{o:8,t:1},{o:6,t:1}], eden:0.42, refill:0},
+ {label:'⑤ Eden exhausted → minor GC',
+  cap:'As TLABs consume Eden, the unclaimed space runs out. An empty Eden triggers a <b>minor GC</b> (see Ch.07) — allocation was cheap; this collection is the cost.',
+  th:[{o:10,t:2},{o:12,t:1},{o:11,t:1}], eden:0.04, edenFull:true},
+ {label:'⑥ The cheapest allocation: none at all',
+  cap:'When the JIT proves an object never escapes its method, <b>escape analysis + scalar replacement</b> keep it off the heap entirely — its fields live in registers. The object is never born, so it never touches a TLAB or the GC.',
+  th:[{o:10,t:2},{o:12,t:1},{o:11,t:1}], eden:0.04, escape:1},
+];
+
+let i=0;
+const LX=120, LW=600;   // TLAB bar geometry
+const laneY=[120,196,272];
+function draw(){
+  const P=PHASES[i];
+  ctx.clearRect(0,0,cv.width,cv.height);
+  // Eden free meter
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.textAlign='left';
+  ctx.fillText('Eden — unclaimed space', LX, 56);
+  const mw=LW, mx=LX, my=64, mh=18;
+  ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv('--line'); ctx.lineWidth=1.5; rr(mx,my,mw,mh,5); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = P.edenFull?cssv('--danger'):cssv('--live'); ctx.globalAlpha=.5; rr(mx+2,my+2,(mw-4)*P.eden,mh-4,4); ctx.fill(); ctx.globalAlpha=1;
+  if(P.edenFull){ ctx.fillStyle=cssv('--danger'); ctx.font='600 12px system-ui'; ctx.textAlign='right'; ctx.fillText('Eden full → minor GC', mx+mw, 56); }
+
+  const cell=LW/CAP;
+  for(let k=0;k<3;k++){ const th=P.th[k], y=laneY[k];
+    const refilling = P.refill===k;
+    // label
+    ctx.fillStyle=cssv('--ink'); ctx.font='600 13px system-ui'; ctx.textAlign='left'; ctx.fillText(THREADS[k], 20, y+24);
+    ctx.fillStyle=cssv('--muted'); ctx.font='11px system-ui'; ctx.fillText('TLAB #'+th.t, 20, y+40);
+    // TLAB bar
+    ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=refilling?cssv('--active'):cssv('--line'); ctx.lineWidth=refilling?2.5:1.5; rr(LX,y,LW,44,6); ctx.fill(); ctx.stroke();
+    // object cells
+    for(let n=0;n<th.o;n++){ ctx.fillStyle=cssv('--accent'); ctx.globalAlpha=.85; rr(LX+n*cell+3,y+5,cell-6,34,4); ctx.fill(); ctx.globalAlpha=1; }
+    // bump pointer
+    const bx=LX+th.o*cell;
+    ctx.strokeStyle=cssv('--active'); ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(bx,y-4); ctx.lineTo(bx,y+48); ctx.stroke();
+    ctx.fillStyle=cssv('--active'); ctx.beginPath(); ctx.moveTo(bx-5,y-4); ctx.lineTo(bx+5,y-4); ctx.lineTo(bx,y+3); ctx.closePath(); ctx.fill();
+    if(refilling){ ctx.fillStyle=cssv('--active'); ctx.font='11px system-ui'; ctx.textAlign='left'; ctx.fillText('↻ refilled from Eden (slow path)', LX+LW-210, y-8); }
+    // escape-analysis ghost on thread B
+    if(P.escape===k){ const gx=LX+th.o*cell+10, gy=y+5;
+      ctx.setLineDash([5,4]); ctx.strokeStyle=cssv('--active'); ctx.lineWidth=2; rr(gx,gy,cell-6,34,4); ctx.stroke(); ctx.setLineDash([]);
+      ctx.strokeStyle=cssv('--danger'); ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(gx,gy); ctx.lineTo(gx+cell-6,gy+34); ctx.stroke();
+      ctx.fillStyle=cssv('--active'); ctx.font='11px system-ui'; ctx.textAlign='left'; ctx.fillText('scalar-replaced — never allocated', gx+cell, y+26); }
+  }
+  ctx.fillStyle=cssv('--muted'); ctx.font='11px system-ui'; ctx.textAlign='left';
+  ctx.fillText('bump pointer ▲ advances per allocation; only refill touches shared Eden', LX, laneY[2]+72);
+  elCount.textContent = i<3?'fast path · no lock':(i===3?'slow path · 1 atomic claim':(i===4?'Eden exhausted':'escape analysis'));
+}
+function setPhase(n){ i=Math.max(0,Math.min(PHASES.length-1,n)); elPhase.textContent=PHASES[i].label; elCap.innerHTML='<b>What to notice:</b> '+PHASES[i].cap; elScrub.value=i; }
+function reset(){ elScrub.max=PHASES.length-1; setPhase(0); draw(); }
+let playing=false,raf=null,lastT=0,pause=0;
+function tick(ts){ if(!playing){raf=null;return;} const dur=1400-elSpeed.value*100; if(!lastT)lastT=ts; pause+=ts-lastT; lastT=ts;
+  if(pause>dur){ pause=0; if(i<PHASES.length-1){ setPhase(i+1); draw(); } else { playing=false; elPlay.textContent='▶ Play'; } } if(playing) raf=requestAnimationFrame(tick); }
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{ playing=false; elPlay.textContent='▶ Play'; if(i<PHASES.length-1) setPhase(i+1); else setPhase(0); draw(); };
+elPlay.onclick=()=>{ playing=!playing; elPlay.textContent=playing?'⏸ Pause':'▶ Play'; lastT=0; pause=0; if(playing){ if(i>=PHASES.length-1) setPhase(0); raf=requestAnimationFrame(tick); } };
+elScrub.oninput=()=>{ playing=false; elPlay.textContent='▶ Play'; setPhase(+elScrub.value); draw(); };
+reset();
+</script>
+</body>
+</html>

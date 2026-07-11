@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<!-- Self-contained. No build/deps/network. Harness: ../../../shared-viz/README.md -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The object header — one mark word, three jobs</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--live:#3fb950;
+    --garbage:#6e7681;--active:#d29922;--accent:#58a6ff;--danger:#f85149;--frozen:#a371f7;--line:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>The object header — one mark word, three jobs</h1>
+  <p class="sub">The 64-bit mark word stores identity hash, GC age, <i>and</i> lock state — reused by state. <a class="back" href="../README.md">← Part 1 · Memory &amp; GC</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="340"></canvas>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--accent)"></i> identity hash</span>
+    <span><i class="dot" style="background:var(--live)"></i> GC age</span>
+    <span><i class="dot" style="background:var(--frozen)"></i> lock state</span>
+    <span><i class="dot" style="background:var(--active)"></i> just changed</span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Step</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="5" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> the header is pure overhead, so every bit is reused.</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+
+// mark word segment sets per state. frac = relative width; key = which "job" (for color)
+function unlocked(hash,age,hot){ return [
+  {label:'unused',            val:'…',  frac:25, key:'u', hot:false},
+  {label:'identity hashcode', val:hash, frac:31, key:'h', hot:hot==='h'},
+  {label:'age',               val:age,  frac:4,  key:'a', hot:hot==='a'},
+  {label:'lock',              val:'01', frac:4,  key:'l', hot:false},
+]; }
+
+const PHASES=[
+ {label:'① Every object carries a header',
+  cap:'A plain object is <b>mark word (8B) + klass pointer (4B)</b> before any of your fields. For <code>class C { int x; }</code> that’s 8+4+4 = <b>16 bytes</b>, no padding needed.',
+  obj:true, seg:null},
+ {label:'② Unlocked, no hash yet',
+  cap:'A fresh object is <i>neutral</i>: lock tag <code>01</code>, age 0, and <b>no identity hash</b> — the hash is not computed until something asks for it.',
+  obj:false, seg:unlocked('— (unset)','0000',null)},
+ {label:'③ identityHashCode() stamps the header',
+  cap:'The first call to <code>System.identityHashCode(o)</code> (or default <code>hashCode()</code>) computes a hash <b>once</b> and writes it into the mark word, where it lives for the object’s life.',
+  obj:false, seg:unlocked('0x6b2f4e…','0000','h')},
+ {label:'④ Surviving a GC increments the age',
+  cap:'Each minor GC the object survives bumps the <b>age</b> field here. Reach the tenuring threshold and it’s promoted to the Old generation (see Ch.07).',
+  obj:false, seg:unlocked('0x6b2f4e…','0011','a')},
+ {label:'⑤ synchronized → lightweight lock',
+  cap:'Entering a <code>synchronized</code> block (uncontended) flips the tag to <code>00</code> and replaces the mark word with a <b>pointer to a lock record</b> on the locking thread’s stack. The hash is displaced and saved there.',
+  obj:false, seg:[{label:'pointer → lock record (on locking thread’s stack)',val:'0x7ffd…',frac:60,key:'l',hot:true},{label:'lock',val:'00',frac:4,key:'l',hot:true}]},
+ {label:'⑥ Contention → heavyweight monitor',
+  cap:'Under contention the lock <b>inflates</b>: the mark word points to an OS-level <code>ObjectMonitor</code>, tag <code>10</code>. This is the expensive path — uncontended locks never get here. (→ Part 3)',
+  obj:false, seg:[{label:'pointer → ObjectMonitor (OS-level)',val:'0x55a…',frac:60,key:'l',hot:true},{label:'lock',val:'10',frac:4,key:'l',hot:true}]},
+];
+
+let i=0,t=1,playing=false,pause=0,raf=null,lastT=0,stepRaf=null;
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+const KEYCOL={u:'--garbage',h:'--accent',a:'--live',l:'--frozen'};
+
+function draw(){
+  const P=PHASES[i];
+  ctx.clearRect(0,0,cv.width,cv.height);
+  // object layout strip (always shown, emphasized in phase 0)
+  const X=40, Y=60, total=720, b=total/16; // 16 bytes wide
+  const parts=[{n:'mark word',sz:8,hot:!P.obj},{n:'klass ptr',sz:4,hot:false},{n:'int x',sz:4,hot:false}];
+  let cx=X;
+  ctx.font='12px system-ui';
+  for(const p of parts){ const w=p.sz*b;
+    ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=p.hot?cssv('--accent'):cssv('--line'); ctx.lineWidth=p.hot?2:1.5;
+    rr(cx,Y,w-4,44,6); ctx.fill(); ctx.stroke();
+    ctx.fillStyle=cssv('--ink'); ctx.textAlign='center'; ctx.fillText(p.n,cx+(w-4)/2,Y+22);
+    ctx.fillStyle=cssv('--muted'); ctx.fillText(p.sz+'B',cx+(w-4)/2,Y+38);
+    cx+=w; }
+  ctx.fillStyle=cssv('--muted'); ctx.textAlign='left'; ctx.fillText('class C { int x; }  →  16 bytes', X, Y-12);
+
+  if(P.obj){
+    ctx.fillStyle=cssv('--muted'); ctx.font='13px system-ui'; ctx.textAlign='center';
+    ctx.fillText('↓ zoom into the mark word →  step to see what those 64 bits hold', cv.width/2, 190);
+    elCount.textContent='header = pure overhead'; return;
+  }
+
+  // connector (vertical dashed line under the mark-word box)
+  ctx.strokeStyle=cssv('--line'); ctx.setLineDash([4,4]); ctx.beginPath();
+  ctx.moveTo(X+(8*b)/2,Y+44); ctx.lineTo(X+(8*b)/2,170); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle=cssv('--muted'); ctx.textAlign='left'; ctx.font='12px system-ui';
+  ctx.fillText('the 64-bit mark word (HotSpot; widths approximate, exact layout varies by version):', X, 186);
+
+  // mark word bit-field — label ABOVE each segment, value centered inside
+  const MX=40, MY=212, MW=800, MH=72;
+  const segs=P.seg; const fracTotal=segs.reduce((s,x)=>s+x.frac,0); let sx=MX;
+  ctx.textAlign='center'; ctx.textBaseline='alphabetic';
+  for(const s of segs){ const w=MW*(s.frac/fracTotal), cxp=sx+w/2;
+    const col=s.hot?cssv('--active'):cssv(KEYCOL[s.key]);
+    ctx.fillStyle=col; ctx.globalAlpha=s.hot?0.28:0.15; rr(sx+2,MY,w-4,MH,6); ctx.fill(); ctx.globalAlpha=1;
+    ctx.strokeStyle=col; ctx.lineWidth=s.hot?2.5:1.5; rr(sx+2,MY,w-4,MH,6); ctx.stroke();
+    ctx.fillStyle=cssv('--muted'); ctx.font='11px system-ui'; ctx.fillText(fit(s.label,w-10), cxp, MY-7);
+    ctx.fillStyle=cssv('--ink'); ctx.font='600 14px ui-monospace,Menlo,monospace'; ctx.fillText(fit(s.val,w-10), cxp, MY+MH/2+6);
+    sx+=w; }
+  elCount.textContent = i<=4 ? 'state: neutral / hashed / aged' : 'state: locked';
+}
+function fit(txt,maxw){ txt=String(txt); if(ctx.measureText(txt).width<=maxw) return txt; let s=txt; while(s.length>1 && ctx.measureText(s+'…').width>maxw) s=s.slice(0,-1); return s+'…'; }
+
+function setPhase(n){ i=Math.max(0,Math.min(PHASES.length-1,n)); elPhase.textContent=PHASES[i].label; elCap.innerHTML='<b>What to notice:</b> '+PHASES[i].cap; elScrub.value=i; pause=0; }
+function reset(){ elScrub.max=PHASES.length-1; setPhase(0); t=1; draw(); }
+function tick(ts){ if(!playing){raf=null;return;} const dur=1400-elSpeed.value*100; if(!lastT)lastT=ts; const dt=ts-lastT; lastT=ts;
+  pause+=dt; if(pause>dur){ pause=0; if(i<PHASES.length-1){ setPhase(i+1); draw(); } else { playing=false; elPlay.textContent='▶ Play'; } }
+  if(playing) raf=requestAnimationFrame(tick); }
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{ playing=false; elPlay.textContent='▶ Play'; if(i<PHASES.length-1) setPhase(i+1); else setPhase(0); draw(); };
+elPlay.onclick=()=>{ playing=!playing; elPlay.textContent=playing?'⏸ Pause':'▶ Play'; lastT=0; pause=0; if(playing){ if(i>=PHASES.length-1) setPhase(0); raf=requestAnimationFrame(tick); } };
+elScrub.oninput=()=>{ playing=false; elPlay.textContent='▶ Play'; setPhase(+elScrub.value); draw(); };
+reset();
+</script>
+</body>
+</html>

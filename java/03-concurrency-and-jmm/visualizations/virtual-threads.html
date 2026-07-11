@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<!-- Self-contained. No build/deps/network. Harness: ../../../shared-viz/README.md -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Virtual threads — mount, unmount, and the pinning trap</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--live:#3fb950;
+    --garbage:#6e7681;--active:#d29922;--accent:#58a6ff;--danger:#f85149;--frozen:#a371f7;--line:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Virtual threads — mount, unmount, and the pinning trap</h1>
+  <p class="sub">Many cheap virtual threads share a few carrier (OS) threads; blocking unmounts — unless the thread is pinned. <a class="back" href="../README.md">← Part 3 · Concurrency &amp; the JMM</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="380"></canvas>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--live)"></i> running (mounted)</span>
+    <span><i class="dot" style="background:var(--accent)"></i> blocked on I/O (unmounted, on heap)</span>
+    <span><i class="dot" style="background:var(--garbage)"></i> waiting to run</span>
+    <span><i class="dot" style="background:var(--danger)"></i> pinned (blocks its carrier)</span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Step</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="5" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> thousands of virtual threads need only ~CPU-cores OS threads.</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+// 6 virtual threads, 2 carriers. States per phase.
+// vt states: run-c1, run-c2, io (blocked/unmounted), wait, pin-c2
+const PHASES=[
+ {label:'① Six virtual threads, two carriers',
+  cap:'Virtual threads are cheap heap objects (stacks on the heap). Only the small pool of <b>carrier</b> platform threads (~CPU cores; here 2) touches the OS.',
+  vt:['wait','wait','wait','wait','wait','wait'], note:null},
+ {label:'② Two mount and run',
+  cap:'vt-1 and vt-2 <b>mount</b> the carriers and run. The other four wait — no OS threads consumed while waiting.',
+  vt:['run-c1','run-c2','wait','wait','wait','wait'], note:null},
+ {label:'③ vt-1 blocks on I/O → unmounts',
+  cap:'vt-1 hits a blocking socket read. The JVM <b>parks its continuation on the heap and frees carrier-1</b>, which immediately mounts vt-3. Blocking cost ≈ a heap save, not an OS thread.',
+  vt:['io','run-c2','run-c1','wait','wait','wait'], note:null},
+ {label:'④ I/O completes → vt-1 resumes on any carrier',
+  cap:'vt-2 finished; vt-1’s I/O completed, so it <b>remounts</b> — on carrier-2 this time (carriers are interchangeable). Plain blocking code, NIO-like scalability.',
+  vt:['run-c2','done','run-c1','wait','wait','wait'], note:null},
+ {label:'⑤ ⚡ vt-4 blocks inside synchronized → PINNED',
+  cap:'vt-4 blocks <b>inside a <code>synchronized</code> block</b> (Java 21): it <b>cannot unmount</b>. It stays pinned to carrier-1, which now blocks like a plain OS thread.',
+  vt:['run-c2','done','done','pin-c1','wait','wait'], note:'carrier-1 is held hostage'},
+ {label:'⑥ The cost: one carrier left for everyone',
+  cap:'With carrier-1 pinned, every other virtual thread queues for carrier-2 — throughput collapses. <b>Detect:</b> <code>-Djdk.tracePinnedThreads=full</code>. <b>Fix:</b> use <code>ReentrantLock</code> around blocking calls (it unmounts fine). (JDK 24 removes most synchronized pinning.)',
+  vt:['wait','done','done','pin-c1','run-c2','wait'], note:'vt-5 runs; vt-1 & vt-6 queue for the ONE free carrier'},
+];
+
+const VTY=88, VTW=118, VTH=52, VTGAP=140, VTX0=42;
+const C1={x:200,y:250,w:210,h:64}, C2={x:490,y:250,w:210,h:64};
+const SC={ 'run-c1':'--live','run-c2':'--live', io:'--accent', wait:'--garbage', done:'--line', 'pin-c1':'--danger' };
+const SLBL={ 'run-c1':'running','run-c2':'running', io:'blocked on I/O', wait:'waiting', done:'finished', 'pin-c1':'PINNED' };
+
+let i=0;
+function draw(){
+  const P=PHASES[i];
+  ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.textAlign='left';
+  ctx.fillText('virtual threads (heap objects — could be 100,000 of them)', VTX0, 66);
+  // vt chips
+  P.vt.forEach((st,k)=>{ const x=VTX0+k*VTGAP, col=cssv(SC[st]);
+    ctx.fillStyle=col; ctx.globalAlpha= st==='done'?0.06:0.16; rr(x,VTY,VTW,VTH,7); ctx.fill(); ctx.globalAlpha=1;
+    ctx.strokeStyle=col; ctx.lineWidth= st.startsWith('pin')?2.5:(st.startsWith('run')?2:1.3); rr(x,VTY,VTW,VTH,7); ctx.stroke();
+    ctx.fillStyle=cssv(st==='done'?'--muted':'--ink'); ctx.font='600 13px system-ui'; ctx.textAlign='center'; ctx.fillText('vt-'+(k+1), x+VTW/2, VTY+22);
+    ctx.fillStyle=col; ctx.font='10px system-ui'; ctx.fillText(SLBL[st], x+VTW/2, VTY+40);
+    // mount line to carrier
+    const tgt = st==='run-c1'||st==='pin-c1' ? C1 : (st==='run-c2' ? C2 : null);
+    if(tgt){ const pinned=st.startsWith('pin');
+      ctx.strokeStyle=cssv(pinned?'--danger':'--live'); ctx.lineWidth=pinned?2.5:2; ctx.setLineDash(pinned?[]:[]);
+      ctx.beginPath(); ctx.moveTo(x+VTW/2, VTY+VTH); ctx.lineTo(tgt.x+tgt.w/2, tgt.y); ctx.stroke(); }
+  });
+  // carriers
+  [[C1,'carrier-1'],[C2,'carrier-2']].forEach(([c,nm],ci)=>{
+    const occ = P.vt.findIndex(s=> (ci===0 && (s==='run-c1'||s==='pin-c1')) || (ci===1 && s==='run-c2'));
+    const pinned = P.vt.some(s=> ci===0 && s==='pin-c1');
+    const col = pinned?'--danger':(occ>=0?'--live':'--line');
+    ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv(col); ctx.lineWidth=occ>=0?2.5:1.5; rr(c.x,c.y,c.w,c.h,8); ctx.fill(); ctx.stroke();
+    ctx.fillStyle=cssv('--ink'); ctx.font='600 14px system-ui'; ctx.textAlign='center'; ctx.fillText(nm+'  (OS thread)', c.x+c.w/2, c.y+26);
+    ctx.fillStyle=cssv(pinned?'--danger':(occ>=0?'--live':'--muted')); ctx.font='11px system-ui';
+    ctx.fillText(pinned?('⚠ pinned by vt-'+(occ+1)+' — blocked'):(occ>=0?('running vt-'+(occ+1)):'idle — ready for next'), c.x+c.w/2, c.y+46);
+  });
+  if(P.note){ ctx.fillStyle=cssv('--danger'); ctx.font='600 12px system-ui'; ctx.textAlign='left'; ctx.fillText('⚡ '+P.note, VTX0, 352); }
+  const carriers = 2 - (P.vt.some(s=>s==='pin-c1')?1:0);
+  elCount.textContent = '6 virtual threads · 2 OS threads'+(P.vt.some(s=>s==='pin-c1')?' (1 usable)':'');
+}
+function setPhase(n){ i=Math.max(0,Math.min(PHASES.length-1,n)); elPhase.textContent=PHASES[i].label; elCap.innerHTML='<b>What to notice:</b> '+PHASES[i].cap; elScrub.value=i; }
+function reset(){ elScrub.max=PHASES.length-1; setPhase(0); draw(); }
+let playing=false,raf=null,lastT=0,pause=0;
+function tick(ts){ if(!playing){raf=null;return;} const dur=1600-elSpeed.value*100; if(!lastT)lastT=ts; pause+=ts-lastT; lastT=ts;
+  if(pause>dur){ pause=0; if(i<PHASES.length-1){ setPhase(i+1); draw(); } else { playing=false; elPlay.textContent='▶ Play'; } } if(playing) raf=requestAnimationFrame(tick); }
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{ playing=false; elPlay.textContent='▶ Play'; if(i<PHASES.length-1) setPhase(i+1); else setPhase(0); draw(); };
+elPlay.onclick=()=>{ playing=!playing; elPlay.textContent=playing?'⏸ Pause':'▶ Play'; lastT=0; pause=0; if(playing){ if(i>=PHASES.length-1) setPhase(0); raf=requestAnimationFrame(tick); } };
+elScrub.oninput=()=>{ playing=false; elPlay.textContent='▶ Play'; setPhase(+elScrub.value); draw(); };
+reset();
+</script>
+</body>
+</html>

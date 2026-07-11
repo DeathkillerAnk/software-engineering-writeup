@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<!--
+  Animation harness template — copy this file and fill in the three marked sections:
+    (1) MODEL    — the data/state the animation shows
+    (2) PHASES   — the ordered steps the learner steps through
+    (3) DRAW     — how to render the current (interpolated) state to the canvas
+  Keep it self-contained: all CSS/JS inline, no dependencies, no network.
+  Palette + conventions: ../../shared-viz/README.md
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Animation — title</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --ink:#e6edf3; --muted:#8b949e;
+    --live:#3fb950; --garbage:#6e7681; --active:#d29922; --accent:#58a6ff;
+    --danger:#f85149; --frozen:#a371f7; --line:#30363d;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);
+    border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  button:disabled{opacity:.45;cursor:default}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;
+    padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Animation title</h1>
+  <p class="sub">One-line subtitle. <a class="back" href="../README.md">← chapter</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="380"></canvas>
+
+  <div class="legend" id="legend">
+    <span><i class="dot" style="background:var(--live)"></i> live</span>
+    <span><i class="dot" style="background:var(--garbage)"></i> garbage</span>
+    <span><i class="dot" style="background:var(--active)"></i> moving now</span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Step</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed
+      <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="1" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> the single idea this motion teaches.</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+
+// ---- (1) MODEL --------------------------------------------------------------
+// Build the objects/state the animation displays. Keep it deterministic.
+function buildModel(){ return { /* ... */ }; }
+let model;
+
+// ---- (2) PHASES -------------------------------------------------------------
+// Ordered steps. Each: {label, cap, enter(model)} mutating model to its end-state.
+// `t` (0..1) below interpolates the transition INTO the current phase, for smooth motion.
+const PHASES=[
+  {label:'Start', cap:'…', enter(m){}},
+];
+let i=0;          // current phase index
+let t=1;          // transition progress into phase i (1 = settled)
+let playing=false;
+
+// ---- (3) DRAW ---------------------------------------------------------------
+function draw(){
+  ctx.clearRect(0,0,cv.width,cv.height);
+  // render model using t for any in-between motion …
+}
+
+// ---- harness (rarely changes) ----------------------------------------------
+function setPhase(n){ i=Math.max(0,Math.min(PHASES.length-1,n)); t=0;
+  PHASES[i].enter(model);
+  elPhase.textContent=PHASES[i].label;
+  elCap.innerHTML='<b>What to notice:</b> '+PHASES[i].cap;
+  elScrub.value=i; }
+function reset(){ model=buildModel(); elScrub.max=PHASES.length-1; setPhase(0); t=1; draw(); }
+function step(){ if(i<PHASES.length-1) setPhase(i+1); else { setPhase(0); } }
+let last=0;
+function loop(ts){
+  if(!playing){ return; }
+  const dur=1100-(elSpeed.value*90);              // ms per phase
+  if(t<1){ t=Math.min(1,t+(ts-last)/dur); draw(); }
+  else if(ts-last>dur){ last=ts; if(i<PHASES.length-1) setPhase(i+1); else playing=false, elPlay.textContent='▶ Play'; }
+  if(t<1) last=last||ts;
+  requestAnimationFrame(loop);
+}
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{playing=false;elPlay.textContent='▶ Play';step();t=1;draw();};
+elPlay.onclick=()=>{playing=!playing;elPlay.textContent=playing?'⏸ Pause':'▶ Play';last=0;if(playing)requestAnimationFrame(loop);};
+elScrub.oninput=()=>{playing=false;elPlay.textContent='▶ Play';setPhase(+elScrub.value);t=1;draw();};
+reset();
+</script>
+</body>
+</html>

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<!-- Self-contained. No build/deps/network. Harness: ../../../shared-viz/README.md -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reordering & happens-before — the flag publication bug</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--live:#3fb950;
+    --garbage:#6e7681;--active:#d29922;--accent:#58a6ff;--danger:#f85149;--frozen:#a371f7;--line:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Reordering &amp; happens-before — the flag publication bug</h1>
+  <p class="sub">Independent writes can be reordered across threads. Watch the bug, then a <code>volatile</code> edge forbid it. <a class="back" href="../README.md">← Part 3 · Concurrency &amp; the JMM</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="400"></canvas>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--accent)"></i> write</span>
+    <span><i class="dot" style="background:var(--frozen)"></i> volatile</span>
+    <span><i class="dot" style="background:var(--live)"></i> correct result</span>
+    <span><i class="dot" style="background:var(--danger)"></i> data-race bug</span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Step</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="5" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> with no happens-before edge, the reader can see the flag but not the data.</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+const PHASES=[
+ {label:'① Two threads, shared fields, no synchronization',
+  cap:'The writer sets the data then a ready flag; the reader checks the flag then reads the data. <code>data</code> and <code>ready</code> are plain fields.',
+  order:['data','ready'], data:0, ready:false, vol:false, result:null, hb:false, reord:false},
+ {label:'② What you intend (program order)',
+  cap:'If the writes happen in program order and the reader runs after both, it reads <code>data = 42</code>. Correct — but this is <i>not guaranteed</i>, you just got lucky.',
+  order:['data','ready'], data:42, ready:true, vol:false, result:42, hb:false, reord:false},
+ {label:'③ The writes are independent → reorder allowed',
+  cap:'<code>data = 42</code> and <code>ready = true</code> have no dependency, so the compiler or CPU may publish <code>ready = true</code> <b>first</b>. Single-threaded it’s fine; across threads it’s visible.',
+  order:['ready','data'], data:0, ready:true, vol:false, result:null, hb:false, reord:true},
+ {label:'④ The bug: reader sees the flag, not the data',
+  cap:'The reader runs <i>between</i> the reordered writes: it sees <code>ready = true</code> but <code>data</code> is still <b>0</b>. It prints <b>0</b> — a result no sequential interleaving allows. Rare, real, and production-only.',
+  order:['ready','data'], data:0, ready:true, vol:false, result:0, hb:false, reord:true},
+ {label:'⑤ Make ready volatile → a happens-before edge',
+  cap:'A <code>volatile</code> write/read creates a <b>happens-before</b> edge. Now <code>data = 42</code> (before the volatile write) is ordered before, and visible to, any read after the volatile read. The reorder is <b>forbidden</b>.',
+  order:['data','ready'], data:42, ready:true, vol:true, result:null, hb:true, reord:false},
+ {label:'⑥ Guaranteed correct',
+  cap:'The reader sees <code>ready = true</code> and is now <b>guaranteed</b> to see <code>data = 42</code> — every time. One keyword turned an impossible-to-debug race into a contract.',
+  order:['data','ready'], data:42, ready:true, vol:true, result:42, hb:true, reord:false},
+];
+
+let i=0;
+const W={x:40,y:84,w:300,h:150}, R={x:540,y:84,w:300,h:150};
+function opCard(x,y,w,txt,hot){ ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=hot?cssv('--frozen'):cssv('--line'); ctx.lineWidth=hot?2:1.5; rr(x,y,w,38,6); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=cssv('--ink'); ctx.font='600 14px ui-monospace,Menlo,monospace'; ctx.textAlign='left'; ctx.fillText(txt, x+12, y+24); }
+
+function draw(){
+  const P=PHASES[i];
+  ctx.clearRect(0,0,cv.width,cv.height);
+  // writer
+  ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv('--accent'); ctx.lineWidth=1.5; rr(W.x,W.y,W.w,W.h,8); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=cssv('--accent'); ctx.font='600 13px system-ui'; ctx.textAlign='left'; ctx.fillText('Writer thread', W.x+12, W.y+22);
+  const wlabel = {data:'data = 42', ready:'ready = true'};
+  P.order.forEach((op,k)=>opCard(W.x+20, W.y+40+k*48, 260, (k+1)+'.  '+wlabel[op], op==='ready'&&P.vol));
+  if(P.reord){ ctx.fillStyle=cssv('--danger'); ctx.font='600 11px system-ui'; ctx.textAlign='right'; ctx.fillText('⤵ stores reordered', W.x+W.w-12, W.y+22); }
+  // reader
+  ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv('--accent'); ctx.lineWidth=1.5; rr(R.x,R.y,R.w,R.h,8); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=cssv('--accent'); ctx.font='600 13px system-ui'; ctx.textAlign='left'; ctx.fillText('Reader thread', R.x+12, R.y+22);
+  opCard(R.x+20, R.y+40, 260, '1.  read ready'+(P.vol?'  (volatile)':''), P.vol);
+  opCard(R.x+20, R.y+88, 260, '2.  print data', false);
+  // happens-before edge
+  if(P.hb){ ctx.strokeStyle=cssv('--live'); ctx.lineWidth=2.5; ctx.setLineDash([6,4]);
+    ctx.beginPath(); ctx.moveTo(W.x+W.w-20, W.y+40+P.order.indexOf('ready')*48+19); ctx.lineTo(R.x+20, R.y+59); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle=cssv('--live'); ctx.font='600 11px system-ui'; ctx.textAlign='center'; ctx.fillText('happens-before (volatile)', (W.x+W.w+R.x)/2, W.y+50); }
+  // shared memory
+  const sx=40,sy=256,sw=800,sh=58;
+  ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv('--line'); ctx.lineWidth=1.5; rr(sx,sy,sw,sh,8); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.textAlign='left'; ctx.fillText('shared memory', sx+14, sy+20);
+  ctx.font='600 16px ui-monospace,Menlo,monospace';
+  ctx.fillStyle=cssv(P.data===42?'--live':'--danger'); ctx.fillText('data = '+P.data, sx+150, sy+38);
+  ctx.fillStyle=cssv(P.ready?'--live':'--muted'); ctx.fillText('ready = '+P.ready, sx+330, sy+38);
+  if(P.vol){ ctx.fillStyle=cssv('--frozen'); ctx.font='600 11px system-ui'; ctx.fillText('volatile', sx+330, sy+54); }
+  // result
+  if(P.result!==null){ ctx.textAlign='left'; ctx.font='600 15px system-ui';
+    if(P.result===42){ ctx.fillStyle=cssv('--live'); ctx.fillText('reader printed:  data = 42   ✓ correct', sx+540, sy+36); }
+    else { ctx.fillStyle=cssv('--danger'); ctx.fillText('reader printed:  data = 0   ✗ BUG', sx+540, sy+36); } }
+  if(!P.hb){ ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.textAlign='left'; ctx.fillText('no happens-before edge ⇒ a data race ⇒ no guarantees', sx+14, sy+82); }
+  else { ctx.fillStyle=cssv('--live'); ctx.font='12px system-ui'; ctx.textAlign='left'; ctx.fillText('data=42 happens-before ready (program order) → ready (volatile) → read data', sx+14, sy+82); }
+  elCount.textContent = P.vol?'volatile · safe':(P.reord?'data race':'no sync');
+}
+function setPhase(n){ i=Math.max(0,Math.min(PHASES.length-1,n)); elPhase.textContent=PHASES[i].label; elCap.innerHTML='<b>What to notice:</b> '+PHASES[i].cap; elScrub.value=i; }
+function reset(){ elScrub.max=PHASES.length-1; setPhase(0); draw(); }
+let playing=false,raf=null,lastT=0,pause=0;
+function tick(ts){ if(!playing){raf=null;return;} const dur=1600-elSpeed.value*100; if(!lastT)lastT=ts; pause+=ts-lastT; lastT=ts;
+  if(pause>dur){ pause=0; if(i<PHASES.length-1){ setPhase(i+1); draw(); } else { playing=false; elPlay.textContent='▶ Play'; } } if(playing) raf=requestAnimationFrame(tick); }
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{ playing=false; elPlay.textContent='▶ Play'; if(i<PHASES.length-1) setPhase(i+1); else setPhase(0); draw(); };
+elPlay.onclick=()=>{ playing=!playing; elPlay.textContent=playing?'⏸ Pause':'▶ Play'; lastT=0; pause=0; if(playing){ if(i>=PHASES.length-1) setPhase(0); raf=requestAnimationFrame(tick); } };
+elScrub.oninput=()=>{ playing=false; elPlay.textContent='▶ Play'; setPhase(+elScrub.value); draw(); };
+reset();
+</script>
+</body>
+</html>

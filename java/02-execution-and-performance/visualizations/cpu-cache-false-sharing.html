@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<!-- Self-contained. No build/deps/network. Harness: ../../../shared-viz/README.md -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>False sharing — 64 bytes that cost 5x</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--live:#3fb950;
+    --garbage:#6e7681;--active:#d29922;--accent:#58a6ff;--danger:#f85149;--frozen:#a371f7;--line:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>False sharing — 64 bytes that cost 5×</h1>
+  <p class="sub">Two threads, two <i>different</i> fields, no lock — yet the cache line ping-pongs. Then pad them apart. <a class="back" href="../README.md">← Part 2 · Execution &amp; Performance</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="360"></canvas>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--accent)"></i> Core 1 owns the line</span>
+    <span><i class="dot" style="background:var(--frozen)"></i> Core 2 owns the line</span>
+    <span><i class="dot" style="background:var(--danger)"></i> invalidated (stall)</span>
+    <span><i class="dot" style="background:var(--live)"></i> local, no contention</span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Step</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="5" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> coherency is per 64-byte line — sharing a line means sharing the stall, even with no shared variable.</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+// owner: 1 | 2 | none ; layout: 'shared' (A,B same line) | 'padded' (separate lines)
+const PHASES=[
+ {label:'① Two counters, two threads — same cache line',
+  cap:'<code>counterA</code> and <code>counterB</code> are different fields, updated by different threads with no lock. But they landed in the <b>same 64-byte cache line</b>.',
+  layout:'shared', owner:'none', bumping:null, ops:0, note:null},
+ {label:'② Core 1 writes A → owns the whole line',
+  cap:'Core 1 increments A. To write, its cache must own the line <b>exclusive</b> — so it grabs the entire line (A <i>and</i> B).',
+  layout:'shared', owner:1, bumping:'A', ops:1, note:null},
+ {label:'③ Core 2 writes B → invalidates Core 1, grabs the line',
+  cap:'Core 2 increments B — but that’s the <b>same line</b>. It must invalidate Core 1’s copy and take exclusive ownership. Core 1’s line is now stale.',
+  layout:'shared', owner:2, bumping:'B', ops:2, note:'Core 1’s copy invalidated'},
+ {label:'④ …and back. The line ping-pongs every write',
+  cap:'Core 1 writes A again → invalidate Core 2 → take the line → Core 2 writes B → invalidate Core 1… Every single write pays a <b>cross-core coherency stall</b>. No lock, no shared variable — pure geometry.',
+  layout:'shared', owner:1, bumping:'A', ops:3, note:'ping-pong: ~5× slower, all stalls'},
+ {label:'⑤ Fix: pad them onto separate lines',
+  cap:'Add padding (dummy longs) or <code>@Contended</code> so A and B sit in <b>different</b> cache lines. Now each core owns its own line — no invalidation.',
+  layout:'padded', owner:'both', bumping:'both', ops:3, note:null},
+ {label:'⑥ Each core flies on its own line',
+  cap:'Core 1 hammers line 1 (A), Core 2 hammers line 2 (B) — <b>independently, no stalls</b>. Same code, ~5× faster. This is why <code>LongAdder</code> and the Disruptor pad their hot fields.',
+  layout:'padded', owner:'both', bumping:'both', ops:9, note:'no contention — full speed'},
+];
+
+let i=0;
+function coreBox(x,label,col,active){ ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv(active?col:'--line'); ctx.lineWidth=active?2.5:1.5; rr(x,84,160,54,8); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=cssv(active?col:'--ink'); ctx.font='600 14px system-ui'; ctx.textAlign='center'; ctx.fillText(label, x+80, 116); }
+function cell(x,y,w,h,label,col,alpha){ ctx.globalAlpha=alpha; ctx.fillStyle=cssv(col); rr(x,y,w,h,5); ctx.fill(); ctx.globalAlpha=1;
+  ctx.strokeStyle=cssv(col); ctx.lineWidth=1.5; rr(x,y,w,h,5); ctx.stroke();
+  ctx.fillStyle=cssv('--ink'); ctx.font='600 13px ui-monospace,Menlo,monospace'; ctx.textAlign='center'; ctx.fillText(label, x+w/2, y+h/2+4); }
+
+function draw(){
+  const P=PHASES[i];
+  ctx.clearRect(0,0,cv.width,cv.height);
+  // cores
+  coreBox(120,'Core 1', '--accent', P.owner===1||P.owner==='both');
+  coreBox(600,'Core 2', '--frozen', P.owner===2||P.owner==='both');
+  // arrows cores → memory
+  if(P.layout==='shared'){
+    // one shared line in the middle
+    const lx=280, ly=210, lw=320, lh=70;
+    const ownCol = P.owner===1?'--accent':P.owner===2?'--frozen':'--line';
+    ctx.strokeStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.textAlign='center'; ctx.fillStyle=cssv('--muted');
+    ctx.fillText('one 64-byte cache line (shared)', lx+lw/2, ly-14);
+    ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv(ownCol); ctx.lineWidth=2.5; rr(lx,ly,lw,lh,8); ctx.fill(); ctx.stroke();
+    // A and B cells
+    cell(lx+14, ly+16, 130, 38, 'counterA', P.bumping==='A'?'--accent':'--muted', P.bumping==='A'?.7:.25);
+    cell(lx+176, ly+16, 130, 38, 'counterB', P.bumping==='B'?'--frozen':'--muted', P.bumping==='B'?.7:.25);
+    // ping-pong arrows
+    if(P.owner===1){ arrow(200,138, lx+70,ly, '--accent'); }
+    if(P.owner===2){ arrow(680,138, lx+lw-70,ly, '--frozen'); }
+    if(P.note){ ctx.fillStyle=cssv('--danger'); ctx.font='600 13px system-ui'; ctx.textAlign='center'; ctx.fillText('⚡ '+P.note, lx+lw/2, ly+lh+26); }
+  } else {
+    // two separate lines
+    const l1x=120, l2x=600, ly=210, lw=180, lh=70;
+    ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.textAlign='center';
+    ctx.fillText('cache line 1', l1x+lw/2, ly-14); ctx.fillText('cache line 2', l2x+lw/2, ly-14);
+    ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv('--live'); ctx.lineWidth=2.5; rr(l1x,ly,lw,lh,8); ctx.fill(); ctx.stroke();
+    rr(l2x,ly,lw,lh,8); ctx.fill(); ctx.stroke();
+    cell(l1x+14, ly+16, 90, 38, 'counterA', '--live', .6); cell(l1x+110, ly+16, 56, 38, 'pad', '--line', .3);
+    cell(l2x+14, ly+16, 90, 38, 'counterB', '--live', .6); cell(l2x+110, ly+16, 56, 38, 'pad', '--line', .3);
+    arrow(200,138, l1x+lw/2,ly, '--live'); arrow(680,138, l2x+lw/2,ly, '--live');
+    if(P.note){ ctx.fillStyle=cssv('--live'); ctx.font='600 13px system-ui'; ctx.textAlign='center'; ctx.fillText('✓ '+P.note, 440, ly+lh+26); }
+  }
+  // ops meter
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.textAlign='left'; ctx.fillText('effective throughput:', 40, 330);
+  const fast=P.layout==='padded'; ctx.fillStyle=cssv(fast?'--live':'--danger');
+  const bars='▮'.repeat(fast?9:2); ctx.font='14px system-ui'; ctx.fillText(bars+'  '+(fast?'~5× (no stalls)':'stalled (line ping-pong)'), 190, 330);
+  elCount.textContent = P.layout==='shared'?'1 shared line · contended':'2 lines · independent';
+}
+function arrow(x1,y1,x2,y2,col){ ctx.strokeStyle=cssv(col); ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  ctx.fillStyle=cssv(col); const a=Math.atan2(y2-y1,x2-x1); ctx.save(); ctx.translate(x2,y2); ctx.rotate(a); ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-8,-4); ctx.lineTo(-8,4); ctx.closePath(); ctx.fill(); ctx.restore(); }
+function setPhase(n){ i=Math.max(0,Math.min(PHASES.length-1,n)); elPhase.textContent=PHASES[i].label; elCap.innerHTML='<b>What to notice:</b> '+PHASES[i].cap; elScrub.value=i; }
+function reset(){ elScrub.max=PHASES.length-1; setPhase(0); draw(); }
+let playing=false,raf=null,lastT=0,pause=0;
+function tick(ts){ if(!playing){raf=null;return;} const dur=1600-elSpeed.value*110; if(!lastT)lastT=ts; pause+=ts-lastT; lastT=ts;
+  if(pause>dur){ pause=0; if(i<PHASES.length-1){ setPhase(i+1); draw(); } else { playing=false; elPlay.textContent='▶ Play'; } } if(playing) raf=requestAnimationFrame(tick); }
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{ playing=false; elPlay.textContent='▶ Play'; if(i<PHASES.length-1) setPhase(i+1); else setPhase(0); draw(); };
+elPlay.onclick=()=>{ playing=!playing; elPlay.textContent=playing?'⏸ Pause':'▶ Play'; lastT=0; pause=0; if(playing){ if(i>=PHASES.length-1) setPhase(0); raf=requestAnimationFrame(tick); } };
+elScrub.oninput=()=>{ playing=false; elPlay.textContent='▶ Play'; setPhase(+elScrub.value); draw(); };
+reset();
+</script>
+</body>
+</html>

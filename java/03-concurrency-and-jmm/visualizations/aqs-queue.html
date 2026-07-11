@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<!-- Self-contained. No build/deps/network. Harness: ../../../shared-viz/README.md -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AQS — one queue behind ReentrantLock, Semaphore, CountDownLatch</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--live:#3fb950;
+    --garbage:#6e7681;--active:#d29922;--accent:#58a6ff;--danger:#f85149;--frozen:#a371f7;--line:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>AQS — one queue behind ReentrantLock, Semaphore, CountDownLatch</h1>
+  <p class="sub">An atomic <code>state</code> + a FIFO queue of parked threads. Subclasses only define what <code>state</code> means. <a class="back" href="../README.md">← Part 3 · Concurrency &amp; the JMM</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="380"></canvas>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--live)"></i> owns (state CAS won)</span>
+    <span><i class="dot" style="background:var(--active)"></i> CAS attempt</span>
+    <span><i class="dot" style="background:var(--danger)"></i> parked in the queue</span>
+    <span><i class="dot" style="background:var(--frozen)"></i> the atomic state</span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Step</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="5" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> losers don't spin — they park in a FIFO queue and are unparked in order.</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+// threads: idle | cas | own | park ; queue: array of thread names ; state 0/1 ; owner
+const PHASES=[
+ {label:'① ReentrantLock = AQS: state + a FIFO queue',
+  cap:'AQS gives every synchronizer two things: an atomic <code>int state</code> (here: 0 = free, 1 = held) and a <b>FIFO queue</b> of waiting threads. Three threads are about to call <code>lock()</code>.',
+  t:['idle','idle','idle'], q:[], state:0, owner:'—', unpark:false},
+ {label:'② T1: CAS state 0→1 wins — the fast path',
+  cap:'<code>tryAcquire()</code> is just a <b>CAS on state</b>. T1 wins: state = 1, owner = T1. No queue, no parking — an uncontended acquire is one atomic instruction (same story as ch.17’s lightweight lock).',
+  t:['own','idle','idle'], q:[], state:1, owner:'T1', unpark:false},
+ {label:'③ T2: CAS fails → enqueue → park',
+  cap:'T2’s CAS fails (state is already 1). It adds itself as a <b>node in the FIFO queue</b> and calls <code>LockSupport.park()</code> — descheduled, using no CPU. No spinning.',
+  t:['own','park','idle'], q:['T2'], state:1, owner:'T1', unpark:false},
+ {label:'④ T3: fails too → queues behind T2',
+  cap:'T3 fails the same way and parks <b>behind T2</b>. The queue preserves arrival order — this FIFO is what makes fair handoff possible.',
+  t:['own','park','park'], q:['T2','T3'], state:1, owner:'T1', unpark:false},
+ {label:'⑤ T1 release() → unpark the head — T2 wins',
+  cap:'<code>release()</code> sets state = 0 and <b>unparks the head’s successor (T2)</b>, which wakes, retries its CAS, and wins. T3 stays parked — strictly next in line. (Non-fair detail: a barging newcomer could CAS first.)',
+  t:['idle','own','park'], q:['T3'], state:1, owner:'T2', unpark:true},
+ {label:'⑥ Same machinery, different meaning of state',
+  cap:'That is the <i>entire</i> trick. <b>Semaphore</b>: state = permits (shared mode). <b>CountDownLatch</b>: state = remaining count, <code>await</code> parks until 0. <b>ReadWriteLock</b>: state split into reader/writer bits. One queue, one park/unpark discipline — many tools.',
+  t:['idle','own','park'], q:['T3'], state:1, owner:'T2', unpark:false},
+];
+
+const TH=[{x:40,y:80},{x:40,y:170},{x:40,y:260}], TW=160, THh=60;
+const ST={x:330,y:80,w:230,h:96};
+const QY=250, QX=330, QW=110, QH=56;
+const TSTATE={idle:['idle','--garbage'], cas:['CAS…','--active'], own:['OWNS the lock','--live'], park:['parked (no CPU)','--danger']};
+
+let i=0;
+function draw(){
+  const P=PHASES[i];
+  ctx.clearRect(0,0,cv.width,cv.height);
+  // threads
+  P.t.forEach((st,k)=>{ const t=TH[k], [lbl,col]=TSTATE[st];
+    ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv(col); ctx.lineWidth= st==='own'?2.5:1.5; rr(t.x,t.y,TW,THh,8); ctx.fill(); ctx.stroke();
+    ctx.fillStyle=cssv('--ink'); ctx.font='600 14px system-ui'; ctx.textAlign='left'; ctx.fillText('Thread '+(k+1), t.x+14, t.y+25);
+    ctx.fillStyle=cssv(col); ctx.font='11px system-ui'; ctx.fillText(lbl, t.x+14, t.y+45);
+    if(st==='own'){ ctx.strokeStyle=cssv('--live'); ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(t.x+TW, t.y+THh/2); ctx.lineTo(ST.x-8, ST.y+ST.h/2); ctx.stroke(); }
+  });
+  // state box
+  ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv('--frozen'); ctx.lineWidth=2; rr(ST.x,ST.y,ST.w,ST.h,8); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.textAlign='left'; ctx.fillText('AbstractQueuedSynchronizer', ST.x+14, ST.y+22);
+  ctx.fillStyle=cssv('--frozen'); ctx.font='600 18px ui-monospace,Menlo,monospace'; ctx.fillText('state = '+P.state, ST.x+14, ST.y+52);
+  ctx.fillStyle=cssv('--ink'); ctx.font='13px ui-monospace,Menlo,monospace'; ctx.fillText('owner: '+P.owner, ST.x+14, ST.y+78);
+  ctx.fillStyle=cssv('--muted'); ctx.font='10px system-ui'; ctx.fillText('(ReentrantLock: 0 = free, 1 = held; CAS to acquire)', ST.x+14, ST.y+ST.h+16);
+  // queue
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.textAlign='left'; ctx.fillText('FIFO wait queue (CLH) — head unparked first', QX, QY-12);
+  for(let s=0;s<3;s++){ const x=QX+s*(QW+14);
+    ctx.setLineDash([4,4]); ctx.strokeStyle=cssv('--line'); ctx.lineWidth=1.2; rr(x,QY,QW,QH,7); ctx.stroke(); ctx.setLineDash([]);
+    const nm=P.q[s];
+    if(nm){ ctx.fillStyle=cssv('--danger'); ctx.globalAlpha=.16; rr(x,QY,QW,QH,7); ctx.fill(); ctx.globalAlpha=1;
+      ctx.strokeStyle=cssv('--danger'); ctx.lineWidth=2; rr(x,QY,QW,QH,7); ctx.stroke();
+      ctx.fillStyle=cssv('--ink'); ctx.font='600 14px system-ui'; ctx.textAlign='center'; ctx.fillText(nm, x+QW/2, QY+24);
+      ctx.fillStyle=cssv('--danger'); ctx.font='10px system-ui'; ctx.fillText('LockSupport.park()', x+QW/2, QY+42);
+      if(s===0){ ctx.fillStyle=cssv('--muted'); ctx.font='10px system-ui'; ctx.fillText('head', x+QW/2, QY+QH+14); } }
+    if(s<2){ ctx.fillStyle=cssv('--line'); ctx.font='14px system-ui'; ctx.textAlign='center'; ctx.fillText('→', x+QW+7, QY+QH/2+5); }
+  }
+  // unpark arrow
+  if(P.unpark){ ctx.strokeStyle=cssv('--live'); ctx.lineWidth=2.5; ctx.setLineDash([6,4]);
+    ctx.beginPath(); ctx.moveTo(ST.x+ST.w/2, ST.y+ST.h); ctx.lineTo(QX+QW/2, QY-24); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle=cssv('--live'); ctx.font='600 11px system-ui'; ctx.textAlign='left'; ctx.fillText('release() → unpark(head)', ST.x+ST.w/2+10, ST.y+ST.h+34); }
+  // subclass table hint (phase 6)
+  if(i===5){ ctx.fillStyle=cssv('--muted'); ctx.font='12px ui-monospace,Menlo,monospace'; ctx.textAlign='left';
+    ctx.fillText('Semaphore: state = permits   ·   CountDownLatch: state = count   ·   RWLock: bits split', 40, 356); }
+  elCount.textContent = 'state='+P.state+' · queue='+(P.q.length? P.q.join('→') : 'empty');
+}
+function setPhase(n){ i=Math.max(0,Math.min(PHASES.length-1,n)); elPhase.textContent=PHASES[i].label; elCap.innerHTML='<b>What to notice:</b> '+PHASES[i].cap; elScrub.value=i; }
+function reset(){ elScrub.max=PHASES.length-1; setPhase(0); draw(); }
+let playing=false,raf=null,lastT=0,pause=0;
+function tick(ts){ if(!playing){raf=null;return;} const dur=1700-elSpeed.value*110; if(!lastT)lastT=ts; pause+=ts-lastT; lastT=ts;
+  if(pause>dur){ pause=0; if(i<PHASES.length-1){ setPhase(i+1); draw(); } else { playing=false; elPlay.textContent='▶ Play'; } } if(playing) raf=requestAnimationFrame(tick); }
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{ playing=false; elPlay.textContent='▶ Play'; if(i<PHASES.length-1) setPhase(i+1); else setPhase(0); draw(); };
+elPlay.onclick=()=>{ playing=!playing; elPlay.textContent=playing?'⏸ Pause':'▶ Play'; lastT=0; pause=0; if(playing){ if(i>=PHASES.length-1) setPhase(0); raf=requestAnimationFrame(tick); } };
+elScrub.oninput=()=>{ playing=false; elPlay.textContent='▶ Play'; setPhase(+elScrub.value); draw(); };
+reset();
+</script>
+</body>
+</html>

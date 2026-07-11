@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<!-- Self-contained. No build/deps/network. Harness: ../../../shared-viz/README.md -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Young-Generation GC — the copying minor collection</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --ink:#e6edf3; --muted:#8b949e;
+    --live:#3fb950; --garbage:#6e7681; --active:#d29922; --accent:#58a6ff;
+    --danger:#f85149; --frozen:#a371f7; --line:#30363d;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);
+    border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;
+    padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Young-Generation GC — the copying minor collection</h1>
+  <p class="sub">Step through two minor GCs: allocation, marking, copying survivors, aging, and promotion to Old. <a class="back" href="../README.md">← Part 1 · Memory &amp; GC</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="380"></canvas>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--accent)"></i> newly allocated</span>
+    <span><i class="dot" style="background:var(--live)"></i> live / survivor</span>
+    <span><i class="dot" style="background:var(--garbage)"></i> garbage (unreachable)</span>
+    <span><i class="dot" style="background:var(--active)"></i> being copied</span>
+    <span>age <b style="color:var(--ink)">n</b> = collections survived</span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Step</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed
+      <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="10" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> a copying collector only ever touches the <i>live</i> objects — dead ones are reclaimed for free by simply not copying them.</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+
+// ---------- scenario (deterministic) ----------
+const ALLOC1=['a0','a1','a2','a3','a4','a5','a6','a7','a8','a9'];
+const LIVE1=new Set(['a0','a3','a5','a7']);            // 4 of 10 survive
+const ALLOC2=['b0','b1','b2','b3','b4','b5','b6','b7'];
+const LIVE2=new Set(['b2','b5']);                       // 2 of 8 survive
+const THRESHOLD=2;                                      // promote to Old at age 2
+
+// ---------- geometry ----------
+const REG={
+  eden:{x:30,y:62,w:330,h:300,label:'Eden'},
+  s0  :{x:378,y:62,w:96,h:300,label:'Survivor S0'},
+  s1  :{x:486,y:62,w:96,h:300,label:'Survivor S1'},
+  old :{x:600,y:62,w:250,h:300,label:'Old generation'},
+};
+const SZ=30;
+function pos(region,slot){
+  if(region==='eden'){const c=slot%5,r=(slot/5|0);return [REG.eden.x+26+c*60, REG.eden.y+34+r*62];}
+  if(region==='s0') return [REG.s0.x+33, REG.s0.y+30+slot*54];
+  if(region==='s1') return [REG.s1.x+33, REG.s1.y+30+slot*54];
+  if(region==='old'){const c=slot%4,r=(slot/4|0);return [REG.old.x+24+c*58, REG.old.y+30+r*54];}
+  return [0,0];
+}
+
+// ---------- model ----------
+let model;
+function buildModel(){
+  const o={};
+  [...ALLOC1,...ALLOC2].forEach(id=>o[id]={id,region:null,slot:0,state:'pending',age:0,present:false,x:0,y:0,px:0,py:0});
+  return {o, stats:{alloc:0,copied:0,promoted:0,collected:0}};
+}
+function base(m){ for(const id in m.o){const o=m.o[id]; o.present=false;} }
+function lay(m,region,ids,state,age){ ids.forEach((id,k)=>{const o=m.o[id]; o.region=region;o.slot=k;o.state=state;o.present=true; if(age!==undefined)o.age=age;}); }
+
+// ---------- phases ----------
+const PHASES=[
+ {label:'① Empty young generation',
+  cap:'Most objects die young (the <i>generational hypothesis</i>). So the heap is split: new objects are born in <b>Eden</b>, and only the rare survivors are kept.',
+  enter(m){ base(m); m.stats={alloc:0,copied:0,promoted:0,collected:0}; }},
+
+ {label:'② Allocating into Eden',
+  cap:'Allocation is just a pointer bump in Eden — nearly free. Some of these objects will stay reachable; most won’t.',
+  enter(m){ base(m); lay(m,'eden',ALLOC1,'new',0); m.stats={alloc:10,copied:0,promoted:0,collected:0}; }},
+
+ {label:'③ Eden is full → minor GC begins (stop-the-world)',
+  cap:'When Eden fills, a <b>minor GC</b> fires. Application threads pause briefly (stop-the-world) while the young generation is collected.',
+  enter(m){ base(m); lay(m,'eden',ALLOC1,'new',0); m.stats={alloc:10,copied:0,promoted:0,collected:0}; m.stw=true; }},
+
+ {label:'④ Mark: trace from the GC roots',
+  cap:'Starting from the <b>GC roots</b>, the collector marks every reachable object <span style="color:var(--live)">live</span>. Everything it never reaches is <span style="color:var(--garbage)">garbage</span> — and it never has to be visited.',
+  enter(m){ base(m); ALLOC1.forEach(id=>{const o=m.o[id];o.region='eden';o.slot=ALLOC1.indexOf(id);o.present=true;o.state=LIVE1.has(id)?'live':'garbage';o.age=0;}); m.stats={alloc:10,copied:0,promoted:0,collected:0}; m.stw=true; }},
+
+ {label:'⑤ Copy: live objects move to a Survivor space',
+  cap:'The four live objects are <b>copied</b> out of Eden into Survivor S1 and their age becomes 1. The collector touches <i>only</i> these survivors.',
+  enter(m){ base(m);
+    [...LIVE1].forEach((id,k)=>{const o=m.o[id];o.region='s1';o.slot=k;o.present=true;o.state='moving';o.age=1;});
+    ALLOC1.filter(id=>!LIVE1.has(id)).forEach((id)=>{const o=m.o[id];o.region='eden';o.slot=ALLOC1.indexOf(id);o.present=true;o.state='garbage';});
+    m.stats={alloc:10,copied:4,promoted:0,collected:0}; m.stw=true; }},
+
+ {label:'⑥ Reclaim: Eden is wiped in one shot',
+  cap:'Eden (and the old From-space) is reclaimed wholesale — the six dead objects cost <b>nothing</b> to collect. Cost scales with the <i>live</i> set, not the garbage. World resumes.',
+  enter(m){ base(m); lay(m,'s1',[...LIVE1],'survivor',1); m.stats={alloc:10,copied:4,promoted:0,collected:6}; m.stw=false; }},
+
+ {label:'⑦ Allocating again — survivors wait in S1',
+  cap:'The app runs on, filling Eden with a fresh batch. The four survivors sit in S1, untouched, carrying age 1.',
+  enter(m){ base(m); lay(m,'s1',[...LIVE1],'survivor',1); lay(m,'eden',ALLOC2,'new',0); m.stats={alloc:18,copied:4,promoted:0,collected:6}; }},
+
+ {label:'⑧ Eden full again → second minor GC (stop-the-world)',
+  cap:'Another minor GC. This time the roles flip: S1 is the <i>From</i>-space, S0 is the empty <i>To</i>-space the survivors will copy into.',
+  enter(m){ base(m); lay(m,'s1',[...LIVE1],'survivor',1); lay(m,'eden',ALLOC2,'new',0); m.stats={alloc:18,copied:4,promoted:0,collected:6}; m.stw=true; }},
+
+ {label:'⑨ Mark: Eden newborns + the S1 survivors',
+  cap:'Two new Eden objects are reachable; the rest are <span style="color:var(--garbage)">garbage</span>. The four S1 survivors are still reachable — and surviving this GC makes their age reach the tenuring threshold (2).',
+  enter(m){ base(m);
+    ALLOC2.forEach(id=>{const o=m.o[id];o.region='eden';o.slot=ALLOC2.indexOf(id);o.present=true;o.state=LIVE2.has(id)?'live':'garbage';o.age=0;});
+    lay(m,'s1',[...LIVE1],'live',1);
+    m.stats={alloc:18,copied:4,promoted:0,collected:6}; m.stw=true; }},
+
+ {label:'⑩ Copy + promote (tenuring)',
+  cap:'New Eden survivors copy to S0 (age 1). The S1 survivors hit age 2 = the threshold, so they are <b>promoted to the Old generation</b> instead of bouncing between survivor spaces forever.',
+  enter(m){ base(m);
+    [...LIVE2].forEach((id,k)=>{const o=m.o[id];o.region='s0';o.slot=k;o.present=true;o.state='moving';o.age=1;});
+    [...LIVE1].forEach((id,k)=>{const o=m.o[id];o.region='old';o.slot=k;o.present=true;o.state='moving';o.age=2;});
+    ALLOC2.filter(id=>!LIVE2.has(id)).forEach(id=>{const o=m.o[id];o.region='eden';o.slot=ALLOC2.indexOf(id);o.present=true;o.state='garbage';});
+    m.stats={alloc:18,copied:6,promoted:4,collected:6}; m.stw=true; }},
+
+ {label:'⑪ Reclaim — and the payoff',
+  cap:'Across two collections, only the 10 live objects were ever copied; the 8 dead ones were reclaimed for free. That is why a minor GC is <b>cheap</b> — and why your real lever is the <i>allocation rate</i>, not the heap size.',
+  enter(m){ base(m); lay(m,'s0',[...LIVE2],'survivor',1); lay(m,'old',[...LIVE1],'survivor',2); m.stats={alloc:18,copied:6,promoted:4,collected:12}; m.stw=false; }},
+];
+
+// ---------- rendering ----------
+const COL={new:'--accent',live:'--live',survivor:'--live',moving:'--active',garbage:'--garbage'};
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+let i=0,t=1,playing=false,pause=0,raf=null,lastT=0,stepRaf=null;
+
+function roundRect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+function draw(){
+  ctx.clearRect(0,0,cv.width,cv.height);
+  // young-gen bracket label
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.textAlign='left';
+  ctx.fillText('Young generation', REG.eden.x, 28);
+  ctx.fillText('(survives → tenured)', REG.old.x, 28);
+  // regions
+  for(const k in REG){const r=REG[k];
+    ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv('--line'); ctx.lineWidth=1.5;
+    roundRect(r.x,r.y,r.w,r.h,8); ctx.fill(); ctx.stroke();
+    ctx.fillStyle=cssv('--muted'); ctx.font='600 12px system-ui'; ctx.textAlign='center';
+    ctx.fillText(r.label, r.x+r.w/2, r.y+r.h+18);
+  }
+  // stop-the-world banner
+  if(model.stw){ ctx.fillStyle=cssv('--frozen'); ctx.globalAlpha=.16; roundRect(REG.eden.x,REG.eden.y,REG.s1.x+REG.s1.w-REG.eden.x,REG.eden.h,8); ctx.fill(); ctx.globalAlpha=1;
+    ctx.fillStyle=cssv('--frozen'); ctx.font='600 12px system-ui'; ctx.textAlign='left';
+    ctx.fillText('⏸ stop-the-world', REG.eden.x+8, REG.eden.y+18); }
+  // objects
+  for(const id in model.o){const o=model.o[id];
+    let alpha=1, x=o.x, y=o.y;
+    if(o.present){ x=o.px+(o.x-o.px)*t; y=o.py+(o.y-o.py)*t; if(o.appearing)alpha=t; }
+    else if(o.wasPresent){ x=o.px; y=o.py; alpha=1-t; } else continue;
+    ctx.globalAlpha=alpha;
+    ctx.fillStyle=cssv(COL[o.state]||'--garbage');
+    roundRect(x-SZ/2,y-SZ/2,SZ,SZ,5); ctx.fill();
+    if(o.state!=='garbage'&&o.age>0){ ctx.fillStyle=cssv('--bg'); ctx.font='600 12px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(o.age, x, y+1); ctx.textBaseline='alphabetic'; }
+    ctx.globalAlpha=1;
+  }
+  const s=model.stats; elCount.textContent=`allocated ${s.alloc} · copied ${s.copied} · promoted ${s.promoted} · collected (free) ${s.collected}`;
+}
+
+function setPhase(n){
+  i=Math.max(0,Math.min(PHASES.length-1,n));
+  const prev={}; for(const id in model.o){const o=model.o[id]; prev[id]={x:o.x,y:o.y,present:o.present};}
+  model.stw=false;                 // default; STW phases re-enable it in enter()
+  PHASES[i].enter(model);
+  for(const id in model.o){const o=model.o[id];
+    if(o.present){ const [nx,ny]=pos(o.region,o.slot);
+      o.appearing=!prev[id].present;
+      o.px=prev[id].present?prev[id].x:nx; o.py=prev[id].present?prev[id].y:ny;
+      o.x=nx; o.y=ny; o.wasPresent=false;
+    } else { o.px=prev[id].x; o.py=prev[id].y; o.x=prev[id].x; o.y=prev[id].y; o.wasPresent=prev[id].present; }
+  }
+  elPhase.textContent=PHASES[i].label;
+  elCap.innerHTML='<b>What to notice:</b> '+PHASES[i].cap;
+  elScrub.value=i; pause=0;
+}
+function reset(){ model=buildModel(); model.stw=false; elScrub.max=PHASES.length-1; setPhase(0); t=1; draw(); }
+function animateOnce(){ if(stepRaf)cancelAnimationFrame(stepRaf); let l=0;
+  (function f(ts){ if(!l)l=ts; t=Math.min(1,t+(ts-l)/520); l=ts; draw(); if(t<1)stepRaf=requestAnimationFrame(f); })(performance.now()); }
+function tick(ts){ if(!playing){raf=null;return;}
+  const dur=1250-elSpeed.value*100; if(!lastT)lastT=ts; const dt=ts-lastT; lastT=ts;
+  if(t<1){ t=Math.min(1,t+dt/dur); }
+  else { pause+=dt; if(pause>dur*0.55){ if(i<PHASES.length-1){ setPhase(i+1); t=0; } else { playing=false; elPlay.textContent='▶ Play'; } } }
+  draw(); if(playing) raf=requestAnimationFrame(tick); }
+
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{ playing=false; elPlay.textContent='▶ Play';
+  if(i<PHASES.length-1) setPhase(i+1); else { setPhase(0); } t=0; animateOnce(); };
+elPlay.onclick=()=>{ playing=!playing; elPlay.textContent=playing?'⏸ Pause':'▶ Play'; lastT=0;
+  if(playing){ if(i>=PHASES.length-1){ setPhase(0); t=1; } raf=requestAnimationFrame(tick); } };
+elScrub.oninput=()=>{ playing=false; elPlay.textContent='▶ Play'; setPhase(+elScrub.value); t=1; draw(); };
+reset();
+</script>
+</body>
+</html>

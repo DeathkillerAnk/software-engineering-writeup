@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<!-- Self-contained. No build/deps/network. Harness: ../../../shared-viz/README.md -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>@Transactional — the proxy is the transaction boundary</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--live:#3fb950;
+    --garbage:#6e7681;--active:#d29922;--accent:#58a6ff;--danger:#f85149;--frozen:#a371f7;--line:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:19px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>@Transactional — the proxy is the transaction boundary</h1>
+  <p class="sub">Begin/commit around the method; a self-call skips it; <code>REQUIRES_NEW</code> nests. <a class="back" href="../README.md">← Part 4 · Data &amp; Transactions</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="330"></canvas>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--accent)"></i> the call</span>
+    <span><i class="dot" style="background:var(--live)"></i> tx active / committed</span>
+    <span><i class="dot" style="background:var(--danger)"></i> trap / rollback</span>
+    <span>injected ref → <b style="color:var(--ink)">the proxy</b></span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Step</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="5" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> the proxy boundary IS the transaction boundary.</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+const CALLER={x:40,y:64,w:180,h:80}, PROXY={x:350,y:64,w:180,h:80}, TARGET={x:660,y:64,w:180,h:80};
+const TOK={caller:[130,104],proxy:[440,104],target:[750,104]};
+
+const PHASES=[
+ {label:'① The injected ref is the proxy', cap:'Other beans call the <b>proxy</b>, not your <code>OrderService</code>. <code>@Transactional</code> is advice on that proxy.', tok:'caller', begin:0, commit:0, tx:'none', self:0, reqnew:0},
+ {label:'② External call → begin transaction', cap:'The proxy’s <code>TransactionInterceptor</code> <b>begins T1</b> (via the PlatformTransactionManager) before delegating.', tok:'proxy', begin:1, commit:0, tx:'begin', self:0, reqnew:0},
+ {label:'③ Your method runs inside T1', cap:'<code>save()</code> executes; its <code>INSERT</code> is part of <b>T1</b>. The transaction scopes the persistence context.', tok:'target', begin:1, commit:0, tx:'active', self:0, reqnew:0},
+ {label:'④ Return → commit', cap:'Normal return → the proxy <b>commits T1</b>. ⚡ An <i>unchecked</i> exception would roll back — but a <i>checked</i> exception <b>still commits</b> unless you set <code>rollbackFor</code>.', tok:'proxy', begin:1, commit:1, tx:'commit', self:0, reqnew:0},
+ {label:'⑤ Self-invocation → NO new transaction', cap:'Inside <code>save()</code>, <code>this.audit()</code> (@Transactional REQUIRES_NEW) is a self-call — it <b>bypasses the proxy</b>, so it just runs in T1. The REQUIRES_NEW is <b>silently ignored</b>.', tok:'target', begin:0, commit:0, tx:'trap', self:1, reqnew:0},
+ {label:'⑥ Correct REQUIRES_NEW via another bean', cap:'Call <code>auditService.audit()</code> (a <i>different</i> bean) → the call crosses <b>its</b> proxy → T1 is <b>suspended</b>, a new <b>T2</b> runs &amp; commits independently, then T1 resumes.', tok:'target', begin:0, commit:0, tx:'reqnew', self:0, reqnew:1},
+];
+
+let i=0,t=1,tok={x:130,y:104,px:130,py:104};
+function box(b,name,sub,hot){ ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=hot?cssv('--accent'):cssv('--line'); ctx.lineWidth=hot?2.4:1.5; rr(b.x,b.y,b.w,b.h,8); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=cssv('--ink'); ctx.font='600 14px system-ui'; ctx.textAlign='center'; ctx.fillText(name,b.x+b.w/2,b.y+32);
+  ctx.fillStyle=cssv('--muted'); ctx.font='11px system-ui'; ctx.fillText(sub,b.x+b.w/2,b.y+54); }
+function pill(cx,cy,txt,on,col){ const w=104,h=24; ctx.fillStyle= on?cssv(col):cssv('--panel'); ctx.strokeStyle= on?cssv(col):cssv('--line');
+  ctx.globalAlpha=on?.9:1; rr(cx-w/2,cy-h/2,w,h,12); ctx.fill(); ctx.globalAlpha=1; ctx.strokeStyle=on?cssv(col):cssv('--line'); rr(cx-w/2,cy-h/2,w,h,12); ctx.stroke();
+  ctx.fillStyle= on?cssv('--bg'):cssv('--muted'); ctx.font='11px system-ui'; ctx.textAlign='center'; ctx.fillText(txt,cx,cy+4); }
+
+function draw(){ const P=PHASES[i]; ctx.clearRect(0,0,cv.width,cv.height);
+  // connecting dashed path
+  ctx.strokeStyle=cssv('--line'); ctx.lineWidth=2; ctx.setLineDash([5,5]);
+  ctx.beginPath(); ctx.moveTo(220,104); ctx.lineTo(350,104); ctx.moveTo(530,104); ctx.lineTo(660,104); ctx.stroke(); ctx.setLineDash([]);
+  box(CALLER,'Caller','(another bean)', P.tok==='caller');
+  box(PROXY,'Proxy','TransactionInterceptor', P.tok==='proxy');
+  box(TARGET,'OrderService','save() @Transactional', P.tok==='target');
+  pill(440,44,'begin tx',P.begin,'--active');
+  pill(440,176,'commit tx',P.commit,'--live');
+  // self-loop
+  if(P.self){ ctx.strokeStyle=cssv('--danger'); ctx.lineWidth=2.5; ctx.setLineDash([6,4]); ctx.beginPath(); ctx.arc(750,168,34,Math.PI*1.1,Math.PI*-0.1,false); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle=cssv('--danger'); ctx.font='11px system-ui'; ctx.textAlign='center'; ctx.fillText('this.audit()', 750, 214); }
+  // token
+  if(i>0 && !P.reqnew){ const x=tok.px+(tok.x-tok.px)*t, y=tok.py+(tok.y-tok.py)*t; ctx.fillStyle=cssv(P.self?'--danger':'--accent'); ctx.beginPath(); ctx.arc(x,y,11,0,7); ctx.fill(); }
+  if(P.reqnew){ ctx.strokeStyle=cssv('--live'); ctx.lineWidth=2.5; ctx.beginPath(); ctx.moveTo(840,104); ctx.lineTo(866,104); ctx.stroke();
+    ctx.fillStyle=cssv('--live'); ctx.font='10px system-ui'; ctx.textAlign='right'; ctx.fillText('→ auditService (own proxy)', 858, 90); }
+  // TX state panel
+  const px=40,py=200,pw=800,ph=104;
+  ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv('--line'); ctx.lineWidth=1.5; rr(px,py,pw,ph,8); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.textAlign='left'; ctx.fillText('transaction state', px+16, py+22);
+  const S={none:['no transaction','--muted'],begin:['T1 · BEGIN','--active'],active:['T1 · ACTIVE (INSERT order)','--accent'],
+    commit:['T1 · COMMITTED ✓','--live'],trap:['T1 · still active — NO new tx','--danger'],reqnew:['T1 suspended → T2 committed → T1 resumes','--live']};
+  if(P.reqnew){ // two-box stack
+    ctx.fillStyle=cssv('--muted'); ctx.globalAlpha=.5; rr(px+16,py+40,180,34,6); ctx.fill(); ctx.globalAlpha=1; ctx.strokeStyle=cssv('--muted'); rr(px+16,py+40,180,34,6); ctx.stroke();
+    ctx.fillStyle=cssv('--muted'); ctx.font='600 12px system-ui'; ctx.textAlign='center'; ctx.fillText('T1 · suspended', px+106, py+61);
+    ctx.fillStyle=cssv('--live'); ctx.globalAlpha=.2; rr(px+210,py+40,200,34,6); ctx.fill(); ctx.globalAlpha=1; ctx.strokeStyle=cssv('--live'); ctx.lineWidth=2; rr(px+210,py+40,200,34,6); ctx.stroke();
+    ctx.fillStyle=cssv('--live'); ctx.fillText('T2 (REQUIRES_NEW) · committed', px+310, py+61);
+  } else {
+    const [txt,col]=S[P.tx]; ctx.fillStyle=cssv(col); ctx.globalAlpha= P.tx==='none'?1:.18; rr(px+16,py+40,ph<0?0:360,34,6); ctx.fill(); ctx.globalAlpha=1;
+    ctx.strokeStyle=cssv(col); ctx.lineWidth= P.tx==='none'?1:1.8; rr(px+16,py+40,360,34,6); ctx.stroke();
+    ctx.fillStyle=cssv(col); ctx.font='600 13px system-ui'; ctx.textAlign='left'; ctx.fillText(txt, px+30, py+61);
+  }
+  elCount.textContent = P.self?'self-invocation trap':(P.reqnew?'REQUIRES_NEW':'tx lifecycle');
+}
+function setPhase(n){ i=Math.max(0,Math.min(PHASES.length-1,n)); const [nx,ny]=TOK[PHASES[i].tok]; tok.px=tok.x; tok.py=tok.y; tok.x=nx; tok.y=ny;
+  elPhase.textContent=PHASES[i].label; elCap.innerHTML='<b>What to notice:</b> '+PHASES[i].cap; elScrub.value=i; }
+function reset(){ tok={x:TOK.caller[0],y:TOK.caller[1],px:TOK.caller[0],py:TOK.caller[1]}; elScrub.max=PHASES.length-1; setPhase(0); t=1; draw(); }
+function animateOnce(){ let l=0; (function f(ts){ if(!l)l=ts; t=Math.min(1,t+(ts-l)/500); l=ts; draw(); if(t<1)requestAnimationFrame(f); })(performance.now()); }
+let playing=false,raf=null,lastT=0,pause=0;
+function tick(ts){ if(!playing){raf=null;return;} const dur=1500-elSpeed.value*100; if(!lastT)lastT=ts; const dt=ts-lastT; lastT=ts;
+  if(t<1){ t=Math.min(1,t+dt/dur); } else { pause+=dt; if(pause>dur*0.5){ pause=0; if(i<PHASES.length-1){ setPhase(i+1); t=0; } else { playing=false; elPlay.textContent='▶ Play'; } } }
+  draw(); if(playing) raf=requestAnimationFrame(tick); }
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{ playing=false; elPlay.textContent='▶ Play'; if(i<PHASES.length-1) setPhase(i+1); else setPhase(0); t=0; animateOnce(); };
+elPlay.onclick=()=>{ playing=!playing; elPlay.textContent=playing?'⏸ Pause':'▶ Play'; lastT=0; pause=0; if(playing){ if(i>=PHASES.length-1){ setPhase(0); t=1; } raf=requestAnimationFrame(tick); } };
+elScrub.oninput=()=>{ playing=false; elPlay.textContent='▶ Play'; setPhase(+elScrub.value); t=1; draw(); };
+reset();
+</script>
+</body>
+</html>

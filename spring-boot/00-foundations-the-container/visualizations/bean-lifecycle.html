@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<!-- Self-contained. No build/deps/network. Harness: ../../../shared-viz/README.md -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Spring bean lifecycle — and where the proxy appears</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--live:#3fb950;
+    --garbage:#6e7681;--active:#d29922;--accent:#58a6ff;--danger:#f85149;--frozen:#a371f7;--line:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>The Spring bean lifecycle — and where the proxy appears</h1>
+  <p class="sub">A fixed, ordered pipeline. Watch the AOP proxy get created at stage 8, <i>after</i> your init callbacks. <a class="back" href="../README.md">← Part 0 · The Container &amp; IoC</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="470"></canvas>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--live)"></i> done</span>
+    <span><i class="dot" style="background:var(--active)"></i> running now</span>
+    <span><i class="dot" style="background:var(--accent)"></i> the proxy</span>
+    <span>★ = where AOP advice is added</span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Step</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="12" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> every bean follows the same ordered pipeline.</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+
+const STEPS=[
+ {t:'Instantiate — constructor runs',                      g:'create'},
+ {t:'Populate properties — dependency injection',          g:'create'},
+ {t:'*Aware callbacks (BeanNameAware, ApplicationContextAware…)', g:'create'},
+ {t:'BeanPostProcessor.postProcessBeforeInitialization',   g:'create'},
+ {t:'@PostConstruct',                                      g:'create'},
+ {t:'InitializingBean.afterPropertiesSet()',               g:'create'},
+ {t:'custom init-method',                                  g:'create'},
+ {t:'BeanPostProcessor.postProcessAfterInitialization  ★ AOP proxy created', g:'proxy'},
+ {t:'Bean is ready — singleton cached, injected everywhere', g:'use'},
+ {t:'@PreDestroy  (on context shutdown)',                  g:'destroy'},
+ {t:'DisposableBean.destroy()',                            g:'destroy'},
+ {t:'custom destroy-method',                               g:'destroy'},
+];
+const CAPS=[
+ 'Every bean follows this <b>same ordered pipeline</b>. Step through it and watch where the proxy appears.',
+ 'The container calls your constructor (constructor-injected deps arrive here).',
+ 'Setter/field dependencies are injected now — the object’s fields are populated.',
+ 'Framework hooks: the bean is handed its name, the <code>ApplicationContext</code>, etc.',
+ 'The first <code>BeanPostProcessor</code> hook runs — <b>before</b> your init callbacks.',
+ '<code>@PostConstruct</code> runs — your earliest "everything is injected" hook. (Prefer it, or constructor logic.)',
+ '<code>InitializingBean.afterPropertiesSet()</code> runs — <b>after</b> <code>@PostConstruct</code>.',
+ 'Your custom <code>init-method</code> runs last among the init hooks.',
+ 'The post-<i>after</i> hook runs — and the auto-proxy <code>BeanPostProcessor</code> <b>wraps your bean in a CGLIB proxy here</b>. Your init code already ran on the <i>raw</i> object.',
+ 'The bean is ready. As a singleton it’s cached in the context, and <b>the proxy</b> (not your raw object) is what every other bean gets injected.',
+ 'On context shutdown, <code>@PreDestroy</code> runs (singletons only — prototypes get no destroy callback).',
+ '<code>DisposableBean.destroy()</code> runs.',
+ 'Your custom <code>destroy-method</code> runs last. The bean is gone.',
+];
+
+let i=0;  // 0 = intro; 1..12 = step i
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function fit(txt,maxw){ txt=String(txt); if(ctx.measureText(txt).width<=maxw) return txt; let s=txt; while(s.length>1&&ctx.measureText(s+'…').width>maxw)s=s.slice(0,-1); return s+'…'; }
+
+function draw(){
+  ctx.clearRect(0,0,cv.width,cv.height);
+  // left: ordered step list
+  const LX=24, LW=520, sy=82, rh=29;
+  ctx.textBaseline='alphabetic';
+  for(let s=0;s<STEPS.length;s++){ const n=s+1, y=sy+s*rh, done=n<i, active=n===i;
+    if(active){ ctx.fillStyle=cssv('--active'); ctx.globalAlpha=.16; rr(LX-6,y-4,LW,rh-4,6); ctx.fill(); ctx.globalAlpha=1; }
+    // status dot
+    const dotc = active?cssv('--active'):(done?cssv('--live'):cssv('--line'));
+    ctx.fillStyle=dotc; ctx.beginPath(); ctx.arc(LX+8,y+9,7,0,7); ctx.fill();
+    if(done){ ctx.strokeStyle=cssv('--bg'); ctx.lineWidth=1.6; ctx.beginPath(); ctx.moveTo(LX+5,y+9); ctx.lineTo(LX+7.5,y+12); ctx.lineTo(LX+11.5,y+5.5); ctx.stroke(); }
+    // text
+    const proxyStep = STEPS[s].g==='proxy';
+    ctx.fillStyle = active?cssv('--ink'):(done?cssv('--muted'):(proxyStep?cssv('--accent'):cssv('--muted')));
+    ctx.font = active?'600 13px system-ui':(proxyStep?'600 13px system-ui':'13px system-ui'); ctx.textAlign='left';
+    ctx.fillText(fit(n+'.  '+STEPS[s].t, LW-30), LX+24, y+13);
+  }
+  // right: the bean instance panel
+  const RX=566, RY=120, RW=290, RH=172;
+  ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv('--line'); ctx.lineWidth=1.5; rr(RX,RY,RW,RH,8); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.textAlign='center';
+  ctx.fillText('the bean instance', RX+RW/2, RY+22);
+  const isProxy = i>=8;
+  // the object box
+  const ox=RX+45, oy=RY+66, ow=RW-90, oh=58;
+  if(isProxy){ // outer proxy wrapper
+    ctx.strokeStyle=cssv('--accent'); ctx.fillStyle=cssv('--accent'); ctx.globalAlpha=.14; rr(ox-14,oy-12,ow+28,oh+24,8); ctx.fill(); ctx.globalAlpha=1; ctx.lineWidth=2; rr(ox-14,oy-12,ow+28,oh+24,8); ctx.stroke();
+    ctx.fillStyle=cssv('--accent'); ctx.font='11px system-ui'; ctx.fillText('CGLIB proxy', RX+RW/2, oy-16);
+  }
+  ctx.fillStyle=cssv('--panel'); ctx.strokeStyle=cssv(i<8?'--muted':'--ink'); ctx.lineWidth=1.5; rr(ox,oy,ow,oh,6); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=cssv('--ink'); ctx.font='600 13px system-ui'; ctx.textAlign='center';
+  ctx.fillText('OrderService', RX+RW/2, oy+26);
+  ctx.fillStyle=cssv('--muted'); ctx.font='11px system-ui';
+  ctx.fillText(i<1?'(not created yet)':(i<8?'raw object — under construction':(i<10?'ready · @Transactional active':'being destroyed')), RX+RW/2, oy+44);
+  // injected-as note
+  ctx.fillStyle=cssv(isProxy?'--accent':'--muted'); ctx.font='12px system-ui'; ctx.textAlign='center';
+  ctx.fillText(isProxy?'injected elsewhere as → the proxy':'injected reference: (pending)', RX+RW/2, RY+RH+26);
+
+  elCount.textContent = i===0?'12-stage lifecycle':(i<8?'creating…':(i<9?'proxy created':(i<10?'in use':'destroying…')));
+}
+function setPhase(n){ i=Math.max(0,Math.min(12,n)); elPhase.textContent = i===0?'The lifecycle pipeline':('Stage '+i+' · '+STEPS[i-1].t.split('  ')[0]); elCap.innerHTML='<b>What to notice:</b> '+CAPS[i]; elScrub.value=i; }
+function reset(){ elScrub.max=12; setPhase(0); draw(); }
+let playing=false,raf=null,lastT=0,pause=0;
+function tick(ts){ if(!playing){raf=null;return;} const dur=1300-elSpeed.value*100; if(!lastT)lastT=ts; pause+=ts-lastT; lastT=ts;
+  if(pause>dur){ pause=0; if(i<12){ setPhase(i+1); draw(); } else { playing=false; elPlay.textContent='▶ Play'; } } if(playing) raf=requestAnimationFrame(tick); }
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{ playing=false; elPlay.textContent='▶ Play'; if(i<12) setPhase(i+1); else setPhase(0); draw(); };
+elPlay.onclick=()=>{ playing=!playing; elPlay.textContent=playing?'⏸ Pause':'▶ Play'; lastT=0; pause=0; if(playing){ if(i>=12) setPhase(0); raf=requestAnimationFrame(tick); } };
+elScrub.oninput=()=>{ playing=false; elPlay.textContent='▶ Play'; setPhase(+elScrub.value); draw(); };
+reset();
+</script>
+</body>
+</html>

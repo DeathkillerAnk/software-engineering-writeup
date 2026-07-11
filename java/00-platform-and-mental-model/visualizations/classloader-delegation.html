@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<!-- Self-contained. No build/deps/network. Harness: ../../../shared-viz/README.md -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Parent delegation — how the JVM loads (and protects) classes</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--live:#3fb950;
+    --garbage:#6e7681;--active:#d29922;--accent:#58a6ff;--danger:#f85149;--frozen:#a371f7;--line:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:19px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Parent delegation — how the JVM loads (and protects) classes</h1>
+  <p class="sub">Ask the parent first; load it yourself only if no ancestor can. <a class="back" href="../README.md">← Part 0 · The Platform &amp; Mental Model</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="360"></canvas>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--active)"></i> delegating up</span>
+    <span><i class="dot" style="background:var(--live)"></i> loads the class</span>
+    <span><i class="dot" style="background:var(--garbage)"></i> doesn't have it</span>
+    <span><i class="dot" style="background:var(--danger)"></i> spoof blocked</span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Step</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="4" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> the request travels UP to the parent first — a child loads a class only if no ancestor already has it.</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+// loaders top→bottom = Bootstrap(0), Platform(1), App(2)
+const LOADERS=[
+ {name:'Bootstrap loader', sub:'java.* core (java.base)'},
+ {name:'Platform loader',  sub:'platform modules'},
+ {name:'Application loader',sub:'your classpath'},
+];
+const BX=230, BW=440, BH=56, BY=[74,156,238];
+
+// status per loader: idle / recv / ask / miss / load / blocked
+const PHASES=[
+ {label:'① The parent-delegation chain', cap:'Three loaders form a parent chain: Application → Platform → Bootstrap. Each has a parent it must consult.', cls:null, st:['idle','idle','idle'], up:false},
+ {label:'② A request arrives at the App loader', cap:'<code>loadClass("com.myapp.Order")</code> reaches the <b>Application</b> loader (the one that loads your classpath).', cls:'com.myapp.Order', st:['idle','idle','recv'], up:false},
+ {label:'③ Delegate UP — parent first', cap:'Before trying itself, the App loader asks its parent, which asks <i>its</i> parent — all the way to Bootstrap. <b>Parents get first refusal.</b>', cls:'com.myapp.Order', st:['ask','ask','ask'], up:true},
+ {label:'④ No ancestor has it → the App loader loads it', cap:'Bootstrap and Platform don’t have <code>com.myapp.Order</code>. Only now does the <b>App loader</b> define it from the classpath.', cls:'com.myapp.Order', st:['miss','miss','load'], up:false},
+ {label:'⑤ Spoof blocked: java.lang.String', cap:'A request for <code>java.lang.String</code> delegates up; <b>Bootstrap already has the real one</b> and returns it. A fake <code>String</code> on your classpath is <b>never reached</b> — that’s the security payoff.', cls:'java.lang.String', st:['load','skip','blocked'], up:true},
+];
+
+let i=0;
+function pill(x,y,st){
+  const map={idle:['—','--muted'],recv:['request received','--accent'],ask:['delegate ↑','--active'],
+    miss:['✗ not here','--muted'],load:['✓ loads it','--live'],skip:['(bypassed)','--muted'],blocked:['✗ fake never reached','--danger']};
+  const [txt,col]=map[st]; ctx.fillStyle=cssv(col); ctx.font='600 12px system-ui'; ctx.textAlign='right'; ctx.fillText(txt,x,y); }
+
+function draw(){
+  const P=PHASES[i];
+  ctx.clearRect(0,0,cv.width,cv.height);
+  // request chip
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.textAlign='left';
+  ctx.fillText('loadClass:', 30, 42);
+  if(P.cls){ ctx.fillStyle=cssv(P.cls.startsWith('java.')?'--danger':'--accent'); ctx.globalAlpha=.15; rr(108,26,240,24,6); ctx.fill(); ctx.globalAlpha=1;
+    ctx.fillStyle=cssv('--ink'); ctx.font='600 13px ui-monospace,Menlo,monospace'; ctx.fillText(P.cls,116,43); }
+  // up-arrows between boxes (delegation)
+  for(let k=2;k>=1;k--){ const yTop=BY[k], yBotParent=BY[k-1]+BH; const x=BX+40;
+    const on=P.up; ctx.strokeStyle=on?cssv('--active'):cssv('--line'); ctx.lineWidth=on?2.5:1.4; ctx.setLineDash(on?[]:[4,4]);
+    ctx.beginPath(); ctx.moveTo(x,yTop); ctx.lineTo(x,yBotParent); ctx.stroke(); ctx.setLineDash([]);
+    if(on){ ctx.fillStyle=cssv('--active'); ctx.beginPath(); ctx.moveTo(x-5,yBotParent+6); ctx.lineTo(x+5,yBotParent+6); ctx.lineTo(x,yBotParent); ctx.closePath(); ctx.fill(); } }
+  if(P.up){ ctx.fillStyle=cssv('--active'); ctx.font='11px system-ui'; ctx.textAlign='left'; ctx.fillText('delegates ↑ to parent first', 30, 330); }
+  // loader boxes
+  LOADERS.forEach((L,k)=>{ const y=BY[k], st=P.st[k];
+    const hot = st==='load'||st==='blocked'||st==='recv'||st==='ask';
+    const col = st==='load'?'--live':st==='blocked'?'--danger':st==='ask'?'--active':st==='recv'?'--accent':'--line';
+    ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv(col); ctx.lineWidth=hot?2.5:1.5; rr(BX,y,BW,BH,8); ctx.fill(); ctx.stroke();
+    if(st==='load'){ ctx.fillStyle=cssv('--live'); ctx.globalAlpha=.08; rr(BX,y,BW,BH,8); ctx.fill(); ctx.globalAlpha=1; }
+    ctx.fillStyle=cssv('--ink'); ctx.font='600 14px system-ui'; ctx.textAlign='left'; ctx.fillText(L.name, BX+16, y+24);
+    ctx.fillStyle=cssv('--muted'); ctx.font='11px system-ui'; ctx.fillText(L.sub, BX+16, y+42);
+    ctx.fillStyle=cssv('--muted'); ctx.font='10px system-ui'; ctx.textAlign='left'; ctx.fillText(k===0?'(no parent)':'child ↓', BX+BW-70, y+16);
+    pill(BX+BW-14, y+44, st); });
+  elCount.textContent = P.cls==null?'parent chain':(P.cls.startsWith('java.')?'spoof blocked':(P.st[2]==='load'?'loaded by App':'delegating'));
+}
+function setPhase(n){ i=Math.max(0,Math.min(PHASES.length-1,n)); elPhase.textContent=PHASES[i].label; elCap.innerHTML='<b>What to notice:</b> '+PHASES[i].cap; elScrub.value=i; }
+function reset(){ elScrub.max=PHASES.length-1; setPhase(0); draw(); }
+let playing=false,raf=null,lastT=0,pause=0;
+function tick(ts){ if(!playing){raf=null;return;} const dur=1600-elSpeed.value*100; if(!lastT)lastT=ts; pause+=ts-lastT; lastT=ts;
+  if(pause>dur){ pause=0; if(i<PHASES.length-1){ setPhase(i+1); draw(); } else { playing=false; elPlay.textContent='▶ Play'; } } if(playing) raf=requestAnimationFrame(tick); }
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{ playing=false; elPlay.textContent='▶ Play'; if(i<PHASES.length-1) setPhase(i+1); else setPhase(0); draw(); };
+elPlay.onclick=()=>{ playing=!playing; elPlay.textContent=playing?'⏸ Pause':'▶ Play'; lastT=0; pause=0; if(playing){ if(i>=PHASES.length-1) setPhase(0); raf=requestAnimationFrame(tick); } };
+elScrub.oninput=()=>{ playing=false; elPlay.textContent='▶ Play'; setPhase(+elScrub.value); draw(); };
+reset();
+</script>
+</body>
+</html>
