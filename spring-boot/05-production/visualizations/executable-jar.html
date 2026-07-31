@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<!-- Self-contained. No build/deps/network. Harness: ../../../shared-viz/README.md -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The executable jar — how java -jar boots a nested world</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--live:#3fb950;
+    --garbage:#6e7681;--active:#d29922;--accent:#58a6ff;--danger:#f85149;--frozen:#a371f7;--line:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>The executable jar — how <code>java -jar</code> boots a nested world</h1>
+  <p class="sub">The JDK can't read nested jars — so Boot ships a launcher at the root that installs a classloader which can. <a class="back" href="../README.md">← Part 5 · Production</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="400"></canvas>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--accent)"></i> Boot loader (JDK-readable, at root)</span>
+    <span><i class="dot" style="background:var(--live)"></i> your code (BOOT-INF/classes)</span>
+    <span><i class="dot" style="background:var(--frozen)"></i> dependency jars (whole, nested)</span>
+    <span><i class="dot" style="background:var(--active)"></i> active in this step</span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Step</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="5" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> the launcher is ordinary classes at the jar root — that's the only part the plain JDK needs to read.</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+// hl: which parts highlighted this phase
+const PHASES=[
+ {label:'① java -jar app.jar — the JDK reads the manifest', hl:['manifest'],
+  cap:'Plain <code>java -jar</code> opens the OUTER jar and reads <code>MANIFEST.MF</code>: <code>Main-Class: JarLauncher</code> (not your app!) and <code>Start-Class: com.example.App</code>. The JDK can only load classes at the jar root.'},
+ {label:'② JarLauncher starts — plain classes at the root', hl:['loader'],
+  cap:'The Boot <b>loader</b> classes sit at the jar root as ordinary entries, so the stock JDK classloader can run them. This is the bootstrap toehold — nothing nested needed yet.'},
+ {label:'③ Launcher installs LaunchedClassLoader', hl:['loader','lib','classes'],
+  cap:'The launcher creates a <b>custom classloader</b> that can read classes from <code>BOOT-INF/classes/</code> and from <b>whole jars nested inside</b> <code>BOOT-INF/lib/</code> — the capability the JDK lacks, implemented in userland.'},
+ {label:'④ Start-Class main() runs with the nested classpath', hl:['classes','main'],
+  cap:'The launcher invokes <code>com.example.App.main()</code> on the new classloader. Your code and every dependency resolve from inside the single artifact — one file, self-contained deploy.'},
+ {label:'⑤ Why not shade? Collisions and lost provenance', hl:['shade'],
+  cap:'⚠️ A <b>shaded</b> uber-jar unpacks everything flat: two deps shipping the same resource path (e.g. <code>META-INF/services/…</code>) silently <b>overwrite</b> each other, and you can no longer tell which jar a class came from. Nesting keeps jars whole.'},
+ {label:'⑥ layers.idx — split by change-rate for Docker', hl:['layers'],
+  cap:'The same jar carries <code>layers.idx</code>: dependencies (big, stable) vs application (tiny, changes every build) become separate <b>Docker layers</b> — a code change re-pushes kilobytes, not the 80MB of deps.'},
+];
+
+let i=0;
+function box(x,y,w,h,label,col,active,mono){ ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv(active?'--active':col); ctx.lineWidth=active?2.5:1.5; rr(x,y,w,h,6); ctx.fill();
+  ctx.fillStyle=cssv(col); ctx.globalAlpha=active?0.22:0.10; rr(x,y,w,h,6); ctx.fill(); ctx.globalAlpha=1; ctx.stroke();
+  ctx.fillStyle=cssv(active?'--active':'--ink'); ctx.font=(mono?'12px ui-monospace,Menlo,monospace':'600 13px system-ui'); ctx.textAlign='left'; ctx.fillText(label, x+10, y+h/2+4); }
+function draw(){
+  const P=PHASES[i]; ctx.clearRect(0,0,cv.width,cv.height);
+  const on=(k)=>P.hl.includes(k);
+  // outer jar
+  ctx.strokeStyle=cssv('--line'); ctx.lineWidth=2; rr(40,34,420,340,10); ctx.stroke();
+  ctx.fillStyle=cssv('--muted'); ctx.font='600 13px system-ui'; ctx.textAlign='left'; ctx.fillText('app.jar (outer)', 52, 56);
+  // manifest
+  box(60,70,380,34,'META-INF/MANIFEST.MF  Main-Class: JarLauncher','--muted',on('manifest'),true);
+  // loader
+  box(60,112,380,34,'org/springframework/boot/loader/  (at root)','--accent',on('loader'),true);
+  // BOOT-INF
+  ctx.strokeStyle=cssv('--line'); ctx.lineWidth=1; rr(60,156,380,200,8); ctx.stroke();
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px ui-monospace,Menlo,monospace'; ctx.fillText('BOOT-INF/', 72, 176);
+  box(80,186,340,34,'classes/  (your code)','--live',on('classes'),true);
+  box(80,228,160,30,'lib/spring-web.jar','--frozen',on('lib'),true);
+  box(250,228,170,30,'lib/jackson.jar','--frozen',on('lib'),true);
+  box(80,264,160,30,'lib/hikari.jar','--frozen',on('lib'),true);
+  box(250,264,170,30,'lib/… x60 more','--frozen',on('lib'),true);
+  box(80,306,340,30,'classpath.idx / layers.idx','--muted',on('layers'),true);
+  // right side: what happens
+  if(on('main')){
+    ctx.fillStyle=cssv('--live'); ctx.font='600 14px system-ui'; ctx.textAlign='left';
+    ctx.fillText('LaunchedClassLoader', 520, 120);
+    ctx.fillText('→ com.example.App.main()', 520, 148);
+    ctx.strokeStyle=cssv('--live'); ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(440,203); ctx.lineTo(510,140); ctx.stroke();
+    ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.fillText('one self-contained artifact, running', 520, 176);
+  }
+  if(on('lib')&&!on('main')){
+    ctx.fillStyle=cssv('--active'); ctx.font='600 13px system-ui'; ctx.textAlign='left';
+    ctx.fillText('custom loader reads classes', 520, 236);
+    ctx.fillText('from NESTED jars — JDK can\'t,', 520, 258);
+    ctx.fillText('Boot\'s loader can', 520, 280);
+  }
+  if(on('loader')&&!on('lib')){
+    ctx.fillStyle=cssv('--accent'); ctx.font='600 13px system-ui'; ctx.textAlign='left';
+    ctx.fillText('plain JDK classloader CAN', 520, 122);
+    ctx.fillText('read root entries → launcher runs', 520, 144);
+  }
+  if(on('manifest')){
+    ctx.fillStyle=cssv('--muted'); ctx.font='600 13px system-ui'; ctx.textAlign='left';
+    ctx.fillText('Main-Class ≠ your main:', 520, 80);
+    ctx.fillText('it\'s the Boot launcher', 520, 102);
+  }
+  if(on('shade')){
+    ctx.fillStyle=cssv('--danger'); ctx.font='600 13px system-ui'; ctx.textAlign='left';
+    ctx.fillText('shaded uber-jar (flat merge):', 520, 100);
+    ctx.font='12px ui-monospace,Menlo,monospace';
+    ctx.fillText('META-INF/services/X  ← from A', 520, 128);
+    ctx.fillText('META-INF/services/X  ← from B ✗', 520, 150);
+    ctx.font='600 13px system-ui'; ctx.fillText('collision: one silently wins', 520, 180);
+  }
+  if(on('layers')){
+    ctx.font='12px ui-monospace,Menlo,monospace'; ctx.textAlign='left';
+    const rows=[['dependencies','rarely changes · cached','--frozen'],
+                ['spring-boot-loader','almost never','--accent'],
+                ['snapshot-deps','sometimes','--muted'],
+                ['application','EVERY build · tiny','--live']];
+    ctx.fillStyle=cssv('--muted'); ctx.font='600 13px system-ui'; ctx.fillText('Docker layers (bottom → top):', 520, 90);
+    for(let r=0;r<rows.length;r++){ const y=110+r*44;
+      ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv(rows[r][2]); ctx.lineWidth=1.5; rr(520,y,320,34,6); ctx.fill(); ctx.stroke();
+      ctx.fillStyle=cssv(rows[r][2]); ctx.font='600 12px ui-monospace,Menlo,monospace'; ctx.fillText(rows[r][0], 532, y+15);
+      ctx.fillStyle=cssv('--muted'); ctx.font='11px system-ui'; ctx.fillText(rows[r][1], 532, y+29); }
+  }
+  elCount.textContent='phase '+(i+1)+' / '+PHASES.length;
+}
+function setPhase(n){ i=Math.max(0,Math.min(PHASES.length-1,n)); elPhase.textContent=PHASES[i].label; elCap.innerHTML='<b>What to notice:</b> '+PHASES[i].cap; elScrub.value=i; }
+function reset(){ elScrub.max=PHASES.length-1; setPhase(0); draw(); }
+let playing=false,raf=null,lastT=0,pause=0;
+function tick(ts){ if(!playing){raf=null;return;} const dur=1700-elSpeed.value*120; if(!lastT)lastT=ts; pause+=ts-lastT; lastT=ts;
+  if(pause>dur){ pause=0; if(i<PHASES.length-1){ setPhase(i+1); draw(); } else { playing=false; elPlay.textContent='▶ Play'; } } if(playing) raf=requestAnimationFrame(tick); }
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{ playing=false; elPlay.textContent='▶ Play'; if(i<PHASES.length-1) setPhase(i+1); else setPhase(0); draw(); };
+elPlay.onclick=()=>{ playing=!playing; elPlay.textContent=playing?'⏸ Pause':'▶ Play'; lastT=0; pause=0; if(playing){ if(i>=PHASES.length-1) setPhase(0); raf=requestAnimationFrame(tick); } };
+elScrub.oninput=()=>{ playing=false; elPlay.textContent='▶ Play'; setPhase(+elScrub.value); draw(); };
+reset();
+</script>
+</body>
+</html>

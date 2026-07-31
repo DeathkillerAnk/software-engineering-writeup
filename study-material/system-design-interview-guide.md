@@ -76,6 +76,13 @@ Storage formula: `records/day × bytes/record × retention days (× replication 
 | Disk seek (HDD) | ~10 ms |
 | Cross-continent round trip | ~150 ms |
 
+The metric prefixes for time denote fractions of a second, with each step representing a factor of 1,000 difference in magnitude. 
+
+Millisecond (ms): One thousandth of a second ($10^{-3}$ s). 
+Microsecond (µs): One millionth of a second ($10^{-6}$ s). 
+Nanosecond (ns): One billionth of a second ($10^{-9}$ s).
+There are 1,000 microseconds in one millisecond and 1,000 nanoseconds in one microsecond.  Consequently, there are 1,000,000 nanoseconds in a single millisecond.
+
 Rule of thumb: memory ≪ SSD ≪ cross-region network. This is *why* caching in RAM near the user makes things fast, and why a p99 of 100ms forbids cross-continent synchronous calls.
 
 **The senior move:** never leave a number raw — attach a conclusion. "3 TB over 5 years fits one machine, so we shard for throughput, not capacity." A junior computes; a senior concludes.

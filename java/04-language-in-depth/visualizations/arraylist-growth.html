@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<!-- Self-contained. No build/deps/network. Harness: ../../../shared-viz/README.md -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ArrayList growth — amortized O(1) add</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--live:#3fb950;
+    --garbage:#6e7681;--active:#d29922;--accent:#58a6ff;--danger:#f85149;--frozen:#a371f7;--line:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>ArrayList growth — amortized O(1) add</h1>
+  <p class="sub">Most <code>add()</code>s are a cheap slot-write; occasionally the backing array is full and a resize copies everything. Averaged out: O(1). <a class="back" href="../README.md">← Part 4 · The Language in Depth</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="360"></canvas>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--live)"></i> element in use (size)</span>
+    <span><i class="dot" style="background:var(--line)"></i> spare capacity</span>
+    <span><i class="dot" style="background:var(--active)"></i> just added</span>
+    <span><i class="dot" style="background:var(--danger)"></i> resize + copy (rare)</span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Add one</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="9" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> capacity jumps in bursts (grow by ~1.5×), not one-at-a-time — that geometric growth is what makes the average add O(1).</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+// Precompute the sequence of states as we add elements 1..N.
+// new ArrayList(): capacity 0; first add → 10 (default); then grow by 1.5x when full.
+// Each STEP adds one element; a state records size, capacity, whether this add caused a resize, oldCap.
+function buildStates(n){
+  const states=[]; let cap=0, size=0;
+  for(let k=0;k<n;k++){
+    let resized=false, oldCap=cap;
+    if(size===cap){ resized=true; oldCap=cap; cap = cap===0?10 : cap + (cap>>1); } // 0→10, then *1.5
+    size++;
+    states.push({size, cap, resized, oldCap});
+  }
+  return states;
+}
+const N=28;
+const STATES=buildStates(N);
+let i=0; // index into STATES (0-based) = after adding (i+1) elements
+
+function draw(){
+  const S=STATES[i];
+  ctx.clearRect(0,0,cv.width,cv.height);
+  const cap=S.cap;
+  // layout the backing array as cells across up to two rows
+  const perRow=14, cellW=56, cellH=42, gapX=4, gapY=26, x0=40, y0=70;
+  ctx.fillStyle=cssv('--muted'); ctx.font='13px system-ui'; ctx.textAlign='left';
+  ctx.fillText('backing array (Object[])  —  length = capacity = '+cap, x0, 48);
+  for(let c=0;c<cap;c++){
+    const r=Math.floor(c/perRow), col=c%perRow;
+    const x=x0+col*(cellW+gapX), y=y0+r*(cellH+gapY);
+    const inUse = c < S.size;
+    const isLast = c === S.size-1;
+    let col2 = inUse ? (isLast && S.resized ? '--live' : isLast ? '--active' : '--live') : '--line';
+    ctx.globalAlpha = inUse?1:0.35;
+    ctx.fillStyle=cssv('--bg'); rr(x,y,cellW,cellH,5); ctx.fill();
+    ctx.fillStyle=cssv(col2); ctx.globalAlpha=inUse?0.28:0.12; rr(x,y,cellW,cellH,5); ctx.fill();
+    ctx.globalAlpha=1; ctx.strokeStyle=cssv(col2); ctx.lineWidth=inUse?2:1; rr(x,y,cellW,cellH,5); ctx.stroke();
+    if(inUse){ ctx.fillStyle=cssv('--ink'); ctx.font='600 13px ui-monospace,Menlo,monospace'; ctx.textAlign='center'; ctx.fillText(String(c), x+cellW/2, y+cellH/2+5); }
+  }
+  ctx.globalAlpha=1;
+  // size vs capacity meters
+  const my=y0+2*(cellH+gapY)+34;
+  ctx.textAlign='left'; ctx.font='13px system-ui';
+  ctx.fillStyle=cssv('--live'); ctx.fillText('size = '+S.size, 40, my);
+  ctx.fillStyle=cssv('--muted'); ctx.fillText('capacity = '+cap+'   (spare = '+(cap-S.size)+')', 150, my);
+  // resize note
+  if(S.resized){
+    ctx.fillStyle=cssv('--danger'); ctx.font='600 14px system-ui';
+    ctx.fillText('⚡ array was full → allocate '+(S.oldCap===0?'10':S.oldCap+' → '+cap)+' and COPY all elements (O(n) this one add)', 40, my+28);
+  } else {
+    ctx.fillStyle=cssv('--live'); ctx.font='14px system-ui';
+    ctx.fillText('✓ spare slot available → write index '+(S.size-1)+' (O(1))', 40, my+28);
+  }
+  elCount.textContent='add #'+S.size+' / '+N;
+}
+function setPhase(n){ i=Math.max(0,Math.min(STATES.length-1,n)); const S=STATES[i];
+  elPhase.textContent = 'Added element '+S.size+(S.resized?' — resize!':'');
+  elCap.innerHTML = '<b>What to notice:</b> '+(S.resized
+    ? 'The array was full. ArrayList allocated a bigger one ('+(S.oldCap===0?'0→10':S.oldCap+'→'+S.cap)+', ~1.5×) and <b>copied every element over</b> — this single add is O(n). It happens rarely.'
+    : 'A spare slot existed, so <code>add()</code> just wrote one index — <b>O(1)</b>. This is the common case; resizes are the exception.');
+  elScrub.value=i; }
+function reset(){ elScrub.max=STATES.length-1; setPhase(0); draw(); }
+let playing=false,raf=null,lastT=0,pause=0;
+function tick(ts){ if(!playing){raf=null;return;} const dur=1500-elSpeed.value*120; if(!lastT)lastT=ts; pause+=ts-lastT; lastT=ts;
+  if(pause>dur){ pause=0; if(i<STATES.length-1){ setPhase(i+1); draw(); } else { playing=false; elPlay.textContent='▶ Play'; } } if(playing) raf=requestAnimationFrame(tick); }
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{ playing=false; elPlay.textContent='▶ Play'; if(i<STATES.length-1) setPhase(i+1); else setPhase(0); draw(); };
+elPlay.onclick=()=>{ playing=!playing; elPlay.textContent=playing?'⏸ Pause':'▶ Play'; lastT=0; pause=0; if(playing){ if(i>=STATES.length-1) setPhase(0); raf=requestAnimationFrame(tick); } };
+elScrub.oninput=()=>{ playing=false; elPlay.textContent='▶ Play'; setPhase(+elScrub.value); draw(); };
+reset();
+</script>
+</body>
+</html>

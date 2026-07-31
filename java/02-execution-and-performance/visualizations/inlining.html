@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<!-- Self-contained. No build/deps/network. Harness: ../../../shared-viz/README.md -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inlining — the mother of optimizations</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--live:#3fb950;
+    --garbage:#6e7681;--active:#d29922;--accent:#58a6ff;--danger:#f85149;--frozen:#a371f7;--line:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Inlining — the mother of optimizations</h1>
+  <p class="sub">Inlining doesn't just delete the call — it merges the bodies so <i>every other</i> optimization can fire across the old boundary. <a class="back" href="../README.md">← Part 2 · Execution &amp; Performance</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="380"></canvas>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--accent)"></i> caller</span>
+    <span><i class="dot" style="background:var(--frozen)"></i> callee (before inlining)</span>
+    <span><i class="dot" style="background:var(--live)"></i> folded / eliminated</span>
+    <span><i class="dot" style="background:var(--danger)"></i> stays a real call</span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Step</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="5" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> the call boundary is the wall optimizations can't see across. Inlining removes the wall.</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+// Each phase: caller code lines (array of {t:text, col:cssvar}), callee box shown?, cost meter (0..10), note
+const PHASES=[
+ {label:'① Hot call site — a boundary between two methods',
+  cap:'The loop calls <code>scale(v)</code> a billion times. Each call sets up args, jumps, builds a frame, returns. The compiler can’t see <i>into</i> <code>scale</code> from here — the call is an opaque wall.',
+  caller:['int r = 0;','for (i…) r += scale(v);','','// scale is a separate method →'],
+  callee:['int scale(int a){','  return (a + 3) * 10;','}'], calleeCol:'--frozen', arrow:true, cost:9, meter:'call overhead every iteration', mcol:'--danger'},
+ {label:'② Inline — copy the callee body into the caller',
+  cap:'<code>scale</code> is small and hot, so the JIT inlines it: the body is spliced in and the call vanishes. Now caller and callee are <b>one method</b> — the wall is gone.',
+  caller:['int r = 0;','for (i…) r += (v + 3) * 10;','','// scale() body spliced in'],
+  callee:null, calleeCol:'--live', arrow:false, cost:6, meter:'call gone — now optimize across', mcol:'--active'},
+ {label:'③ Constant propagation — v is a known constant here',
+  cap:'Profiling/analysis shows <code>v</code> is the constant <code>2</code> at this site. It flows into the merged body — something the JIT could <b>never</b> do across the old call boundary.',
+  caller:['int r = 0;','for (i…) r += (2 + 3) * 10;','','// v == 2 propagated in'],
+  callee:null, calleeCol:'--live', arrow:false, cost:5, meter:'constants flowing in', mcol:'--active'},
+ {label:'④ Constant folding — compute it at compile time',
+  cap:'<code>(2 + 3) * 10</code> has no runtime inputs left → the compiler folds it to <b>50</b>. The arithmetic simply disappears from the hot loop.',
+  caller:['int r = 0;','for (i…) r += 50;','','// (2+3)*10 folded → 50'],
+  callee:null, calleeCol:'--live', arrow:false, cost:2, meter:'arithmetic folded away', mcol:'--live'},
+ {label:'⑤ Escape analysis — the allocation that never happens',
+  cap:'A different site: <code>new Point(x,y)</code> used locally and never escaping. Because the constructor inlined too, the JIT proves it can’t escape and <b>scalar-replaces</b> it — fields live in registers, <b>no heap allocation</b>, lock elided.',
+  caller:['// new Point(x,y).mag()','x2 + y2   // in registers','','// object never allocated'],
+  callee:null, calleeCol:'--live', arrow:false, cost:1, meter:'zero allocation (scalar replaced)', mcol:'--live'},
+ {label:'⑥ But not everything inlines',
+  cap:'A big or megamorphic callee (too many bytecodes, or 4+ runtime types at the site) blows the inline budget (<code>MaxInlineSize</code>/<code>FreqInlineSize</code>) — it <b>stays a real call</b>, and the optimizations above can’t reach across it. Keep hot methods small and monomorphic.',
+  caller:['for (i…) r += bigOrPolymorphic(v);','','// too large / megamorphic →','// real virtual call kept'],
+  callee:['bigMethod(){','  …400 bytecodes…','}'], calleeCol:'--danger', arrow:true, cost:9, meter:'not inlined — wall remains', mcol:'--danger'},
+];
+
+let i=0;
+function codeBox(x,y,w,h,title,lines,titleCol){
+  ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv(titleCol); ctx.lineWidth=2; rr(x,y,w,h,8); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=cssv(titleCol); ctx.font='600 13px system-ui'; ctx.textAlign='left'; ctx.fillText(title, x+14, y+22);
+  ctx.font='13px ui-monospace,Menlo,monospace'; ctx.fillStyle=cssv('--ink');
+  for(let k=0;k<lines.length;k++){ const t=lines[k];
+    ctx.fillStyle = t.indexOf('//')===0 || t.indexOf('  //')>=0 ? cssv('--muted') : cssv('--ink');
+    ctx.fillText(t, x+14, y+48+k*22); }
+}
+function draw(){
+  const P=PHASES[i];
+  ctx.clearRect(0,0,cv.width,cv.height);
+  // caller box (left/main)
+  codeBox(40,30, P.callee?470:800, 150, 'caller (hot method)', P.caller, '--accent');
+  // callee box (right) when present
+  if(P.callee){
+    codeBox(560,30,280,150, 'callee', P.callee, P.calleeCol);
+    // arrow between
+    arrow(510,105, 560,105, P.calleeCol==='--danger'?'--danger':'--frozen');
+    ctx.fillStyle=cssv(P.calleeCol==='--danger'?'--danger':'--frozen'); ctx.font='11px system-ui'; ctx.textAlign='center';
+    ctx.fillText(P.calleeCol==='--danger'?'call kept':'call', 535, 96);
+  } else {
+    // merged badge
+    ctx.fillStyle=cssv('--live'); ctx.font='600 13px system-ui'; ctx.textAlign='left';
+    ctx.fillText('✓ merged into one method — no call boundary', 40, 205);
+  }
+  // cost meter
+  ctx.fillStyle=cssv('--muted'); ctx.font='13px system-ui'; ctx.textAlign='left'; ctx.fillText('hot-loop cost:', 40, 270);
+  const segs=10, sw=44, x0=150, y0=258;
+  for(let s=0;s<segs;s++){
+    const on = s < P.cost;
+    ctx.fillStyle = on ? cssv(P.mcol) : cssv('--line');
+    rr(x0+s*(sw+4), y0, sw, 16, 3); ctx.fill();
+  }
+  ctx.fillStyle=cssv(P.mcol); ctx.font='600 13px system-ui'; ctx.textAlign='left'; ctx.fillText('⚡ '+P.meter, 150, 300);
+  // enabler note
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui';
+  ctx.fillText(P.callee ? 'boundary present — optimizer is blind across it' : 'boundary gone — optimizer sees the whole thing', 40, 340);
+  elCount.textContent = 'phase '+(i+1)+' / '+PHASES.length;
+}
+function arrow(x1,y1,x2,y2,col){ ctx.strokeStyle=cssv(col); ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  ctx.fillStyle=cssv(col); const a=Math.atan2(y2-y1,x2-x1); ctx.save(); ctx.translate(x2,y2); ctx.rotate(a); ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-8,-4); ctx.lineTo(-8,4); ctx.closePath(); ctx.fill(); ctx.restore(); }
+function setPhase(n){ i=Math.max(0,Math.min(PHASES.length-1,n)); elPhase.textContent=PHASES[i].label; elCap.innerHTML='<b>What to notice:</b> '+PHASES[i].cap; elScrub.value=i; }
+function reset(){ elScrub.max=PHASES.length-1; setPhase(0); draw(); }
+let playing=false,raf=null,lastT=0,pause=0;
+function tick(ts){ if(!playing){raf=null;return;} const dur=1600-elSpeed.value*110; if(!lastT)lastT=ts; pause+=ts-lastT; lastT=ts;
+  if(pause>dur){ pause=0; if(i<PHASES.length-1){ setPhase(i+1); draw(); } else { playing=false; elPlay.textContent='▶ Play'; } } if(playing) raf=requestAnimationFrame(tick); }
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{ playing=false; elPlay.textContent='▶ Play'; if(i<PHASES.length-1) setPhase(i+1); else setPhase(0); draw(); };
+elPlay.onclick=()=>{ playing=!playing; elPlay.textContent=playing?'⏸ Pause':'▶ Play'; lastT=0; pause=0; if(playing){ if(i>=PHASES.length-1) setPhase(0); raf=requestAnimationFrame(tick); } };
+elScrub.oninput=()=>{ playing=false; elPlay.textContent='▶ Play'; setPhase(+elScrub.value); draw(); };
+reset();
+</script>
+</body>
+</html>

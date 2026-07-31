@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<!-- Self-contained. No build/deps/network. Harness: ../../../shared-viz/README.md -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boot startup cost — where the seconds go</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--live:#3fb950;
+    --garbage:#6e7681;--active:#d29922;--accent:#58a6ff;--danger:#f85149;--frozen:#a371f7;--line:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Boot startup cost — where the seconds go</h1>
+  <p class="sub">A 12s startup decomposed — and what each lever (lazy init, trimming, CDS, AOT/native) actually removes. <a class="back" href="../README.md">← Part 6 · Principal Skills</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="400"></canvas>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--garbage)"></i> JVM boot + class loading</span>
+    <span><i class="dot" style="background:var(--frozen)"></i> scanning + auto-config eval</span>
+    <span><i class="dot" style="background:var(--accent)"></i> bean instantiation (step 11)</span>
+    <span><i class="dot" style="background:var(--live)"></i> server start + misc</span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Step</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="5" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> the big block is bean instantiation — the container building hundreds of beans. That's why lazy-init and AOT attack it first.</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+// segments: [jvm, scan+autoconfig, beans, server] in seconds
+const SEGS=['--garbage','--frozen','--accent','--live'];
+const SEGNAMES=['JVM+classes','scan+autoconfig','bean instantiation','server+misc'];
+const PHASES=[
+ {label:'① Baseline: 12s, decomposed', rows:[['baseline',[2.0,2.5,6.0,1.5]]],
+  cap:'Measure first (<code>/actuator/startup</code>). The 12s isn\'t one thing: JVM+class loading ~2s, scanning + auto-config evaluation ~2.5s, <b>bean instantiation ~6s</b> (refresh() step 11 building hundreds of beans), server+misc ~1.5s.'},
+ {label:'② Lever 1 — lazy initialization', rows:[['baseline',[2.0,2.5,6.0,1.5]],['lazy-init',[2.0,2.5,1.5,1.5]]],
+  cap:'<code>spring.main.lazy-initialization=true</code> defers most bean construction to first use: the bean block collapses 6s → ~1.5s. <b>Trade:</b> first-request latency + you lose fail-fast (startup errors move to runtime).'},
+ {label:'③ Lever 2 — trim the classpath', rows:[['baseline',[2.0,2.5,6.0,1.5]],['trimmed',[1.7,1.2,4.5,1.5]]],
+  cap:'Every unused starter drags auto-configs that evaluate and beans that build. Cutting dead starters (find them via <code>/actuator/conditions</code>) shrinks scanning/eval AND the bean block — with no behavior trade at all.'},
+ {label:'④ Lever 3 — CDS / AOT-on-JVM', rows:[['baseline',[2.0,2.5,6.0,1.5]],['CDS+AOT',[1.0,1.0,4.0,1.5]]],
+  cap:'CDS memory-maps parsed class metadata; Boot\'s AOT-generated wiring code skips reflection work. Same programming model, JVM + framework overheads shrink. The middle rungs of the ladder.'},
+ {label:'⑤ Lever 4 — GraalVM native image', rows:[['baseline',[2.0,2.5,6.0,1.5]],['native',[0.02,0.0,0.02,0.01]]],
+  cap:'Native image: all container decisions already made at build time, no class loading, no JIT — <b>~50ms total</b>. Trade: build minutes, closed world, no JIT peak (java ch.28 / spring ch.28).'},
+ {label:'⑥ The ladder, summarized', rows:[['baseline',[2.0,2.5,6.0,1.5]],['lazy-init',[2.0,2.5,1.5,1.5]],['trimmed+CDS+AOT',[1.0,0.8,3.0,1.2]],['native',[0.02,0.0,0.02,0.01]]],
+  cap:'Escalation order: measure → lazy/trim (cheap, no model change) → CDS/AOT (still the JVM) → native (new constraints). Each rung costs more and buys more — climb only as far as the workload demands.'},
+];
+
+let i=0;
+const X0=170, XW=590, ROWH=54, Y0=60, MAXS=12;
+function draw(){
+  const P=PHASES[i]; ctx.clearRect(0,0,cv.width,cv.height);
+  // scale line
+  ctx.fillStyle=cssv('--muted'); ctx.font='11px system-ui'; ctx.textAlign='left';
+  for(let s=0;s<=12;s+=3){ const x=X0+s/MAXS*XW; ctx.fillText(s+'s', x-6, Y0-16); ctx.strokeStyle=cssv('--line'); ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x,Y0-8); ctx.lineTo(x,Y0+P.rows.length*ROWH); ctx.stroke(); }
+  P.rows.forEach((row,r)=>{
+    const [name,segs]=row; const y=Y0+r*ROWH;
+    ctx.fillStyle=cssv('--ink'); ctx.font='600 13px system-ui'; ctx.textAlign='right'; ctx.fillText(name, X0-12, y+24);
+    let x=X0;
+    const total=segs.reduce((a,b)=>a+b,0);
+    segs.forEach((sec,k)=>{ const w=sec/MAXS*XW; if(w>0.5){
+      ctx.fillStyle=cssv(SEGS[k]); ctx.globalAlpha=0.55; rr(x,y+6,Math.max(w,2),30,3); ctx.fill(); ctx.globalAlpha=1;
+      ctx.strokeStyle=cssv(SEGS[k]); ctx.lineWidth=1.5; rr(x,y+6,Math.max(w,2),30,3); ctx.stroke();
+      if(w>46){ ctx.fillStyle=cssv('--ink'); ctx.font='11px system-ui'; ctx.textAlign='center'; ctx.fillText(sec+'s', x+w/2, y+25); } }
+      x+=w; });
+    ctx.fillStyle=cssv(total<0.5?'--live':'--muted'); ctx.font='600 12px system-ui'; ctx.textAlign='left';
+    ctx.fillText(total<0.5? '~'+Math.round(total*1000)+'ms' : total.toFixed(1)+'s total', x+10, y+25);
+  });
+  elCount.textContent='phase '+(i+1)+' / '+PHASES.length;
+}
+function setPhase(n){ i=Math.max(0,Math.min(PHASES.length-1,n)); elPhase.textContent=PHASES[i].label; elCap.innerHTML='<b>What to notice:</b> '+PHASES[i].cap; elScrub.value=i; }
+function reset(){ elScrub.max=PHASES.length-1; setPhase(0); draw(); }
+let playing=false,raf=null,lastT=0,pause=0;
+function tick(ts){ if(!playing){raf=null;return;} const dur=1700-elSpeed.value*120; if(!lastT)lastT=ts; pause+=ts-lastT; lastT=ts;
+  if(pause>dur){ pause=0; if(i<PHASES.length-1){ setPhase(i+1); draw(); } else { playing=false; elPlay.textContent='▶ Play'; } } if(playing) raf=requestAnimationFrame(tick); }
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{ playing=false; elPlay.textContent='▶ Play'; if(i<PHASES.length-1) setPhase(i+1); else setPhase(0); draw(); };
+elPlay.onclick=()=>{ playing=!playing; elPlay.textContent=playing?'⏸ Pause':'▶ Play'; lastT=0; pause=0; if(playing){ if(i>=PHASES.length-1) setPhase(0); raf=requestAnimationFrame(tick); } };
+elScrub.oninput=()=>{ playing=false; elPlay.textContent='▶ Play'; setPhase(+elScrub.value); draw(); };
+reset();
+</script>
+</body>
+</html>

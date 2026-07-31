@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<!-- Self-contained. No build/deps/network. Harness: ../../../shared-viz/README.md -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Startup vs peak — JVM warmup vs native image</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--live:#3fb950;
+    --garbage:#6e7681;--active:#d29922;--accent:#58a6ff;--danger:#f85149;--frozen:#a371f7;--line:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Startup vs peak — JVM warmup vs native image</h1>
+  <p class="sub">Native image jumps instantly to its (lower) plateau; the JVM climbs through interpret → C1 → C2 to a higher peak. Neither is "faster" — it depends on the workload. <a class="back" href="../README.md">← Part 5 · I/O, Interop &amp; Deployment</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="400"></canvas>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--accent)"></i> JVM (JIT) throughput</span>
+    <span><i class="dot" style="background:var(--live)"></i> native image throughput</span>
+    <span><i class="dot" style="background:var(--active)"></i> tier transition (C1 / C2)</span>
+    <span><i class="dot" style="background:var(--danger)"></i> the gap that decides the choice</span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Step</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="5" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> two different curves, two different winners — the crossover point is the whole decision.</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+// Chart geometry
+const CX=70, CY=40, CW=770, CH=260;                 // plot area
+// JVM curve: 0 until ~startup(0.05), then slow interpreted, jumps at C1, climbs to C2 peak 1.0
+// native: near-instant to plateau 0.62
+function jvmY(t){ // t in 0..1 across the x axis
+  if(t<0.04) return 0;                               // JVM booting
+  if(t<0.18) return 0.10;                            // interpreted
+  if(t<0.22) return 0.10+(t-0.18)/0.04*0.25;         // C1 ramp
+  if(t<0.45) return 0.35+(t-0.22)/0.23*0.15;         // C1 + profiling
+  if(t<0.55) return 0.50+(t-0.45)/0.10*0.45;         // C2 ramp
+  return 0.95+Math.min(0.05,(t-0.55)*0.2);           // peak ~1.0
+}
+function natY(t){ if(t<0.008) return 0; return 0.62; }
+const PHASES=[
+ {label:'① t=0 — two deploys start', tEnd:0.03,
+  cap:'Same app, two builds. The <b>native image</b> (green) is already serving at full speed in ~tens of ms. The <b>JVM</b> (blue) is still loading/verifying classes — throughput 0.'},
+ {label:'② JVM serves — interpreted (slow)', tEnd:0.17,
+  cap:'The JVM is up but everything runs in the <b>interpreter</b>: ~10% of eventual peak. Native image is comfortably ahead. For a short-lived process, the race is already over.'},
+ {label:'③ C1 kicks in', tEnd:0.4,
+  cap:'Hot methods hit the C1 threshold and get quick-compiled: a first jump. Profiling continues — C2 is still gathering the data it will spend.'},
+ {label:'④ C2 compiles the hot core', tEnd:0.6,
+  cap:'The profile-guided <b>C2</b> tier compiles the hot paths with speculative optimizations — throughput climbs <b>past</b> the native plateau. This peak is what native image gives up (no JIT, no runtime profile).'},
+ {label:'⑤ Steady state — JVM peak > native plateau', tEnd:1.0,
+  cap:'Warmed JVM: ~100%. Native image: ~60–70% typical. For a <b>24/7 server</b>, minutes of warmup buy hours at higher peak — JVM wins. The area between the curves is real money at scale.'},
+ {label:'⑥ The decision = which region matters to YOU', tEnd:1.0, decide:true,
+  cap:'<b>Left region</b> (before crossover): lambdas, CLIs, scale-to-zero — native wins. <b>Right region</b>: long-running services — JVM wins. Startup vs peak is a spectrum; place each workload deliberately.'},
+];
+
+let i=0;
+function axis(){
+  ctx.strokeStyle=cssv('--line'); ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(CX,CY); ctx.lineTo(CX,CY+CH); ctx.lineTo(CX+CW,CY+CH); ctx.stroke();
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.textAlign='center';
+  ctx.fillText('time since launch →', CX+CW/2, CY+CH+30);
+  ctx.save(); ctx.translate(CX-40, CY+CH/2); ctx.rotate(-Math.PI/2); ctx.fillText('throughput', 0, 0); ctx.restore();
+  ctx.textAlign='left'; ctx.fillText('0', CX-14, CY+CH+4);
+}
+function plot(fn, col, tMax){
+  ctx.strokeStyle=cssv(col); ctx.lineWidth=2.5; ctx.beginPath();
+  let started=false;
+  for(let px=0; px<=CW; px++){ const t=px/CW; if(t>tMax) break;
+    const y=CY+CH - fn(t)*CH*0.92;
+    if(!started){ ctx.moveTo(CX+px,y); started=true; } else ctx.lineTo(CX+px,y); }
+  ctx.stroke();
+}
+function draw(){
+  const P=PHASES[i]; ctx.clearRect(0,0,cv.width,cv.height);
+  axis();
+  const tMax=P.tEnd;
+  plot(natY,'--live',tMax);
+  plot(jvmY,'--accent',tMax);
+  // labels at line ends
+  const je=jvmY(Math.min(tMax,1)), ne=natY(Math.min(tMax,1));
+  const lx=Math.min(CX+Math.min(tMax,1)*CW-4, CX+CW-4);
+  ctx.font='600 12px system-ui'; ctx.textAlign='right';
+  ctx.fillStyle=cssv('--live'); ctx.fillText('native '+Math.round(ne*100)+'%', lx, CY+CH-ne*CH*0.92+16);
+  ctx.fillStyle=cssv('--accent'); ctx.fillText('JVM '+Math.round(je*100)+'%', lx, CY+CH-je*CH*0.92-8);
+  // tier markers when passed
+  ctx.fillStyle=cssv('--active'); ctx.font='11px system-ui'; ctx.textAlign='center';
+  if(tMax>0.19){ ctx.fillText('C1', CX+0.20*CW, CY+CH-0.36*CH*0.92-8); }
+  if(tMax>0.50){ ctx.fillText('C2', CX+0.52*CW, CY+CH-0.8*CH*0.92-8); }
+  // crossover marker (where jvm passes native, ~t where jvmY=0.62 → in C2 ramp)
+  if(tMax>0.475){ const tc=0.475; ctx.strokeStyle=cssv('--danger'); ctx.setLineDash([4,4]); ctx.beginPath();
+    ctx.moveTo(CX+tc*CW, CY+CH); ctx.lineTo(CX+tc*CW, CY+8); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle=cssv('--danger'); ctx.fillText('crossover', CX+tc*CW, CY+2); }
+  // decision shading in final phase
+  if(P.decide){
+    const tc=0.475;
+    ctx.globalAlpha=0.10; ctx.fillStyle=cssv('--live'); ctx.fillRect(CX, CY, tc*CW, CH);
+    ctx.fillStyle=cssv('--accent'); ctx.fillRect(CX+tc*CW, CY, (1-tc)*CW, CH); ctx.globalAlpha=1;
+    ctx.font='600 13px system-ui'; ctx.textAlign='center';
+    ctx.fillStyle=cssv('--live'); ctx.fillText('short-lived: native wins', CX+tc*CW*0.5, CY+22);
+    ctx.fillStyle=cssv('--accent'); ctx.fillText('long-running: JVM wins', CX+tc*CW+(1-tc)*CW*0.5, CY+22);
+  }
+  elCount.textContent='phase '+(i+1)+' / '+PHASES.length;
+}
+function setPhase(n){ i=Math.max(0,Math.min(PHASES.length-1,n)); elPhase.textContent=PHASES[i].label; elCap.innerHTML='<b>What to notice:</b> '+PHASES[i].cap; elScrub.value=i; }
+function reset(){ elScrub.max=PHASES.length-1; setPhase(0); draw(); }
+let playing=false,raf=null,lastT=0,pause=0;
+function tick(ts){ if(!playing){raf=null;return;} const dur=1700-elSpeed.value*120; if(!lastT)lastT=ts; pause+=ts-lastT; lastT=ts;
+  if(pause>dur){ pause=0; if(i<PHASES.length-1){ setPhase(i+1); draw(); } else { playing=false; elPlay.textContent='▶ Play'; } } if(playing) raf=requestAnimationFrame(tick); }
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{ playing=false; elPlay.textContent='▶ Play'; if(i<PHASES.length-1) setPhase(i+1); else setPhase(0); draw(); };
+elPlay.onclick=()=>{ playing=!playing; elPlay.textContent=playing?'⏸ Pause':'▶ Play'; lastT=0; pause=0; if(playing){ if(i>=PHASES.length-1) setPhase(0); raf=requestAnimationFrame(tick); } };
+elScrub.oninput=()=>{ playing=false; elPlay.textContent='▶ Play'; setPhase(+elScrub.value); draw(); };
+reset();
+</script>
+</body>
+</html>

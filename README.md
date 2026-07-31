@@ -12,6 +12,7 @@ This repository is a curated study workspace for building depth beyond surface-l
 | [LLD](LLD/) | Object design, SOLID, design patterns, refactoring, machine coding | Low-level design interviews and maintainable Java design |
 | [Java](java/) | JVM internals, GC, JIT, concurrency, language semantics | Understanding Java from bytecode to production behavior |
 | [Spring Boot](spring-boot/) | IoC container, bean lifecycle, AOP, auto-configuration, web, data, production | Debugging and designing Spring apps from first principles |
+| [AI Engineering](ai-engineering/) | GenAI/agentic engineering: API, RAG, agents, evals, MCP, production, FDE skills | Becoming a GenAI/Agentic AI Engineer or Forward Deployed Engineer |
 | [System Design](system-design/) | Interview problem coverage, patterns, and practice roadmap | Timed system design interview preparation |
 | [Study Material](study-material/) | Reference PDFs and supporting notes | Extra reading and practice resources |
 
@@ -42,6 +43,7 @@ This repository is a curated study workspace for building depth beyond surface-l
 ```text
 .
 |-- HLD/              # High-level design curriculum and distributed systems notes
+|-- ai-engineering/   # GenAI & agentic AI engineering / FDE curriculum
 |-- LLD/              # Low-level design curriculum, Java examples, and machine-coding drills
 |-- java/             # Java and JVM internals curriculum
 |-- spring-boot/      # Spring and Spring Boot internals curriculum
@@ -78,4 +80,5 @@ The goal is not to memorize answers. The goal is to develop the judgment to deri
 - [Java visualizations](java/VISUALIZATIONS.md)
 - [Spring Boot roadmap](spring-boot/ROADMAP.md)
 - [Spring Boot study method](spring-boot/STUDY-METHOD.md)
+- [AI engineering roadmap](ai-engineering/ROADMAP.md)
 - [System design problem bank](system-design/PROBLEM-BANK.md)

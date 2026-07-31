@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<!-- Self-contained. No build/deps/network. Harness: ../../../shared-viz/README.md -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DI resolution — by type, then disambiguate</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--live:#3fb950;
+    --garbage:#6e7681;--active:#d29922;--accent:#58a6ff;--danger:#f85149;--frozen:#a371f7;--line:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>DI resolution — by type, then disambiguate</h1>
+  <p class="sub">How <code>@Autowired</code> finds a bean: match by type → break ties with <code>@Primary</code>/<code>@Qualifier</code> → recurse into its dependencies. <a class="back" href="../README.md">← Part 0 · The Container</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="380"></canvas>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--accent)"></i> the injection point being resolved</span>
+    <span><i class="dot" style="background:var(--live)"></i> chosen / resolved</span>
+    <span><i class="dot" style="background:var(--danger)"></i> ambiguous / rejected</span>
+    <span><i class="dot" style="background:var(--frozen)"></i> candidate</span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Step</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="5" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> resolution is by <i>type first</i>; a name/qualifier only breaks a tie. And each dependency is resolved recursively before the bean is built.</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+// The graph: OrderService needs a PaymentGateway (2 impls) + a Clock (1 impl).
+const PHASES=[
+ {label:'① OrderService needs a PaymentGateway',
+  cap:'The container is creating <code>OrderService</code>. Its constructor asks for a <code>PaymentGateway</code>. Resolution starts: find bean definitions whose type <b>matches by type</b>.',
+  need:'PaymentGateway', gateways:['stripe','paypal'], gwState:['cand','cand'], pick:null, clock:'idle', built:false, note:null},
+ {label:'② Two candidates → NoUniqueBeanDefinitionException risk',
+  cap:'<b>Two</b> beans match <code>PaymentGateway</code>: <code>stripe</code> and <code>paypal</code>. By type alone this is <b>ambiguous</b> — Spring would throw <code>NoUniqueBeanDefinitionException</code>. Something must break the tie.',
+  need:'PaymentGateway', gateways:['stripe','paypal'], gwState:['ambig','ambig'], pick:null, clock:'idle', built:false, note:'ambiguous by type'},
+ {label:'③ @Primary breaks the tie',
+  cap:'<code>stripe</code> is marked <code>@Primary</code> (or the injection point has <code>@Qualifier("stripe")</code>). That designates the winner — <code>paypal</code> is set aside. Type matched first; the qualifier only <b>disambiguated</b>.',
+  need:'PaymentGateway', gateways:['stripe','paypal'], gwState:['chosen','reject'], pick:'stripe', clock:'idle', built:false, note:'@Primary → stripe'},
+ {label:'④ Recurse: resolve stripe’s own dependencies',
+  cap:'Before <code>stripe</code> can be handed over, <b>its</b> dependencies resolve too — it needs a <code>Clock</code>. One candidate, unambiguous → resolved. Resolution is <b>recursive</b>, depth-first.',
+  need:'Clock', gateways:['stripe','paypal'], gwState:['chosen','reject'], pick:'stripe', clock:'resolving', built:false, note:'recurse into stripe → Clock'},
+ {label:'⑤ Clock resolved (one candidate, no ambiguity)',
+  cap:'Exactly one <code>Clock</code> bean → resolved by type with no tie to break. It’s injected into <code>stripe</code>; <code>stripe</code> is now fully built.',
+  need:'Clock', gateways:['stripe','paypal'], gwState:['chosen','reject'], pick:'stripe', clock:'done', built:false, note:'Clock → injected into stripe'},
+ {label:'⑥ Inject the resolved graph into OrderService',
+  cap:'<code>stripe</code> (with its <code>Clock</code>) is injected into <code>OrderService</code>’s constructor. The whole dependency graph was resolved <b>type-first, disambiguated, depth-first</b> — no wiring code, no <code>new</code>.',
+  need:'PaymentGateway', gateways:['stripe','paypal'], gwState:['chosen','reject'], pick:'stripe', clock:'done', built:true, note:'OrderService constructed'},
+];
+
+let i=0;
+function box(x,y,w,h,title,col,active){ ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv(active?col:'--line'); ctx.lineWidth=active?2.5:1.5; rr(x,y,w,h,8); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=cssv(active?col:'--ink'); ctx.font='600 14px system-ui'; ctx.textAlign='center'; ctx.fillText(title, x+w/2, y+h/2+5); }
+function arrow(x1,y1,x2,y2,col,dash){ ctx.save(); ctx.strokeStyle=cssv(col); ctx.lineWidth=2; if(dash)ctx.setLineDash([5,4]); ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); ctx.restore();
+  ctx.fillStyle=cssv(col); const a=Math.atan2(y2-y1,x2-x1); ctx.save(); ctx.translate(x2,y2); ctx.rotate(a); ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-8,-4); ctx.lineTo(-8,4); ctx.closePath(); ctx.fill(); ctx.restore(); }
+
+function draw(){
+  const P=PHASES[i];
+  ctx.clearRect(0,0,cv.width,cv.height);
+  // OrderService (left)
+  box(60,150,180,64,'OrderService', P.built?'--live':'--accent', true);
+  // what it needs (label under the arrow)
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px ui-monospace,Menlo,monospace'; ctx.textAlign='center';
+  ctx.fillText('needs: '+P.need, 330, 140);
+  arrow(240,182, 420,182, P.built?'--live':'--accent', !P.built);
+
+  // PaymentGateway candidates (middle, stacked)
+  const gwCol=(s)=> s==='chosen'?'--live': s==='reject'?'--danger': s==='ambig'?'--danger':'--frozen';
+  const names=['stripe','paypal'];
+  for(let g=0; g<2; g++){
+    const y=110+g*90; const s=P.gwState[g];
+    box(430,y,180,60, names[g]+' : PaymentGateway', gwCol(s), s!=='cand');
+    if(s==='chosen'){ ctx.fillStyle=cssv('--live'); ctx.font='600 12px system-ui'; ctx.fillText('✓ chosen', 520, y-6); }
+    if(s==='reject'){ ctx.fillStyle=cssv('--danger'); ctx.font='12px system-ui'; ctx.fillText('set aside', 520, y-6); }
+    if(s==='ambig'){ ctx.fillStyle=cssv('--danger'); ctx.font='600 12px system-ui'; ctx.fillText('? ambiguous', 520, y-6); }
+  }
+  // Clock (right) — dependency of stripe
+  const clockActive = P.clock!=='idle';
+  const clockCol = P.clock==='done'?'--live': P.clock==='resolving'?'--active':'--frozen';
+  box(680,110,150,56,'systemClock : Clock', clockCol, clockActive);
+  // arrow stripe -> Clock (recurse) when relevant
+  if(P.clock!=='idle'){ arrow(610,140, 680,138, clockCol, P.clock==='resolving');
+    ctx.fillStyle=cssv(clockCol); ctx.font='11px system-ui'; ctx.textAlign='center'; ctx.fillText('recurse', 645, 128); }
+  if(P.clock==='done'){ ctx.fillStyle=cssv('--live'); ctx.font='600 12px system-ui'; ctx.textAlign='center'; ctx.fillText('✓', 755, 104); }
+
+  // note banner
+  if(P.note){ ctx.fillStyle=cssv(P.built||P.pick&&P.clock==='done'?'--live':P.gwState.includes('ambig')?'--danger':'--active');
+    ctx.font='600 14px system-ui'; ctx.textAlign='center'; ctx.fillText('⚡ '+P.note, 440, 320); }
+  elCount.textContent='phase '+(i+1)+' / '+PHASES.length;
+}
+function setPhase(n){ i=Math.max(0,Math.min(PHASES.length-1,n)); elPhase.textContent=PHASES[i].label; elCap.innerHTML='<b>What to notice:</b> '+PHASES[i].cap; elScrub.value=i; }
+function reset(){ elScrub.max=PHASES.length-1; setPhase(0); draw(); }
+let playing=false,raf=null,lastT=0,pause=0;
+function tick(ts){ if(!playing){raf=null;return;} const dur=1600-elSpeed.value*110; if(!lastT)lastT=ts; pause+=ts-lastT; lastT=ts;
+  if(pause>dur){ pause=0; if(i<PHASES.length-1){ setPhase(i+1); draw(); } else { playing=false; elPlay.textContent='▶ Play'; } } if(playing) raf=requestAnimationFrame(tick); }
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{ playing=false; elPlay.textContent='▶ Play'; if(i<PHASES.length-1) setPhase(i+1); else setPhase(0); draw(); };
+elPlay.onclick=()=>{ playing=!playing; elPlay.textContent=playing?'⏸ Pause':'▶ Play'; lastT=0; pause=0; if(playing){ if(i>=PHASES.length-1) setPhase(0); raf=requestAnimationFrame(tick); } };
+elScrub.oninput=()=>{ playing=false; elPlay.textContent='▶ Play'; setPhase(+elScrub.value); draw(); };
+reset();
+</script>
+</body>
+</html>

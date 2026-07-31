@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<!-- Self-contained. No build/deps/network. Harness: ../../../shared-viz/README.md -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reactive backpressure — the consumer sets the pace</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--live:#3fb950;
+    --garbage:#6e7681;--active:#d29922;--accent:#58a6ff;--danger:#f85149;--frozen:#a371f7;--line:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Reactive backpressure — the consumer sets the pace</h1>
+  <p class="sub">A fast publisher can’t outrun a slow subscriber: the subscriber signals <code>request(n)</code> and only that many items flow. <a class="back" href="../README.md">← Part 3 · Web MVC &amp; Reactive</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="360"></canvas>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--frozen)"></i> buffered at producer (unsent)</span>
+    <span><i class="dot" style="background:var(--active)"></i> in flight (within demand)</span>
+    <span><i class="dot" style="background:var(--live)"></i> consumed</span>
+    <span><i class="dot" style="background:var(--accent)"></i> request(n) demand signal</span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Step</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="6" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> demand flows <i>upstream</i> (consumer → producer); items flow downstream only up to the demand granted. Producer buffer stays bounded.</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+// Producer has 10 items ready. Consumer requests in batches of 2, consumes slowly.
+// State fields: buffered (count still at producer), inflight (0..demand not yet consumed),
+// consumed (done), demand (current outstanding request), signal ('request'|'emit'|'consume'|null)
+const PHASES=[
+ {label:'① Subscribe — producer has 10 items ready',
+  cap:'A <code>Flux</code> of 10 items is subscribed. The producer is <b>fast</b> (all ready); the subscriber is <b>slow</b>. Nothing flows until the subscriber asks.',
+  buffered:10, inflight:0, consumed:0, demand:0, signal:null},
+ {label:'② Subscriber signals request(2)',
+  cap:'The subscriber calls <code>request(2)</code> — “send me at most 2.” Demand travels <b>upstream</b>. This is the whole mechanism: the consumer, not the producer, sets the pace.',
+  buffered:10, inflight:0, consumed:0, demand:2, signal:'request'},
+ {label:'③ Producer emits exactly 2 (not more)',
+  cap:'The producer emits <b>2</b> items — it has 8 more ready but <b>may not send them</b>: outstanding demand is now 0. A fast producer is throttled by geometry, not luck.',
+  buffered:8, inflight:2, consumed:0, demand:0, signal:'emit'},
+ {label:'④ Subscriber consumes the 2',
+  cap:'The slow subscriber processes both in-flight items. Demand is 0, so the producer <b>waits</b> — memory stays bounded (only what was requested is in flight).',
+  buffered:8, inflight:0, consumed:2, demand:0, signal:'consume'},
+ {label:'⑤ request(2) again → emit 2 more',
+  cap:'Ready for more, the subscriber signals <code>request(2)</code> again; the producer releases the next 2. The cycle repeats at the <b>consumer’s</b> tempo.',
+  buffered:6, inflight:2, consumed:2, demand:0, signal:'request'},
+ {label:'⑥ Steady state — paced pull, bounded buffer',
+  cap:'This request→emit→consume loop continues. The fast producer never races ahead; at most <code>demand</code> items are ever in flight. <b>That’s backpressure.</b>',
+  buffered:2, inflight:2, consumed:6, demand:0, signal:'consume'},
+ {label:'⑦ Without backpressure (contrast)',
+  cap:'⚠️ A plain callback/push model with <b>no</b> demand signal: the fast producer shoves all 10 at the slow consumer — they pile into an <b>unbounded buffer</b> → OutOfMemoryError. Backpressure is what prevents this.',
+  buffered:0, inflight:10, consumed:0, demand:0, signal:'flood'},
+];
+
+let i=0;
+function pill(x,y,col,alpha){ ctx.globalAlpha=alpha; ctx.fillStyle=cssv(col); rr(x,y,26,26,5); ctx.fill(); ctx.globalAlpha=1; ctx.strokeStyle=cssv(col); ctx.lineWidth=1.5; rr(x,y,26,26,5); ctx.stroke(); }
+function row(x,y,n,col,alpha){ for(let k=0;k<n;k++) pill(x+k*30,y,col,alpha); }
+function box(x,y,w,h,label,col){ ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv(col); ctx.lineWidth=2; rr(x,y,w,h,8); ctx.fill(); ctx.stroke();
+  ctx.fillStyle=cssv(col); ctx.font='600 14px system-ui'; ctx.textAlign='center'; ctx.fillText(label, x+w/2, y+18); }
+function arrow(x1,y1,x2,y2,col,dash){ ctx.save(); ctx.strokeStyle=cssv(col); ctx.lineWidth=2.5; if(dash)ctx.setLineDash([6,4]); ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); ctx.restore();
+  ctx.fillStyle=cssv(col); const a=Math.atan2(y2-y1,x2-x1); ctx.save(); ctx.translate(x2,y2); ctx.rotate(a); ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-9,-5); ctx.lineTo(-9,5); ctx.closePath(); ctx.fill(); ctx.restore(); }
+
+function draw(){
+  const P=PHASES[i], flood=P.signal==='flood';
+  ctx.clearRect(0,0,cv.width,cv.height);
+  // Producer (left) and Consumer (right)
+  box(40,60,230,120, 'Publisher (fast, 10 ready)', flood?'--danger':'--frozen');
+  box(610,60,230,120, 'Subscriber (slow)', '--live');
+  // buffered pills inside producer
+  ctx.fillStyle=cssv('--muted'); ctx.font='11px system-ui'; ctx.textAlign='left'; ctx.fillText('buffered:', 56, 104);
+  row(56,112, Math.min(P.buffered,7), flood?'--danger':'--frozen', 0.7);
+  if(P.buffered>7){ ctx.fillStyle=cssv('--frozen'); ctx.font='12px system-ui'; ctx.fillText('+'+(P.buffered-7), 56+7*30, 130); }
+  // consumed pills inside consumer
+  ctx.fillStyle=cssv('--muted'); ctx.font='11px system-ui'; ctx.fillText('consumed:', 626, 104);
+  row(626,112, Math.min(P.consumed,6), '--live', 0.85);
+  // in-flight pills in the middle channel
+  const chx=300, chy=112;
+  ctx.fillStyle=cssv('--muted'); ctx.font='11px system-ui'; ctx.textAlign='center'; ctx.fillText('in flight (≤ demand)', 440, 96);
+  if(flood){ // flooded channel: many pills jammed
+    row(292,112, 10, '--danger', 0.6);
+    ctx.fillStyle=cssv('--danger'); ctx.font='600 13px system-ui'; ctx.textAlign='center'; ctx.fillText('unbounded buffer → OOM', 440, 172);
+  } else {
+    row(chx+ (2-Math.min(P.inflight,2))*15, chy, P.inflight, '--active', 0.9);
+  }
+  // demand signal arrow (upstream, consumer -> producer) or emit arrow (downstream)
+  if(P.signal==='request'){ arrow(610,150, 270,150, '--accent', true);
+    ctx.fillStyle=cssv('--accent'); ctx.font='600 13px system-ui'; ctx.textAlign='center'; ctx.fillText('request('+P.demand+') — demand upstream', 440, 210); }
+  else if(P.signal==='emit'){ arrow(270,120, 610,120, '--active', false);
+    ctx.fillStyle=cssv('--active'); ctx.font='600 13px system-ui'; ctx.textAlign='center'; ctx.fillText('emit ≤ demand (downstream)', 440, 210); }
+  else if(P.signal==='consume'){ ctx.fillStyle=cssv('--live'); ctx.font='600 13px system-ui'; ctx.textAlign='center'; ctx.fillText('consumer processes; producer waits (demand=0)', 440, 210); }
+  else if(flood){ arrow(270,120, 610,120, '--danger', false);
+    ctx.fillStyle=cssv('--danger'); ctx.font='600 13px system-ui'; ctx.textAlign='center'; ctx.fillText('push everything, no demand signal', 440, 210); }
+  // demand meter
+  ctx.textAlign='left'; ctx.font='13px system-ui';
+  ctx.fillStyle=cssv('--accent'); ctx.fillText('outstanding demand: '+P.demand, 40, 250);
+  ctx.fillStyle=cssv('--muted'); ctx.fillText('max in flight ever: '+(flood?'∞ (unbounded)':'≤ 2'), 300, 250);
+  elCount.textContent='phase '+(i+1)+' / '+PHASES.length;
+}
+function setPhase(n){ i=Math.max(0,Math.min(PHASES.length-1,n)); elPhase.textContent=PHASES[i].label; elCap.innerHTML='<b>What to notice:</b> '+PHASES[i].cap; elScrub.value=i; }
+function reset(){ elScrub.max=PHASES.length-1; setPhase(0); draw(); }
+let playing=false,raf=null,lastT=0,pause=0;
+function tick(ts){ if(!playing){raf=null;return;} const dur=1600-elSpeed.value*110; if(!lastT)lastT=ts; pause+=ts-lastT; lastT=ts;
+  if(pause>dur){ pause=0; if(i<PHASES.length-1){ setPhase(i+1); draw(); } else { playing=false; elPlay.textContent='▶ Play'; } } if(playing) raf=requestAnimationFrame(tick); }
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{ playing=false; elPlay.textContent='▶ Play'; if(i<PHASES.length-1) setPhase(i+1); else setPhase(0); draw(); };
+elPlay.onclick=()=>{ playing=!playing; elPlay.textContent=playing?'⏸ Pause':'▶ Play'; lastT=0; pause=0; if(playing){ if(i>=PHASES.length-1) setPhase(0); raf=requestAnimationFrame(tick); } };
+elScrub.oninput=()=>{ playing=false; elPlay.textContent='▶ Play'; setPhase(+elScrub.value); draw(); };
+reset();
+</script>
+</body>
+</html>

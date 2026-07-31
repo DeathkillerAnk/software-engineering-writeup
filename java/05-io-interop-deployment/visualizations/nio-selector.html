@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<!-- Self-contained. No build/deps/network. Harness: ../../../shared-viz/README.md -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NIO Selector — one thread, many connections</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--ink:#e6edf3;--muted:#8b949e;--live:#3fb950;
+    --garbage:#6e7681;--active:#d29922;--accent:#58a6ff;--danger:#f85149;--frozen:#a371f7;--line:#30363d;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:20px}
+  h1{font-size:20px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .phase{font-weight:600;font-size:15px;margin:10px 0;min-height:22px;color:var(--accent)}
+  canvas{width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;display:block}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:12px 0;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 14px}
+  button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  input[type=range]{accent-color:var(--accent);vertical-align:middle}
+  .cap{background:var(--panel);border-left:3px solid var(--active);border-radius:0 6px 6px 0;padding:11px 14px;color:var(--ink);font-size:14px;margin-top:6px}
+  .cap b{color:var(--active)}
+  a.back{color:var(--accent);font-size:13px;text-decoration:none}
+  .count{color:var(--muted);font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>NIO Selector — one thread, many connections</h1>
+  <p class="sub">A selector blocks once and wakes only for the <i>ready</i> channels — so one thread serves thousands, vs a thread parked per connection. <a class="back" href="../README.md">← Part 5 · I/O, Interop &amp; Deployment</a></p>
+
+  <div class="phase" id="phase">—</div>
+  <canvas id="c" width="880" height="400"></canvas>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--muted)"></i> idle connection (no cost)</span>
+    <span><i class="dot" style="background:var(--live)"></i> ready — being serviced</span>
+    <span><i class="dot" style="background:var(--accent)"></i> selector thread</span>
+    <span><i class="dot" style="background:var(--danger)"></i> blocked thread (thread-per-conn)</span>
+  </div>
+
+  <div class="bar">
+    <button id="reset">⟲ Reset</button>
+    <button id="step">⏭ Step</button>
+    <button id="play">▶ Play</button>
+    <label style="color:var(--muted);font-size:13px">speed <input type="range" id="speed" min="1" max="10" value="5"></label>
+    <input type="range" id="scrub" min="0" max="5" value="0" style="flex:1;min-width:120px">
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="cap" id="cap"><b>What to notice:</b> the selector thread only touches ready channels; the thousands of idle ones cost almost nothing. Thread-per-connection pays for every idle socket.</div>
+</div>
+
+<script>
+const cv=document.getElementById('c'), ctx=cv.getContext('2d');
+const elPhase=document.getElementById('phase'), elCap=document.getElementById('cap'),
+      elCount=document.getElementById('count'), elScrub=document.getElementById('scrub'),
+      elSpeed=document.getElementById('speed'), elPlay=document.getElementById('play');
+function cssv(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+// 12 connections shown (representing thousands). readySet = indices ready this phase. mode: 'select' vs 'tpc'
+const N=12;
+const PHASES=[
+ {label:'① NIO: many channels registered with ONE selector',
+  cap:'12 connections (imagine 10,000) are registered non-blocking with a single <code>Selector</code>. Right now all are idle — the selector thread is parked in <code>select()</code>, costing nothing.',
+  mode:'select', ready:[], selecting:true},
+ {label:'② select() wakes — 2 channels are readable',
+  cap:'Data arrives on conn 2 and 9. <code>select()</code> returns just those <b>ready keys</b>. The selector doesn’t poll the other 10 — the OS told it exactly who’s ready.',
+  mode:'select', ready:[2,9], selecting:false},
+ {label:'③ One thread services the ready ones, then loops',
+  cap:'The single selector thread reads/handles conn 2 and 9, then calls <code>select()</code> again. Idle conns 0,1,3–8,10,11 were <b>never touched</b> — O(ready), not O(connections).',
+  mode:'select', ready:[5], selecting:false},
+ {label:'④ Scales flat: 1 thread ≈ any number of idle conns',
+  cap:'Whether 12 or 100,000 connections, it’s <b>one thread</b> and one readiness wait. Memory and scheduling stay flat. This is the reactor pattern (Netty, nginx, libuv).',
+  mode:'select', ready:[], selecting:true},
+ {label:'⑤ Contrast — thread-per-connection blocking I/O',
+  cap:'⚠️ Classic <code>java.io</code>: every connection owns a <b>thread blocked in read()</b>. 12 here; 10,000 = 10,000 threads × ~1MB stack ≈ 10GB, almost all just <b>waiting</b>.',
+  mode:'tpc', ready:[2,9], selecting:false},
+ {label:'⑥ Virtual threads: blocking code, NIO-level scale',
+  cap:'✓ Java 21 virtual threads: write the simple blocking <code>read()</code> per connection, but a blocked read <b>unmounts</b> its carrier — millions of connections on a few OS threads. Simplicity of (⑤) with the scale of (①).',
+  mode:'vt', ready:[2,9], selecting:false},
+];
+
+let i=0;
+function connGrid(){ // returns positions for N connections in a grid on the right
+  const cols=4, x0=430, y0=70, cw=100, ch=44, gx=14, gy=14, pos=[];
+  for(let k=0;k<N;k++){ const r=Math.floor(k/cols), c=k%cols; pos.push([x0+c*(cw+gx), y0+r*(ch+gy), cw, ch]); }
+  return pos;
+}
+function draw(){
+  const P=PHASES[i]; ctx.clearRect(0,0,cv.width,cv.height);
+  const pos=connGrid();
+  // left: thread model
+  if(P.mode==='select'){
+    // one selector thread box
+    ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv('--accent'); ctx.lineWidth=2.5; rr(60,150,150,80,8); ctx.fill(); ctx.stroke();
+    ctx.fillStyle=cssv('--accent'); ctx.font='600 14px system-ui'; ctx.textAlign='center'; ctx.fillText('selector', 135,185); ctx.fillText('thread ×1', 135,205);
+    if(P.selecting){ ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.fillText('parked in select()', 135, 245); }
+  } else if(P.mode==='tpc'){
+    // a stack of blocked threads (4 shown; caption gives the real N)
+    for(let t=0;t<4;t++){ ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv('--danger'); ctx.lineWidth=1.5; rr(60,70+t*40,150,32,6); ctx.fill(); ctx.stroke();
+      ctx.fillStyle=cssv('--danger'); ctx.font='11px ui-monospace,Menlo,monospace'; ctx.textAlign='center'; ctx.fillText('thread '+t+' — blocked', 135, 90+t*40); }
+    ctx.fillStyle=cssv('--danger'); ctx.font='600 12px system-ui'; ctx.textAlign='center'; ctx.fillText('… ×N (one per conn)', 135, 246);
+  } else { // vt
+    ctx.fillStyle=cssv('--bg'); ctx.strokeStyle=cssv('--live'); ctx.lineWidth=2.5; rr(60,150,150,80,8); ctx.fill(); ctx.stroke();
+    ctx.fillStyle=cssv('--live'); ctx.font='600 14px system-ui'; ctx.textAlign='center'; ctx.fillText('few carriers', 135,180); ctx.fillText('+ N virtual', 135,200); ctx.fillText('threads', 135,220);
+    ctx.fillStyle=cssv('--muted'); ctx.font='11px system-ui'; ctx.fillText('blocked reads unmount', 135, 250);
+  }
+  // right: connection grid
+  for(let k=0;k<N;k++){ const [x,y,w,h]=pos[k]; const isReady=P.ready.includes(k);
+    let col = isReady ? '--live' : (P.mode==='tpc' ? '--danger' : '--muted');
+    ctx.globalAlpha = isReady?1:0.45;
+    ctx.fillStyle=cssv('--bg'); rr(x,y,w,h,6); ctx.fill();
+    ctx.fillStyle=cssv(col); ctx.globalAlpha=isReady?0.25:0.12; rr(x,y,w,h,6); ctx.fill();
+    ctx.globalAlpha=1; ctx.strokeStyle=cssv(col); ctx.lineWidth=isReady?2.5:1; rr(x,y,w,h,6); ctx.stroke();
+    ctx.fillStyle=cssv(isReady?'--live':'--muted'); ctx.font='12px ui-monospace,Menlo,monospace'; ctx.textAlign='center';
+    ctx.fillText('conn '+k+(isReady?' ●':''), x+w/2, y+h/2+4);
+    // connect ready ones to the thread box
+    if(isReady && P.mode!=='tpc'){ ctx.strokeStyle=cssv('--live'); ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(210,190); ctx.lineTo(x,y+h/2); ctx.stroke(); }
+  }
+  ctx.fillStyle=cssv('--muted'); ctx.font='12px system-ui'; ctx.textAlign='left';
+  ctx.fillText('connections (12 shown; imagine 10,000)', 430, 58);
+  // cost line
+  ctx.font='13px system-ui'; ctx.textAlign='left';
+  const cost = P.mode==='tpc' ? {t:'threads: N (one per conn)', c:'--danger', m:'memory: N × ~1MB stack ≈ 10GB @ 10k'}
+             : P.mode==='vt' ? {t:'threads: few carriers', c:'--live', m:'memory: flat — VTs are ~cheap objects'}
+             : {t:'threads: 1 selector', c:'--accent', m:'memory: flat, O(ready) work'};
+  ctx.fillStyle=cssv(cost.c); ctx.fillText(cost.t, 60, 300);
+  ctx.fillStyle=cssv('--muted'); ctx.fillText(cost.m, 60, 322);
+  elCount.textContent='phase '+(i+1)+' / '+PHASES.length;
+}
+function setPhase(n){ i=Math.max(0,Math.min(PHASES.length-1,n)); elPhase.textContent=PHASES[i].label; elCap.innerHTML='<b>What to notice:</b> '+PHASES[i].cap; elScrub.value=i; }
+function reset(){ elScrub.max=PHASES.length-1; setPhase(0); draw(); }
+let playing=false,raf=null,lastT=0,pause=0;
+function tick(ts){ if(!playing){raf=null;return;} const dur=1600-elSpeed.value*110; if(!lastT)lastT=ts; pause+=ts-lastT; lastT=ts;
+  if(pause>dur){ pause=0; if(i<PHASES.length-1){ setPhase(i+1); draw(); } else { playing=false; elPlay.textContent='▶ Play'; } } if(playing) raf=requestAnimationFrame(tick); }
+document.getElementById('reset').onclick=reset;
+document.getElementById('step').onclick=()=>{ playing=false; elPlay.textContent='▶ Play'; if(i<PHASES.length-1) setPhase(i+1); else setPhase(0); draw(); };
+elPlay.onclick=()=>{ playing=!playing; elPlay.textContent=playing?'⏸ Pause':'▶ Play'; lastT=0; pause=0; if(playing){ if(i>=PHASES.length-1) setPhase(0); raf=requestAnimationFrame(tick); } };
+elScrub.oninput=()=>{ playing=false; elPlay.textContent='▶ Play'; setPhase(+elScrub.value); draw(); };
+reset();
+</script>
+</body>
+</html>
