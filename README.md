@@ -15,6 +15,7 @@ This repository is a curated study workspace for building depth beyond surface-l
 | [AI Engineering](ai-engineering/) | GenAI/agentic engineering: API, RAG, agents, evals, MCP, production, FDE skills | Becoming a GenAI/Agentic AI Engineer or Forward Deployed Engineer |
 | [System Design](system-design/) | Interview problem coverage, patterns, and practice roadmap | Timed system design interview preparation |
 | [Study Material](study-material/) | Reference PDFs and supporting notes | Extra reading and practice resources |
+| [Kafka](kafka/) | Reference PDFs and supporting notes | Extra reading and practice resources |
 
 ## Recommended learning paths
 
