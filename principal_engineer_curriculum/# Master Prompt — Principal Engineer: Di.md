@@ -2063,6 +2063,7 @@ Explain exactly why the next topic follows.
 
 # IMPORTANT RULES
 
+0. Do not skip any topic
 1. Do not produce a shallow overview.
 2. Do not skip internals because they are difficult.
 3. Do not assume microservices are always the correct architecture.
