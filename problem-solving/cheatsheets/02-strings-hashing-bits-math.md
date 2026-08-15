@@ -10,6 +10,48 @@ A pattern-first cheatsheet with clean, compilable Java for string manipulation, 
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** Frequency count  **Time:** O(n)  **Space:** O(1)
 **Approach:** Two strings are anagrams iff they have identical character frequencies. Use a fixed-size count array (26 for lowercase letters), increment for the first string and decrement for the second. If every bucket ends at zero the strings match. Length mismatch is an immediate reject.
+
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**LeetCode Link:** [Valid Anagram](https://leetcode.com/problems/valid-anagram/)
+
+
+Given two strings `s` and `t`, return `true` if `t` is an <span data-keyword="anagram">anagram</span> of `s`, and `false` otherwise.
+
+ 
+
+<strong class="example">Example 1:</strong>
+
+<div class="example-block">
+
+**Input:** <span class="example-io">s = "anagram", t = "nagaram"</span>
+
+**Output:** <span class="example-io">true</span>
+</div>
+
+<strong class="example">Example 2:</strong>
+
+<div class="example-block">
+
+**Input:** <span class="example-io">s = "rat", t = "car"</span>
+
+**Output:** <span class="example-io">false</span>
+</div>
+
+ 
+
+**Constraints:**
+
+	- `1 <= s.length, t.length <= 5 * 10<sup>4</sup>`
+
+	- `s` and `t` consist of lowercase English letters.
+
+ 
+
+**Follow up:** What if the inputs contain Unicode characters? How would you adapt your solution to such a case?
+
+</details>
+
 ```java
 class Solution {
     public boolean isAnagram(String s, String t) {
@@ -30,6 +72,64 @@ class Solution {
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** Hashing by canonical key  **Time:** O(n·k log k)  **Space:** O(n·k)
 **Approach:** Anagrams share a canonical form. Compute a key by sorting each string's characters (or by a 26-length count signature) and bucket strings by that key in a map. Each bucket's value list is one anagram group.
+
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**LeetCode Link:** [Group Anagrams](https://leetcode.com/problems/group-anagrams/)
+
+
+Given an array of strings `strs`, group the <span data-keyword="anagram">anagrams</span> together. You can return the answer in **any order**.
+
+ 
+
+<strong class="example">Example 1:</strong>
+
+<div class="example-block">
+
+**Input:** <span class="example-io">strs = ["eat","tea","tan","ate","nat","bat"]</span>
+
+**Output:** <span class="example-io">[["bat"],["nat","tan"],["ate","eat","tea"]]</span>
+
+**Explanation:**
+
+	- There is no string in strs that can be rearranged to form `"bat"`.
+
+	- The strings `"nat"` and `"tan"` are anagrams as they can be rearranged to form each other.
+
+	- The strings `"ate"`, `"eat"`, and `"tea"` are anagrams as they can be rearranged to form each other.
+
+</div>
+
+<strong class="example">Example 2:</strong>
+
+<div class="example-block">
+
+**Input:** <span class="example-io">strs = [""]</span>
+
+**Output:** <span class="example-io">[[""]]</span>
+</div>
+
+<strong class="example">Example 3:</strong>
+
+<div class="example-block">
+
+**Input:** <span class="example-io">strs = ["a"]</span>
+
+**Output:** <span class="example-io">[["a"]]</span>
+</div>
+
+ 
+
+**Constraints:**
+
+	- `1 <= strs.length <= 10<sup>4</sup>`
+
+	- `0 <= strs[i].length <= 100`
+
+	- `strs[i]` consists of lowercase English letters.
+
+</details>
+
 ```java
 import java.util.*;
 
@@ -52,6 +152,51 @@ class Solution {
 **Category:** Tier 2 · Reinforce
 **Pattern:** Sliding window + frequency match  **Time:** O(n)  **Space:** O(1)
 **Approach:** Slide a fixed window of length `p.length()` across `s`, maintaining a running count array. Track how many of the 26 buckets currently match the target counts. When all 26 match, the window start is an anagram index. Add/remove one character per step and update the match tally incrementally.
+
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**LeetCode Link:** [Find All Anagrams in a String](https://leetcode.com/problems/find-all-anagrams-in-a-string/)
+
+
+Given two strings `s` and `p`, return an array of all the start indices of `p`'s <span data-keyword="anagram">anagrams</span> in `s`. You may return the answer in **any order**.
+
+ 
+
+<strong class="example">Example 1:</strong>
+
+```text
+
+**Input:** s = "cbaebabacd", p = "abc"
+**Output:** [0,6]
+**Explanation:**
+The substring with start index = 0 is "cba", which is an anagram of "abc".
+The substring with start index = 6 is "bac", which is an anagram of "abc".
+
+```
+
+<strong class="example">Example 2:</strong>
+
+```text
+
+**Input:** s = "abab", p = "ab"
+**Output:** [0,1,2]
+**Explanation:**
+The substring with start index = 0 is "ab", which is an anagram of "ab".
+The substring with start index = 1 is "ba", which is an anagram of "ab".
+The substring with start index = 2 is "ab", which is an anagram of "ab".
+
+```
+
+ 
+
+**Constraints:**
+
+	- `1 <= s.length, p.length <= 3 * 10<sup>4</sup>`
+
+	- `s` and `p` consist of lowercase English letters.
+
+</details>
+
 ```java
 import java.util.*;
 
@@ -76,6 +221,45 @@ class Solution {
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** Expand around center  **Time:** O(n²)  **Space:** O(1)
 **Approach:** Every palindrome has a center: either a single character (odd length) or a gap between two characters (even length). For each of the 2n-1 centers, expand outward while characters match and record the longest span found. This avoids the O(n²) space of DP.
+
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**LeetCode Link:** [Longest Palindromic Substring](https://leetcode.com/problems/longest-palindromic-substring/)
+
+
+Given a string `s`, return *the longest* <span data-keyword="palindromic-string">*palindromic*</span> <span data-keyword="substring-nonempty">*substring*</span> in `s`.
+
+ 
+
+<strong class="example">Example 1:</strong>
+
+```text
+
+**Input:** s = "babad"
+**Output:** "bab"
+**Explanation:** "aba" is also a valid answer.
+
+```
+
+<strong class="example">Example 2:</strong>
+
+```text
+
+**Input:** s = "cbbd"
+**Output:** "bb"
+
+```
+
+ 
+
+**Constraints:**
+
+	- `1 <= s.length <= 1000`
+
+	- `s` consist of only digits and English letters.
+
+</details>
+
 ```java
 class Solution {
     public String longestPalindrome(String s) {
@@ -107,6 +291,50 @@ class Solution {
 **Category:** Tier 2 · Reinforce
 **Pattern:** Expand around center (count)  **Time:** O(n²)  **Space:** O(1)
 **Approach:** Same expand-around-center idea, but instead of tracking the longest, count every valid palindrome. Each successful expansion step (characters still match) contributes exactly one palindromic substring.
+
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**LeetCode Link:** [Palindromic Substrings](https://leetcode.com/problems/palindromic-substrings/)
+
+
+Given a string `s`, return *the number of **palindromic substrings** in it*.
+
+A string is a **palindrome** when it reads the same backward as forward.
+
+A **substring** is a contiguous sequence of characters within the string.
+
+ 
+
+<strong class="example">Example 1:</strong>
+
+```text
+
+**Input:** s = "abc"
+**Output:** 3
+**Explanation:** Three palindromic strings: "a", "b", "c".
+
+```
+
+<strong class="example">Example 2:</strong>
+
+```text
+
+**Input:** s = "aaa"
+**Output:** 6
+**Explanation:** Six palindromic strings: "a", "a", "a", "aa", "aa", "aaa".
+
+```
+
+ 
+
+**Constraints:**
+
+	- `1 <= s.length <= 1000`
+
+	- `s` consists of lowercase English letters.
+
+</details>
+
 ```java
 class Solution {
     public int countSubstrings(String s) {
@@ -132,6 +360,82 @@ class Solution {
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** Stack matching  **Time:** O(n)  **Space:** O(n)
 **Approach:** Push opening brackets onto a stack. On a closing bracket, the stack top must be the matching opener; otherwise the string is invalid. A valid string leaves the stack empty at the end.
+
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**LeetCode Link:** [Valid Parentheses](https://leetcode.com/problems/valid-parentheses/)
+
+
+Given a string `s` containing just the characters `'('`, `')'`, `'{'`, `'}'`, `'['` and `']'`, determine if the input string is valid.
+
+An input string is valid if:
+
+<ol>
+	- Open brackets must be closed by the same type of brackets.
+
+	- Open brackets must be closed in the correct order.
+
+	- Every close bracket has a corresponding open bracket of the same type.
+
+</ol>
+
+ 
+
+<strong class="example">Example 1:</strong>
+
+<div class="example-block">
+
+**Input:** <span class="example-io">s = "()"</span>
+
+**Output:** <span class="example-io">true</span>
+</div>
+
+<strong class="example">Example 2:</strong>
+
+<div class="example-block">
+
+**Input:** <span class="example-io">s = "()[]{}"</span>
+
+**Output:** <span class="example-io">true</span>
+</div>
+
+<strong class="example">Example 3:</strong>
+
+<div class="example-block">
+
+**Input:** <span class="example-io">s = "(]"</span>
+
+**Output:** <span class="example-io">false</span>
+</div>
+
+<strong class="example">Example 4:</strong>
+
+<div class="example-block">
+
+**Input:** <span class="example-io">s = "([])"</span>
+
+**Output:** <span class="example-io">true</span>
+</div>
+
+<strong class="example">Example 5:</strong>
+
+<div class="example-block">
+
+**Input:** <span class="example-io">s = "([)]"</span>
+
+**Output:** <span class="example-io">false</span>
+</div>
+
+ 
+
+**Constraints:**
+
+	- `1 <= s.length <= 10<sup>4</sup>`
+
+	- `s` consists of parentheses only `'()[]{}'`.
+
+</details>
+
 ```java
 import java.util.*;
 
@@ -153,6 +457,63 @@ class Solution {
 **Category:** Tier 2 · Reinforce
 **Pattern:** Two stacks (nested)  **Time:** O(n·maxK)  **Space:** O(n)
 **Approach:** Parse left to right using one stack for repeat counts and one for the string built so far. On `[`, push the current number and accumulated string, then reset. On `]`, pop the count and previous string, and append the current segment repeated `count` times. Digits accumulate multi-digit numbers; letters append to the current segment.
+
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**LeetCode Link:** [Decode String](https://leetcode.com/problems/decode-string/)
+
+
+Given an encoded string, return its decoded string.
+
+The encoding rule is: `k[encoded_string]`, where the `encoded_string` inside the square brackets is being repeated exactly `k` times. Note that `k` is guaranteed to be a positive integer.
+
+You may assume that the input string is always valid; there are no extra white spaces, square brackets are well-formed, etc. Furthermore, you may assume that the original data does not contain any digits and that digits are only for those repeat numbers, `k`. For example, there will not be input like `3a` or `2[4]`.
+
+The test cases are generated so that the length of the output will never exceed `10<sup>5</sup>`.
+
+ 
+
+<strong class="example">Example 1:</strong>
+
+```text
+
+**Input:** s = "3[a]2[bc]"
+**Output:** "aaabcbc"
+
+```
+
+<strong class="example">Example 2:</strong>
+
+```text
+
+**Input:** s = "3[a2[c]]"
+**Output:** "accaccacc"
+
+```
+
+<strong class="example">Example 3:</strong>
+
+```text
+
+**Input:** s = "2[abc]3[cd]ef"
+**Output:** "abcabccdcdcdef"
+
+```
+
+ 
+
+**Constraints:**
+
+	- `1 <= s.length <= 30`
+
+	- `s` consists of lowercase English letters, digits, and square brackets `'[]'`.
+
+	- `s` is guaranteed to be **a valid** input.
+
+	- All the integers in `s` are in the range `[1, 300]`.
+
+</details>
+
 ```java
 import java.util.*;
 
@@ -188,6 +549,62 @@ class Solution {
 **Category:** Tier 2 · Reinforce
 **Pattern:** Stack of terms (precedence)  **Time:** O(n)  **Space:** O(n)
 **Approach:** Handle `+ - * /` without parentheses by tracking the last operator. Accumulate each number, then on the next operator (or end of string) apply the pending operator: push for `+`, push negated for `-`, or pop-and-combine for `*` `/`. The final answer is the sum of the stack.
+
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**LeetCode Link:** [Basic Calculator II](https://leetcode.com/problems/basic-calculator-ii/)
+
+
+Given a string `s` which represents an expression, *evaluate this expression and return its value*. 
+
+The integer division should truncate toward zero.
+
+You may assume that the given expression is always valid. All intermediate results will be in the range of `[-2<sup>31</sup>, 2<sup>31</sup> - 1]`.
+
+**Note:** You are not allowed to use any built-in function which evaluates strings as mathematical expressions, such as `eval()`.
+
+ 
+
+<strong class="example">Example 1:</strong>
+
+```text
+**Input:** s = "3+2*2"
+**Output:** 7
+
+```
+
+<strong class="example">Example 2:</strong>
+
+```text
+**Input:** s = " 3/2 "
+**Output:** 1
+
+```
+
+<strong class="example">Example 3:</strong>
+
+```text
+**Input:** s = " 3+5 / 2 "
+**Output:** 5
+
+```
+
+ 
+
+**Constraints:**
+
+	- `1 <= s.length <= 3 * 10<sup>5</sup>`
+
+	- `s` consists of integers and operators `('+', '-', '*', '/')` separated by some number of spaces.
+
+	- `s` represents a valid expression.
+
+	- All the integers in the expression are non-negative integers in the range `[0, 2<sup>31</sup> - 1]`.
+
+	- The answer is **guaranteed** to fit in a **32-bit integer**.
+
+</details>
+
 ```java
 import java.util.*;
 
@@ -219,6 +636,115 @@ class Solution {
 **Category:** Tier 3 · Reference
 **Pattern:** Stack of path components  **Time:** O(n)  **Space:** O(n)
 **Approach:** Split the Unix path on `/`. Ignore empty components and `.`; on `..` pop the last directory if present; otherwise push the directory name. Join the stack with `/` and prepend a leading slash for the canonical absolute path.
+
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**LeetCode Link:** [Simplify Path](https://leetcode.com/problems/simplify-path/)
+
+
+You are given an *absolute* path for a Unix-style file system, which always begins with a slash `'/'`. Your task is to transform this absolute path into its **simplified canonical path**.
+
+The *rules* of a Unix-style file system are as follows:
+
+	- A single period `'.'` represents the current directory.
+
+	- A double period `'..'` represents the previous/parent directory.
+
+	- Multiple consecutive slashes such as `'//'` and `'///'` are treated as a single slash `'/'`.
+
+	- Any sequence of periods that does **not match** the rules above should be treated as a **valid directory or** **file ****name**. For example, `'...' `and `'....'` are valid directory or file names.
+
+The simplified canonical path should follow these *rules*:
+
+	- The path must start with a single slash `'/'`.
+
+	- Directories within the path must be separated by exactly one slash `'/'`.
+
+	- The path must not end with a slash `'/'`, unless it is the root directory.
+
+	- The path must not have any single or double periods (`'.'` and `'..'`) used to denote current or parent directories.
+
+Return the **simplified canonical path**.
+
+ 
+
+<strong class="example">Example 1:</strong>
+
+<div class="example-block">
+
+**Input:** <span class="example-io">path = "/home/"</span>
+
+**Output:** <span class="example-io">"/home"</span>
+
+**Explanation:**
+
+The trailing slash should be removed.
+</div>
+
+<strong class="example">Example 2:</strong>
+
+<div class="example-block">
+
+**Input:** <span class="example-io">path = "/home//foo/"</span>
+
+**Output:** <span class="example-io">"/home/foo"</span>
+
+**Explanation:**
+
+Multiple consecutive slashes are replaced by a single one.
+</div>
+
+<strong class="example">Example 3:</strong>
+
+<div class="example-block">
+
+**Input:** <span class="example-io">path = "/home/user/Documents/../Pictures"</span>
+
+**Output:** <span class="example-io">"/home/user/Pictures"</span>
+
+**Explanation:**
+
+A double period `".."` refers to the directory up a level (the parent directory).
+</div>
+
+<strong class="example">Example 4:</strong>
+
+<div class="example-block">
+
+**Input:** <span class="example-io">path = "/../"</span>
+
+**Output:** <span class="example-io">"/"</span>
+
+**Explanation:**
+
+Going one level up from the root directory is not possible.
+</div>
+
+<strong class="example">Example 5:</strong>
+
+<div class="example-block">
+
+**Input:** <span class="example-io">path = "/.../a/../b/c/../d/./"</span>
+
+**Output:** <span class="example-io">"/.../b/d"</span>
+
+**Explanation:**
+
+`"..."` is a valid name for a directory in this problem.
+</div>
+
+ 
+
+**Constraints:**
+
+	- `1 <= path.length <= 3000`
+
+	- `path` consists of English letters, digits, period `'.'`, slash `'/'` or `'_'`.
+
+	- `path` is a valid absolute Unix path.
+
+</details>
+
 ```java
 import java.util.*;
 
@@ -245,6 +771,9 @@ class Solution {
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** Failure function (LPS array)  **Time:** O(n + m)  **Space:** O(m)
 **Approach:** Build the longest-proper-prefix-that-is-also-suffix (LPS) array for the pattern, then scan the text without ever backing up the text pointer. On a mismatch, fall back the pattern pointer to `lps[j-1]` instead of restarting. The LPS build itself is a self-match of the pattern against its own prefix.
+
+<!-- Problem Statement not automatically found -->
+
 ```java
 class Solution {
     public int strStr(String haystack, String needle) {
@@ -286,6 +815,73 @@ class Solution {
 **Category:** Tier 3 · Reference
 **Pattern:** In-place two pointers  **Time:** O(n)  **Space:** O(1)
 **Approach:** Use a read pointer to count consecutive runs and a write pointer to emit the character followed by the count digits (only when count > 1). Write in place into the same array and return the new logical length. Multi-digit counts are written digit by digit.
+
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**LeetCode Link:** [String Compression](https://leetcode.com/problems/string-compression/)
+
+
+Given an array of characters `chars`, compress it using the following algorithm:
+
+Begin with an empty string `s`. For each group of **consecutive repeating characters** in `chars`:
+
+	- If the group's length is `1`, append the character to `s`.
+
+	- Otherwise, append the character followed by the group's length.
+
+The compressed string `s` **should not be returned separately**, but instead, be stored **in the input character array `chars`**. Note that group lengths that are `10` or longer will be split into multiple characters in `chars`.
+
+After you are done **modifying the input array,** return *the new length of the array*.
+
+You must write an algorithm that uses only constant extra space.
+
+**Note: **The characters in the array beyond the returned length do not matter and should be ignored.
+
+ 
+
+<strong class="example">Example 1:</strong>
+
+```text
+
+**Input:** chars = ["a","a","b","b","c","c","c"]
+**Output:** 6
+**Explanation:** The groups are `"aa"`, `"bb"`, and `"ccc"`. This compresses to `"a2b2c3"`.
+After modifying the input array in-place, the first 6 characters of `chars` should be `["a","2","b","2","c","3"]`.
+
+```
+
+<strong class="example">Example 2:</strong>
+
+```text
+
+**Input:** chars = ["a"]
+**Output:** 1
+**Explanation:** The only group is `"a"`, which remains uncompressed since it is a single character.
+After modifying the input array in-place, the first character of `chars` should be `["a"]`.
+
+```
+
+<strong class="example">Example 3:</strong>
+
+```text
+
+**Input:** chars = ["a","b","b","b","b","b","b","b","b","b","b","b","b"]
+**Output:** 4
+**Explanation:** The groups are `"a"` and `"bbbbbbbbbbbb"`. This compresses to `"ab12"`.
+After modifying the input array in-place, the first 4 characters of `chars` should be `["a","b","1","2"]`.
+
+```
+
+ 
+
+**Constraints:**
+
+	- `1 <= chars.length <= 2000`
+
+	- `chars[i]` is a lowercase English letter, uppercase English letter, digit, or symbol.
+
+</details>
+
 ```java
 class Solution {
     public int compress(char[] chars) {
@@ -312,6 +908,67 @@ class Solution {
 **Category:** Tier 2 · Reinforce
 **Pattern:** Split / trim / reverse  **Time:** O(n)  **Space:** O(n)
 **Approach:** Trim outer whitespace, split on one-or-more spaces to drop internal gaps, reverse the resulting word list, and join with single spaces. This normalizes messy spacing in one pass of tokenization.
+
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**LeetCode Link:** [Reverse Words in a String](https://leetcode.com/problems/reverse-words-in-a-string/)
+
+
+Given an input string `s`, reverse the order of the **words**.
+
+A **word** is defined as a sequence of non-space characters. The **words** in `s` will be separated by at least one space.
+
+Return *a string of the words in reverse order concatenated by a single space.*
+
+**Note** that `s` may contain leading or trailing spaces or multiple spaces between two words. The returned string should only have a single space separating the words. Do not include any extra spaces.
+
+ 
+
+<strong class="example">Example 1:</strong>
+
+```text
+
+**Input:** s = "the sky is blue"
+**Output:** "blue is sky the"
+
+```
+
+<strong class="example">Example 2:</strong>
+
+```text
+
+**Input:** s = "  hello world  "
+**Output:** "world hello"
+**Explanation:** Your reversed string should not contain leading or trailing spaces.
+
+```
+
+<strong class="example">Example 3:</strong>
+
+```text
+
+**Input:** s = "a good   example"
+**Output:** "example good a"
+**Explanation:** You need to reduce multiple spaces between two words to a single space in the reversed string.
+
+```
+
+ 
+
+**Constraints:**
+
+	- `1 <= s.length <= 10<sup>4</sup>`
+
+	- `s` contains English letters (upper-case and lower-case), digits, and spaces `' '`.
+
+	- There is **at least one** word in `s`.
+
+ 
+
+<b data-stringify-type="bold">Follow-up: </b>If the string data type is mutable in your language, can you solve it <b data-stringify-type="bold">in-place</b> with <code data-stringify-type="code">O(1)</code> extra space?
+
+</details>
+
 ```java
 class Solution {
     public String reverseWords(String s) {
@@ -335,6 +992,65 @@ class Solution {
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** Complement hash map  **Time:** O(n)  **Space:** O(n)
 **Approach:** For each number, check if its complement (`target - num`) has already been seen. Store each number's index in a map as you go; the first hit gives the answer pair in a single pass.
+
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**LeetCode Link:** [Two Sum](https://leetcode.com/problems/two-sum/)
+
+
+You are given an array of integers `nums` and an integer `target`, return *indices of the two numbers such that they add up to `target`*.
+
+You may assume that each input would have ***exactly* one solution**, and you may not use the *same* element twice.
+
+You can return the answer in any order.
+
+ 
+
+<strong class="example">Example 1:</strong>
+
+```text
+
+**Input:** nums = [2,7,11,15], target = 9
+**Output:** [0,1]
+**Explanation:** Because nums[0] + nums[1] == 9, we return [0, 1].
+
+```
+
+<strong class="example">Example 2:</strong>
+
+```text
+
+**Input:** nums = [3,2,4], target = 6
+**Output:** [1,2]
+
+```
+
+<strong class="example">Example 3:</strong>
+
+```text
+
+**Input:** nums = [3,3], target = 6
+**Output:** [0,1]
+
+```
+
+ 
+
+**Constraints:**
+
+	- `2 <= nums.length <= 10<sup>4</sup>`
+
+	- `-10<sup>9</sup> <= nums[i] <= 10<sup>9</sup>`
+
+	- `-10<sup>9</sup> <= target <= 10<sup>9</sup>`
+
+	- **Only one valid answer exists.**
+
+ 
+**Follow-up: **Can you come up with an algorithm that is less than `O(n<sup>2</sup>)`<font face="monospace"> </font>time complexity?
+
+</details>
+
 ```java
 import java.util.*;
 
@@ -355,6 +1071,61 @@ class Solution {
 **Category:** Tier 3 · Reference
 **Pattern:** Set membership  **Time:** O(n)  **Space:** O(n)
 **Approach:** Insert elements into a hash set; if an insertion fails (element already present) a duplicate exists. Early-return on the first collision.
+
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**LeetCode Link:** [Contains Duplicate](https://leetcode.com/problems/contains-duplicate/)
+
+
+Given an integer array `nums`, return `true` if any value appears **at least twice** in the array, and return `false` if every element is distinct.
+
+ 
+
+<strong class="example">Example 1:</strong>
+
+<div class="example-block">
+
+**Input:** <span class="example-io">nums = [1,2,3,1]</span>
+
+**Output:** <span class="example-io">true</span>
+
+**Explanation:**
+
+The element 1 occurs at the indices 0 and 3.
+</div>
+
+<strong class="example">Example 2:</strong>
+
+<div class="example-block">
+
+**Input:** <span class="example-io">nums = [1,2,3,4]</span>
+
+**Output:** <span class="example-io">false</span>
+
+**Explanation:**
+
+All elements are distinct.
+</div>
+
+<strong class="example">Example 3:</strong>
+
+<div class="example-block">
+
+**Input:** <span class="example-io">nums = [1,1,1,3,3,4,3,2,4,2]</span>
+
+**Output:** <span class="example-io">true</span>
+</div>
+
+ 
+
+**Constraints:**
+
+	- `1 <= nums.length <= 10<sup>5</sup>`
+
+	- `-10<sup>9</sup> <= nums[i] <= 10<sup>9</sup>`
+
+</details>
+
 ```java
 import java.util.*;
 
@@ -371,6 +1142,56 @@ class Solution {
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** Hash set sequence-start scan  **Time:** O(n)  **Space:** O(n)
 **Approach:** Put all numbers in a set. Only start counting a run from a number whose predecessor (`num-1`) is absent — that guarantees it's a sequence start. Walk upward counting consecutive members. Each number is visited at most twice, giving overall O(n).
+
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**LeetCode Link:** [Longest Consecutive Sequence](https://leetcode.com/problems/longest-consecutive-sequence/)
+
+
+Given an unsorted array of integers `nums`, return *the length of the longest consecutive elements sequence.*
+
+You must write an algorithm that runs in `O(n)` time.
+
+ 
+
+<strong class="example">Example 1:</strong>
+
+```text
+
+**Input:** nums = [100,4,200,1,3,2]
+**Output:** 4
+**Explanation:** The longest consecutive elements sequence is `[1, 2, 3, 4]`. Therefore its length is 4.
+
+```
+
+<strong class="example">Example 2:</strong>
+
+```text
+
+**Input:** nums = [0,3,7,2,5,8,4,6,0,1]
+**Output:** 9
+
+```
+
+<strong class="example">Example 3:</strong>
+
+```text
+
+**Input:** nums = [1,0,1,2]
+**Output:** 3
+
+```
+
+ 
+
+**Constraints:**
+
+	- `0 <= nums.length <= 10<sup>5</sup>`
+
+	- `-10<sup>9</sup> <= nums[i] <= 10<sup>9</sup>`
+
+</details>
+
 ```java
 import java.util.*;
 
@@ -397,6 +1218,72 @@ class Solution {
 **Category:** Tier 2 · Reinforce
 **Pattern:** Bidirectional mapping  **Time:** O(n)  **Space:** O(1)
 **Approach:** A character in `s` must map to exactly one character in `t` and vice versa. Track both mappings; on any conflict with a previously recorded mapping, reject. Two arrays indexed by char code make the checks O(1).
+
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**LeetCode Link:** [Isomorphic Strings](https://leetcode.com/problems/isomorphic-strings/)
+
+
+Given two strings `s` and `t`, *determine if they are isomorphic*.
+
+Two strings `s` and `t` are isomorphic if the characters in `s` can be replaced to get `t`.
+
+All occurrences of a character must be replaced with another character while preserving the order of characters. No two characters may map to the same character, but a character may map to itself.
+
+ 
+
+<strong class="example">Example 1:</strong>
+
+<div class="example-block">
+
+**Input:** <span class="example-io">s = "egg", t = "add"</span>
+
+**Output:** <span class="example-io">true</span>
+
+**Explanation:**
+
+The strings `s` and `t` can be made identical by:
+
+	- Mapping `'e'` to `'a'`.
+
+	- Mapping `'g'` to `'d'`.
+
+</div>
+
+<strong class="example">Example 2:</strong>
+
+<div class="example-block">
+
+**Input:** <span class="example-io">s = "f11", t = "b23"</span>
+
+**Output:** <span class="example-io">false</span>
+
+**Explanation:**
+
+The strings `s` and `t` can not be made identical as `'1'` needs to be mapped to both `'2'` and `'3'`.
+</div>
+
+<strong class="example">Example 3:</strong>
+
+<div class="example-block">
+
+**Input:** <span class="example-io">s = "paper", t = "title"</span>
+
+**Output:** <span class="example-io">true</span>
+</div>
+
+ 
+
+**Constraints:**
+
+	- `1 <= s.length <= 5 * 10<sup>4</sup>`
+
+	- `t.length == s.length`
+
+	- `s` and `t` consist of any valid ascii character.
+
+</details>
+
 ```java
 class Solution {
     public boolean isIsomorphic(String s, String t) {
@@ -421,6 +1308,78 @@ class Solution {
 **Category:** Tier 3 · Reference
 **Pattern:** Bidirectional mapping  **Time:** O(n)  **Space:** O(n)
 **Approach:** Same bijection idea as Isomorphic Strings but between pattern characters and whitespace-split words. Maintain char→word and word→char maps; any inconsistency or word-count mismatch fails. Both directions are required to reject cases like `"ab"` with words `["dog","dog"]`.
+
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**LeetCode Link:** [Word Pattern](https://leetcode.com/problems/word-pattern/)
+
+
+Given a `pattern` and a string `s`, find if `s` follows the same pattern.
+
+Here **follow** means a full match, such that there is a bijection between a letter in `pattern` and a **non-empty** word in `s`. Specifically:
+
+	- Each letter in `pattern` maps to **exactly** one unique word in `s`.
+
+	- Each unique word in `s` maps to **exactly** one letter in `pattern`.
+
+	- No two letters map to the same word, and no two words map to the same letter.
+
+ 
+
+<strong class="example">Example 1:</strong>
+
+<div class="example-block">
+
+**Input:** <span class="example-io">pattern = "abba", s = "dog cat cat dog"</span>
+
+**Output:** <span class="example-io">true</span>
+
+**Explanation:**
+
+The bijection can be established as:
+
+	- `'a'` maps to `"dog"`.
+
+	- `'b'` maps to `"cat"`.
+
+</div>
+
+<strong class="example">Example 2:</strong>
+
+<div class="example-block">
+
+**Input:** <span class="example-io">pattern = "abba", s = "dog cat cat fish"</span>
+
+**Output:** <span class="example-io">false</span>
+</div>
+
+<strong class="example">Example 3:</strong>
+
+<div class="example-block">
+
+**Input:** <span class="example-io">pattern = "aaaa", s = "dog cat cat dog"</span>
+
+**Output:** <span class="example-io">false</span>
+</div>
+
+ 
+
+**Constraints:**
+
+	- `1 <= pattern.length <= 300`
+
+	- `pattern` contains only lower-case English letters.
+
+	- `1 <= s.length <= 3000`
+
+	- `s` contains only lowercase English letters and spaces `' '`.
+
+	- `s` **does not contain** any leading or trailing spaces.
+
+	- All the words in `s` are separated by a **single space**.
+
+</details>
+
 ```java
 import java.util.*;
 
@@ -475,6 +1434,9 @@ Integer.numberOfTrailingZeros(x)
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** XOR fold  **Time:** O(n)  **Space:** O(1)
 **Approach:** Every element appears twice except one. XOR cancels pairs (`a ^ a = 0`) and leaves the unique element, since XOR is commutative and associative.
+
+<!-- Problem Statement not automatically found -->
+
 ```java
 class Solution {
     public int singleNumber(int[] nums) {
@@ -489,6 +1451,46 @@ class Solution {
 **Category:** Tier 3 · Reference
 **Pattern:** Bitwise state machine  **Time:** O(n)  **Space:** O(1)
 **Approach:** Every element appears three times except one. Track two accumulators `ones` and `twos` representing bits seen once and twice (mod 3). Each bit cycles through 0→1→2→0 as duplicates arrive, so after processing, `ones` holds the unique number.
+
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**LeetCode Link:** [Single Number II](https://leetcode.com/problems/single-number-ii/)
+
+
+Given an integer array `nums` where every element appears **three times** except for one, which appears **exactly once**. *Find the single element and return it*.
+
+You must implement a solution with a linear runtime complexity and use only constant extra space.
+
+ 
+
+<strong class="example">Example 1:</strong>
+
+```text
+**Input:** nums = [2,2,3,2]
+**Output:** 3
+
+```
+
+<strong class="example">Example 2:</strong>
+
+```text
+**Input:** nums = [0,1,0,1,0,1,99]
+**Output:** 99
+
+```
+
+ 
+
+**Constraints:**
+
+	- `1 <= nums.length <= 3 * 10<sup>4</sup>`
+
+	- `-2<sup>31</sup> <= nums[i] <= 2<sup>31</sup> - 1`
+
+	- Each element in `nums` appears exactly **three times** except for one element which appears **once**.
+
+</details>
+
 ```java
 class Solution {
     public int singleNumber(int[] nums) {
@@ -507,6 +1509,58 @@ class Solution {
 **Category:** Tier 3 · Reference
 **Pattern:** XOR + lowest-set-bit partition  **Time:** O(n)  **Space:** O(1)
 **Approach:** Two elements appear once; the rest twice. XOR all numbers to get `a ^ b`. Any set bit in that result differs between `a` and `b`; isolate the lowest set bit (`xor & -xor`) and use it to partition numbers into two groups, XORing each group separately to recover `a` and `b`.
+
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**LeetCode Link:** [Single Number III](https://leetcode.com/problems/single-number-iii/)
+
+
+Given an integer array `nums`, in which exactly two elements appear only once and all the other elements appear exactly twice. Find the two elements that appear only once. You can return the answer in **any order**.
+
+You must write an algorithm that runs in linear runtime complexity and uses only constant extra space.
+
+ 
+
+<strong class="example">Example 1:</strong>
+
+```text
+
+**Input:** nums = [1,2,1,3,2,5]
+**Output:** [3,5]
+**Explanation: ** [5, 3] is also a valid answer.
+
+```
+
+<strong class="example">Example 2:</strong>
+
+```text
+
+**Input:** nums = [-1,0]
+**Output:** [-1,0]
+
+```
+
+<strong class="example">Example 3:</strong>
+
+```text
+
+**Input:** nums = [0,1]
+**Output:** [1,0]
+
+```
+
+ 
+
+**Constraints:**
+
+	- `2 <= nums.length <= 3 * 10<sup>4</sup>`
+
+	- `-2<sup>31</sup> <= nums[i] <= 2<sup>31</sup> - 1`
+
+	- Each integer in `nums` will appear twice, only two integers will appear once.
+
+</details>
+
 ```java
 class Solution {
     public int[] singleNumber(int[] nums) {
@@ -524,6 +1578,66 @@ class Solution {
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** Clear-lowest-set-bit loop  **Time:** O(#bits set)  **Space:** O(1)
 **Approach:** Repeatedly apply `n & (n - 1)`, which clears the lowest set bit each iteration. The number of iterations equals the population count. Use `>>>`/unsigned handling implicitly since the loop only touches set bits.
+
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**LeetCode Link:** [Number of 1 Bits](https://leetcode.com/problems/number-of-1-bits/)
+
+
+Given a positive integer `n`, write a function that returns the number of <span data-keyword="set-bit">set bits</span> in its binary representation (also known as the <a href="http://en.wikipedia.org/wiki/Hamming_weight" target="_blank">Hamming weight</a>).
+
+ 
+
+<strong class="example">Example 1:</strong>
+
+<div class="example-block">
+
+**Input:** <span class="example-io">n = 11</span>
+
+**Output:** <span class="example-io">3</span>
+
+**Explanation:**
+
+The input binary string **1011** has a total of three set bits.
+</div>
+
+<strong class="example">Example 2:</strong>
+
+<div class="example-block">
+
+**Input:** <span class="example-io">n = 128</span>
+
+**Output:** <span class="example-io">1</span>
+
+**Explanation:**
+
+The input binary string **10000000** has a total of one set bit.
+</div>
+
+<strong class="example">Example 3:</strong>
+
+<div class="example-block">
+
+**Input:** <span class="example-io">n = 2147483645</span>
+
+**Output:** <span class="example-io">30</span>
+
+**Explanation:**
+
+The input binary string **1111111111111111111111111111101** has a total of thirty set bits.
+</div>
+
+ 
+
+**Constraints:**
+
+	- `1 <= n <= 2<sup>31</sup> - 1`
+
+ 
+**Follow up:** If this function is called many times, how would you optimize it?
+
+</details>
+
 ```java
 class Solution {
     public int hammingWeight(int n) {
@@ -541,6 +1655,60 @@ class Solution {
 **Category:** Tier 2 · Reinforce
 **Pattern:** DP on bits  **Time:** O(n)  **Space:** O(n)
 **Approach:** `bits[i] = bits[i >> 1] + (i & 1)`: dropping the lowest bit of `i` gives an already-computed smaller value, and the removed bit adds 0 or 1. This builds the full 0..n table in linear time.
+
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**LeetCode Link:** [Counting Bits](https://leetcode.com/problems/counting-bits/)
+
+
+Given an integer `n`, return *an array *`ans`* of length *`n + 1`* such that for each *`i`* *(`0 <= i <= n`)*, *`ans[i]`* is the **number of ***`1`***'s** in the binary representation of *`i`.
+Do not solve it with built-in functions (i.e., like `__builtin_popcount` in C++).
+
+ 
+
+<strong class="example">Example 1:</strong>
+
+```text
+
+**Input:** n = 2
+**Output:** [0,1,1]
+**Explanation:**
+0 --> 0
+1 --> 1
+2 --> 10
+
+```
+
+<strong class="example">Example 2:</strong>
+
+```text
+
+**Input:** n = 5
+**Output:** [0,1,1,2,1,2]
+**Explanation:**
+0 --> 0
+1 --> 1
+2 --> 10
+3 --> 11
+4 --> 100
+5 --> 101
+
+```
+
+ 
+
+**Constraints:**
+
+	- `0 <= n <= 10<sup>5</sup>`
+
+ 
+
+**Follow up:**
+
+	- It is very easy to come up with a solution with a runtime of `O(n log n)`. Can you do it in linear time `O(n)` and possibly in a single pass?
+
+</details>
+
 ```java
 class Solution {
     public int[] countBits(int n) {
@@ -557,6 +1725,86 @@ class Solution {
 **Category:** Tier 3 · Reference
 **Pattern:** Bit-by-bit shift and OR  **Time:** O(32)  **Space:** O(1)
 **Approach:** Shift the result left, take the lowest bit of the input, OR it into the result, then shift the input right. After 32 iterations the bit order is fully reversed. Use `>>>` for the unsigned input shift.
+
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**LeetCode Link:** [Reverse Bits](https://leetcode.com/problems/reverse-bits/)
+
+
+Reverse bits of a given 32 bits signed integer.
+
+ 
+
+<strong class="example">Example 1:</strong>
+
+<div class="example-block">
+
+**Input:** <span class="example-io">n = 43261596</span>
+
+**Output:** <span class="example-io">964176192</span>
+
+**Explanation:**
+
+<table>
+	<tbody>
+		<tr>
+			<th>Integer</th>
+			<th>Binary</th>
+		</tr>
+		<tr>
+			<td>43261596</td>
+			<td>00000010100101000001111010011100</td>
+		</tr>
+		<tr>
+			<td>964176192</td>
+			<td>00111001011110000010100101000000</td>
+		</tr>
+	</tbody>
+</table>
+</div>
+
+<strong class="example">Example 2:</strong>
+
+<div class="example-block">
+
+**Input:** <span class="example-io">n = 2147483644</span>
+
+**Output:** <span class="example-io">1073741822</span>
+
+**Explanation:**
+
+<table>
+	<tbody>
+		<tr>
+			<th>Integer</th>
+			<th>Binary</th>
+		</tr>
+		<tr>
+			<td>2147483644</td>
+			<td>01111111111111111111111111111100</td>
+		</tr>
+		<tr>
+			<td>1073741822</td>
+			<td>00111111111111111111111111111110</td>
+		</tr>
+	</tbody>
+</table>
+</div>
+
+ 
+
+**Constraints:**
+
+	- `0 <= n <= 2<sup>31</sup> - 2`
+
+	- `n` is even.
+
+ 
+
+**Follow up:** If this function is called many times, how would you optimize it?
+
+</details>
+
 ```java
 public class Solution {
     public int reverseBits(int n) {
@@ -574,6 +1822,58 @@ public class Solution {
 **Category:** Tier 3 · Reference
 **Pattern:** Clear-lowest-bit trick  **Time:** O(1)  **Space:** O(1)
 **Approach:** A positive power of two has exactly one set bit, so `n & (n - 1)` is zero. Guard against non-positive inputs first.
+
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**LeetCode Link:** [Power of Two](https://leetcode.com/problems/power-of-two/)
+
+
+Given an integer `n`, return *`true` if it is a power of two. Otherwise, return `false`*.
+
+An integer `n` is a power of two, if there exists an integer `x` such that `n == 2<sup>x</sup>`.
+
+ 
+
+<strong class="example">Example 1:</strong>
+
+```text
+
+**Input:** n = 1
+**Output:** true
+**Explanation: **2<sup>0</sup> = 1
+
+```
+
+<strong class="example">Example 2:</strong>
+
+```text
+
+**Input:** n = 16
+**Output:** true
+**Explanation: **2<sup>4</sup> = 16
+
+```
+
+<strong class="example">Example 3:</strong>
+
+```text
+
+**Input:** n = 3
+**Output:** false
+
+```
+
+ 
+
+**Constraints:**
+
+	- `-2<sup>31</sup> <= n <= 2<sup>31</sup> - 1`
+
+ 
+**Follow up:** Could you solve it without loops/recursion?
+
+</details>
+
 ```java
 class Solution {
     public boolean isPowerOfTwo(int n) {
@@ -586,6 +1886,9 @@ class Solution {
 **Category:** Tier 2 · Reinforce
 **Pattern:** XOR + carry loop  **Time:** O(1)  **Space:** O(1)
 **Approach:** XOR gives the sum without carries; AND-then-left-shift gives the carry bits. Repeat until there is no carry left. This is how a full adder works, expressed iteratively.
+
+<!-- Problem Statement not automatically found -->
+
 ```java
 class Solution {
     public int getSum(int a, int b) {
@@ -603,6 +1906,9 @@ class Solution {
 **Category:** Tier 3 · Reference
 **Pattern:** Enumerate 2^n masks  **Time:** O(n·2^n)  **Space:** O(n·2^n)
 **Approach:** Each subset corresponds to an n-bit mask where bit `j` set means element `j` is included. Iterate all masks from 0 to 2^n − 1 and build the subset by testing each bit. Elegant when n is small (≤ ~20).
+
+<!-- Problem Statement not automatically found -->
+
 ```java
 import java.util.*;
 
@@ -631,6 +1937,9 @@ class Solution {
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** Binary exponentiation  **Time:** O(log n)  **Space:** O(1)
 **Approach:** Square the base while halving the exponent; multiply the result whenever the current exponent bit is set. Handle negative exponents by inverting the base and using a `long` for the exponent to avoid overflow when negating `Integer.MIN_VALUE`.
+
+<!-- Problem Statement not automatically found -->
+
 ```java
 class Solution {
     public double myPow(double x, int n) {
@@ -654,6 +1963,9 @@ class Solution {
 **Category:** Tier 2 · Reinforce
 **Pattern:** Binary search on answer  **Time:** O(log x)  **Space:** O(1)
 **Approach:** Search for the largest integer `m` with `m*m <= x`. Compare using `m <= x / m` to sidestep multiplication overflow. Narrow the range until it collapses on the floor of the square root.
+
+<!-- Problem Statement not automatically found -->
+
 ```java
 class Solution {
     public int mySqrt(int x) {
@@ -677,6 +1989,57 @@ class Solution {
 **Category:** Tier 3 · Reference
 **Pattern:** Cycle detection (Floyd)  **Time:** O(log n)  **Space:** O(1)
 **Approach:** Repeatedly replace the number with the sum of the squares of its digits. A happy number reaches 1; an unhappy one enters a cycle. Use fast/slow pointers to detect the loop without extra memory.
+
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**LeetCode Link:** [Happy Number](https://leetcode.com/problems/happy-number/)
+
+
+Write an algorithm to determine if a number `n` is happy.
+
+A **happy number** is a number defined by the following process:
+
+	- Starting with any positive integer, replace the number by the sum of the squares of its digits.
+
+	- Repeat the process until the number equals 1 (where it will stay), or it **loops endlessly in a cycle** which does not include 1.
+
+	- Those numbers for which this process **ends in 1** are happy.
+
+Return `true` *if* `n` *is a happy number, and* `false` *if not*.
+
+ 
+
+<strong class="example">Example 1:</strong>
+
+```text
+
+**Input:** n = 19
+**Output:** true
+**Explanation:**
+1<sup>2</sup> + 9<sup>2</sup> = 82
+8<sup>2</sup> + 2<sup>2</sup> = 68
+6<sup>2</sup> + 8<sup>2</sup> = 100
+1<sup>2</sup> + 0<sup>2</sup> + 0<sup>2</sup> = 1
+
+```
+
+<strong class="example">Example 2:</strong>
+
+```text
+
+**Input:** n = 2
+**Output:** false
+
+```
+
+ 
+
+**Constraints:**
+
+	- `1 <= n <= 2<sup>31</sup> - 1`
+
+</details>
+
 ```java
 class Solution {
     public boolean isHappy(int n) {
@@ -705,6 +2068,70 @@ class Solution {
 **Category:** Tier 3 · Reference
 **Pattern:** Base-26 parse  **Time:** O(n)  **Space:** O(1)
 **Approach:** Treat the title as a bijective base-26 number where A=1..Z=26. Fold left to right: `result = result * 26 + (char - 'A' + 1)`.
+
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**LeetCode Link:** [Excel Sheet Column Number](https://leetcode.com/problems/excel-sheet-column-number/)
+
+
+Given a string `columnTitle` that represents the column title as appears in an Excel sheet, return *its corresponding column number*.
+
+For example:
+
+```text
+
+A -> 1
+B -> 2
+C -> 3
+...
+Z -> 26
+AA -> 27
+AB -> 28 
+...
+
+```
+
+ 
+
+<strong class="example">Example 1:</strong>
+
+```text
+
+**Input:** columnTitle = "A"
+**Output:** 1
+
+```
+
+<strong class="example">Example 2:</strong>
+
+```text
+
+**Input:** columnTitle = "AB"
+**Output:** 28
+
+```
+
+<strong class="example">Example 3:</strong>
+
+```text
+
+**Input:** columnTitle = "ZY"
+**Output:** 701
+
+```
+
+ 
+
+**Constraints:**
+
+	- `1 <= columnTitle.length <= 7`
+
+	- `columnTitle` consists only of uppercase English letters.
+
+	- `columnTitle` is in the range `["A", "FXSHRXW"]`.
+
+</details>
+
 ```java
 class Solution {
     public int titleToNumber(String columnTitle) {
@@ -721,6 +2148,66 @@ class Solution {
 **Category:** Tier 3 · Reference
 **Pattern:** Base-26 (bijective) build  **Time:** O(log n)  **Space:** O(n)
 **Approach:** Convert a number to a bijective base-26 title. Because there is no zero digit, decrement by 1 before each `% 26` and `/ 26` step, then prepend the mapped letter. Build the string from least to most significant.
+
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**LeetCode Link:** [Excel Sheet Column Title](https://leetcode.com/problems/excel-sheet-column-title/)
+
+
+Given an integer `columnNumber`, return *its corresponding column title as it appears in an Excel sheet*.
+
+For example:
+
+```text
+
+A -> 1
+B -> 2
+C -> 3
+...
+Z -> 26
+AA -> 27
+AB -> 28 
+...
+
+```
+
+ 
+
+<strong class="example">Example 1:</strong>
+
+```text
+
+**Input:** columnNumber = 1
+**Output:** "A"
+
+```
+
+<strong class="example">Example 2:</strong>
+
+```text
+
+**Input:** columnNumber = 28
+**Output:** "AB"
+
+```
+
+<strong class="example">Example 3:</strong>
+
+```text
+
+**Input:** columnNumber = 701
+**Output:** "ZY"
+
+```
+
+ 
+
+**Constraints:**
+
+	- `1 <= columnNumber <= 2<sup>31</sup> - 1`
+
+</details>
+
 ```java
 class Solution {
     public String convertToTitle(int columnNumber) {
@@ -739,6 +2226,82 @@ class Solution {
 **Category:** Tier 2 · Reinforce
 **Pattern:** Subtractive scan  **Time:** O(n)  **Space:** O(1)
 **Approach:** Map each numeral to its value. Scan left to right; if a symbol's value is less than the next symbol's value, subtract it (e.g. IV, IX), otherwise add it. This handles the six subtractive combinations naturally.
+
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**LeetCode Link:** [Roman to Integer](https://leetcode.com/problems/roman-to-integer/)
+
+
+Roman numerals are represented by seven different symbols: `I`, `V`, `X`, `L`, `C`, `D` and `M`.
+
+```text
+
+**Symbol**       **Value**
+I             1
+V             5
+X             10
+L             50
+C             100
+D             500
+M             1000
+```
+
+For example, `2` is written as `II` in Roman numeral, just two ones added together. `12` is written as `XII`, which is simply `X + II`. The number `27` is written as `XXVII`, which is `XX + V + II`.
+
+Roman numerals are usually written largest to smallest from left to right. However, the numeral for four is not `IIII`. Instead, the number four is written as `IV`. Because the one is before the five we subtract it making four. The same principle applies to the number nine, which is written as `IX`. There are six instances where subtraction is used:
+
+	- `I` can be placed before `V` (5) and `X` (10) to make 4 and 9. 
+
+	- `X` can be placed before `L` (50) and `C` (100) to make 40 and 90. 
+
+	- `C` can be placed before `D` (500) and `M` (1000) to make 400 and 900.
+
+Given a roman numeral, convert it to an integer.
+
+ 
+
+<strong class="example">Example 1:</strong>
+
+```text
+
+**Input:** s = "III"
+**Output:** 3
+**Explanation:** III = 3.
+
+```
+
+<strong class="example">Example 2:</strong>
+
+```text
+
+**Input:** s = "LVIII"
+**Output:** 58
+**Explanation:** L = 50, V= 5, III = 3.
+
+```
+
+<strong class="example">Example 3:</strong>
+
+```text
+
+**Input:** s = "MCMXCIV"
+**Output:** 1994
+**Explanation:** M = 1000, CM = 900, XC = 90 and IV = 4.
+
+```
+
+ 
+
+**Constraints:**
+
+	- `1 <= s.length <= 15`
+
+	- `s` contains only the characters `('I', 'V', 'X', 'L', 'C', 'D', 'M')`.
+
+	- It is **guaranteed** that `s` is a valid roman numeral in the range `[1, 3999]`.
+
+</details>
+
 ```java
 class Solution {
     public int romanToInt(String s) {
@@ -763,6 +2326,135 @@ class Solution {
 **Category:** Tier 2 · Reinforce
 **Pattern:** Greedy with value table  **Time:** O(1)  **Space:** O(1)
 **Approach:** Precompute values and symbols in descending order, including the subtractive forms (900=CM, 400=CD, 90=XC, etc.). Greedily subtract the largest fitting value and append its symbol until the number reaches zero.
+
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**LeetCode Link:** [Integer to Roman](https://leetcode.com/problems/integer-to-roman/)
+
+
+Seven different symbols represent Roman numerals with the following values:
+
+<table>
+	<thead>
+		<tr>
+			<th>Symbol</th>
+			<th>Value</th>
+		</tr>
+	</thead>
+	<tbody>
+		<tr>
+			<td>I</td>
+			<td>1</td>
+		</tr>
+		<tr>
+			<td>V</td>
+			<td>5</td>
+		</tr>
+		<tr>
+			<td>X</td>
+			<td>10</td>
+		</tr>
+		<tr>
+			<td>L</td>
+			<td>50</td>
+		</tr>
+		<tr>
+			<td>C</td>
+			<td>100</td>
+		</tr>
+		<tr>
+			<td>D</td>
+			<td>500</td>
+		</tr>
+		<tr>
+			<td>M</td>
+			<td>1000</td>
+		</tr>
+	</tbody>
+</table>
+
+Roman numerals are formed by appending the conversions of decimal place values from highest to lowest. Converting a decimal place value into a Roman numeral has the following rules:
+
+	- If the value does not start with 4 or 9, select the symbol of the maximal value that can be subtracted from the input, append that symbol to the result, subtract its value, and convert the remainder to a Roman numeral.
+
+	- If the value starts with 4 or 9 use the **subtractive form** representing one symbol subtracted from the following symbol, for example, 4 is 1 (`I`) less than 5 (`V`): `IV` and 9 is 1 (`I`) less than 10 (`X`): `IX`. Only the following subtractive forms are used: 4 (`IV`), 9 (`IX`), 40 (`XL`), 90 (`XC`), 400 (`CD`) and 900 (`CM`).
+
+	- Only powers of 10 (`I`, `X`, `C`, `M`) can be appended consecutively at most 3 times to represent multiples of 10. You cannot append 5 (`V`), 50 (`L`), or 500 (`D`) multiple times. If you need to append a symbol 4 times use the **subtractive form**.
+
+Given an integer, convert it to a Roman numeral.
+
+ 
+
+<strong class="example">Example 1:</strong>
+
+<div class="example-block">
+
+**Input:** <span class="example-io">num = 3749</span>
+
+**Output:** <span class="example-io">"MMMDCCXLIX"</span>
+
+**Explanation:**
+
+```text
+
+3000 = MMM as 1000 (M) + 1000 (M) + 1000 (M)
+ 700 = DCC as 500 (D) + 100 (C) + 100 (C)
+  40 = XL as 10 (X) less of 50 (L)
+   9 = IX as 1 (I) less of 10 (X)
+Note: 49 is not 1 (I) less of 50 (L) because the conversion is based on decimal places
+
+```
+
+</div>
+
+<strong class="example">Example 2:</strong>
+
+<div class="example-block">
+
+**Input:** <span class="example-io">num = 58</span>
+
+**Output:** <span class="example-io">"LVIII"</span>
+
+**Explanation:**
+
+```text
+
+50 = L
+ 8 = VIII
+
+```
+
+</div>
+
+<strong class="example">Example 3:</strong>
+
+<div class="example-block">
+
+**Input:** <span class="example-io">num = 1994</span>
+
+**Output:** <span class="example-io">"MCMXCIV"</span>
+
+**Explanation:**
+
+```text
+
+1000 = M
+ 900 = CM
+  90 = XC
+   4 = IV
+
+```
+
+</div>
+
+ 
+
+**Constraints:**
+
+	- `1 <= num <= 3999`
+
+</details>
+
 ```java
 class Solution {
     public String intToRoman(int num) {
@@ -784,6 +2476,9 @@ class Solution {
 **Category:** Tier 3 · Reference
 **Pattern:** Euclidean algorithm  **Time:** O(log min(a,b))  **Space:** O(1)
 **Approach:** `gcd(a, b) = gcd(b, a % b)` until the remainder is zero. LCM follows from `a / gcd(a,b) * b` — divide before multiplying to reduce overflow risk (use `long` for large inputs).
+
+<!-- Problem Statement not automatically found -->
+
 ```java
 class Solution {
     public long gcd(long a, long b) {
@@ -805,6 +2500,9 @@ class Solution {
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** Sieve  **Time:** O(n log log n)  **Space:** O(n)
 **Approach:** Mark multiples of each prime starting from its square as composite. Anything left unmarked below `n` is prime. Iterate `i` only up to `sqrt(n)` and start crossing out at `i*i` since smaller multiples were already handled by smaller primes.
+
+<!-- Problem Statement not automatically found -->
+
 ```java
 class Solution {
     public int countPrimes(int n) {
@@ -828,6 +2526,9 @@ class Solution {
 **Category:** Tier 2 · Reinforce
 **Pattern:** Digit pop with overflow guard  **Time:** O(log n)  **Space:** O(1)
 **Approach:** Pop digits with `% 10` and push onto the reversed result. Before each push, check whether the multiply-and-add would exceed 32-bit `int` bounds; if so, return 0. This avoids relying on `long` and works for both positive and negative inputs.
+
+<!-- Problem Statement not automatically found -->
+
 ```java
 class Solution {
     public int reverse(int x) {
@@ -850,6 +2551,57 @@ class Solution {
 **Category:** Tier 3 · Reference
 **Pattern:** Reverse half the digits  **Time:** O(log n)  **Space:** O(1)
 **Approach:** Negatives and numbers ending in 0 (except 0 itself) are never palindromes. Build the reversed second half digit by digit and stop when it meets or passes the remaining first half. Compare the two halves, accounting for an odd middle digit.
+
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**LeetCode Link:** [Palindrome Number](https://leetcode.com/problems/palindrome-number/)
+
+
+Given an integer `x`, return `true` if `x` is a <span data-keyword="palindrome-integer">**palindrome**</span>, and `false` otherwise.
+
+ 
+
+<strong class="example">Example 1:</strong>
+
+```text
+
+**Input:** x = 121
+**Output:** true
+**Explanation:** 121 reads as 121 from left to right and from right to left.
+
+```
+
+<strong class="example">Example 2:</strong>
+
+```text
+
+**Input:** x = -121
+**Output:** false
+**Explanation:** From left to right, it reads -121. From right to left, it becomes 121-. Therefore it is not a palindrome.
+
+```
+
+<strong class="example">Example 3:</strong>
+
+```text
+
+**Input:** x = 10
+**Output:** false
+**Explanation:** Reads 01 from right to left. Therefore it is not a palindrome.
+
+```
+
+ 
+
+**Constraints:**
+
+	- `-2<sup>31</sup> <= x <= 2<sup>31</sup> - 1`
+
+ 
+**Follow up:** Could you solve it without converting the integer to a string?
+
+</details>
+
 ```java
 class Solution {
     public boolean isPalindrome(int x) {
@@ -868,6 +2620,46 @@ class Solution {
 **Category:** Tier 3 · Reference
 **Pattern:** Grade-school multiplication  **Time:** O(m·n)  **Space:** O(m+n)
 **Approach:** Multiply each pair of digits and place the product into a result array where digits `i` and `j` contribute to positions `i+j` and `i+j+1`. Accumulate carries in a second pass, then strip leading zeros. This handles arbitrarily large numbers without overflow.
+
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**LeetCode Link:** [Multiply Strings](https://leetcode.com/problems/multiply-strings/)
+
+
+Given two non-negative integers `num1` and `num2` represented as strings, return the product of `num1` and `num2`, also represented as a string.
+
+**Note:** You must not use any built-in BigInteger library or convert the inputs to integer directly.
+
+ 
+
+<strong class="example">Example 1:</strong>
+
+```text
+**Input:** num1 = "2", num2 = "3"
+**Output:** "6"
+
+```
+
+<strong class="example">Example 2:</strong>
+
+```text
+**Input:** num1 = "123", num2 = "456"
+**Output:** "56088"
+
+```
+
+ 
+
+**Constraints:**
+
+	- `1 <= num1.length, num2.length <= 200`
+
+	- `num1` and `num2` consist of digits only.
+
+	- Both `num1` and `num2` do not contain any leading zero, except the number `0` itself.
+
+</details>
+
 ```java
 class Solution {
     public String multiply(String num1, String num2) {
