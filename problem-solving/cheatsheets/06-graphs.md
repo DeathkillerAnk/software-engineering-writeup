@@ -7,10 +7,11 @@ Graph traversal, ordering, connectivity, and shortest-path patterns with reusabl
 ## Core building blocks
 
 ### Adjacency list building
-**Category:** 🧩 Template
-
 
 <!-- Problem Statement not automatically found -->
+
+**Category:** 🧩 Template
+
 
 ```java
 import java.util.*; // Import utility classes like List, ArrayList
@@ -39,10 +40,11 @@ List<List<int[]>> buildWeighted(int n, int[][] edges, boolean directed) {
 ```
 
 ### Generic BFS template
-**Category:** 🧩 Template
-
 
 <!-- Problem Statement not automatically found -->
+
+**Category:** 🧩 Template
+
 
 ```java
 // Level-order traversal from a single source. Returns shortest #edges to each node.
@@ -67,10 +69,11 @@ int[] bfs(List<List<Integer>> adj, int start) {
 ```
 
 ### Generic DFS template
-**Category:** 🧩 Template
-
 
 <!-- Problem Statement not automatically found -->
+
+**Category:** 🧩 Template
+
 
 ```java
 // Recursive DFS marking visited.
@@ -97,10 +100,11 @@ void dfsIterative(List<List<Integer>> adj, int start, boolean[] visited) {
 ```
 
 ### Union-Find (DSU) — path compression + union by rank
-**Category:** 🧩 Template
-
 
 <!-- Problem Statement not automatically found -->
+
+**Category:** 🧩 Template
+
 
 ```java
 class DSU {
@@ -143,10 +147,6 @@ class DSU {
 ## Grid / Graph Traversal
 
 ### Number of Islands
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Grid DFS/BFS connected components.  **Time:** O(m·n)  **Space:** O(m·n) worst-case recursion.
-**Approach:** Scan every cell; when an unvisited land cell ('1') is found, increment the count and flood the entire island by DFS, marking visited cells (overwrite to '0' in place) so they are not recounted. Each cell is visited at most once.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -201,6 +201,11 @@ An **island** is surrounded by water and is formed by connecting adjacent lands 
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Grid DFS/BFS connected components.  **Time:** O(m·n)  **Space:** O(m·n) worst-case recursion.
+**Approach:** Scan every cell; when an unvisited land cell ('1') is found, increment the count and flood the entire island by DFS, marking visited cells (overwrite to '0' in place) so they are not recounted. Each cell is visited at most once.
+
+
 ```java
 public int numIslands(char[][] grid) {
     int m = grid.length, n = grid[0].length, count = 0; // Get grid dimensions and initialize island counter
@@ -220,10 +225,6 @@ private void sink(char[][] g, int i, int j) {
 **Alternative:** BFS with a queue if recursion depth is a concern; or a DSU over land cells.
 
 ### Flood Fill
-**Category:** Tier 3 · Reference
-**Pattern:** Grid DFS from a source.  **Time:** O(m·n)  **Space:** O(m·n).
-**Approach:** Starting at (sr, sc), recolor all 4-directionally connected cells sharing the original color. Capture the start color first and stop early if it already equals the target (otherwise infinite recursion).
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -297,6 +298,11 @@ The starting pixel is already colored with 0, which is the same as the target co
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Grid DFS from a source.  **Time:** O(m·n)  **Space:** O(m·n).
+**Approach:** Starting at (sr, sc), recolor all 4-directionally connected cells sharing the original color. Capture the start color first and stop early if it already equals the target (otherwise infinite recursion).
+
+
 ```java
 public int[][] floodFill(int[][] image, int sr, int sc, int color) {
     int start = image[sr][sc]; // Store the original color of the starting pixel
@@ -313,10 +319,6 @@ private void fill(int[][] img, int i, int j, int from, int to) {
 ```
 
 ### Clone Graph
-**Category:** Tier 2 · Reinforce
-**Pattern:** DFS/BFS with a visited map (old → new).  **Time:** O(V + E)  **Space:** O(V).
-**Approach:** Traverse the graph; for each original node create its clone once and store it in a map. When visiting neighbors, look up (or create) clones and wire them into the cloned node's neighbor list. The map both deduplicates and breaks cycles.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -402,6 +404,11 @@ The given node will always be the first node with `val = 1`. You must return the
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** DFS/BFS with a visited map (old → new).  **Time:** O(V + E)  **Space:** O(V).
+**Approach:** Traverse the graph; for each original node create its clone once and store it in a map. When visiting neighbors, look up (or create) clones and wire them into the cloned node's neighbor list. The map both deduplicates and breaks cycles.
+
+
 ```java
 class Node {
     public int val; // Node value
@@ -425,12 +432,13 @@ private Node dfs(Node node, Map<Node, Node> seen) {
 ```
 
 ### Number of Connected Components (in an Undirected Graph)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 3 · Reference
 **Pattern:** Union-Find (or DFS).  **Time:** O(V + E·α)  **Space:** O(V).
 **Approach:** Start with n components. Union the endpoints of each edge; every successful union (joining two previously separate sets) reduces the component count by one. The DSU's `count` field is the answer.
 
-
-<!-- Problem Statement not automatically found -->
 
 ```java
 public int countComponents(int n, int[][] edges) {
@@ -442,10 +450,6 @@ public int countComponents(int n, int[][] edges) {
 **Alternative:** DFS from each unvisited node, counting how many DFS launches occur.
 
 ### Surrounded Regions
-**Category:** Tier 3 · Reference
-**Pattern:** Reverse flood — mark border-connected regions first.  **Time:** O(m·n)  **Space:** O(m·n).
-**Approach:** A region of 'O' survives only if it touches the border. DFS from every border 'O', temporarily marking connected 'O's as safe ('#'). After that, flip all remaining 'O' (truly surrounded) to 'X' and restore the safe '#' back to 'O'.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -501,6 +505,11 @@ In the above diagram, the bottom region is not captured because it is on the edg
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Reverse flood — mark border-connected regions first.  **Time:** O(m·n)  **Space:** O(m·n).
+**Approach:** A region of 'O' survives only if it touches the border. DFS from every border 'O', temporarily marking connected 'O's as safe ('#'). After that, flip all remaining 'O' (truly surrounded) to 'X' and restore the safe '#' back to 'O'.
+
+
 ```java
 public void solve(char[][] board) {
     int m = board.length, n = board[0].length; // Get the dimensions of the board
@@ -520,10 +529,6 @@ private void guard(char[][] b, int i, int j) {
 ```
 
 ### Pacific Atlantic Water Flow
-**Category:** Tier 2 · Reinforce
-**Pattern:** Multi-source DFS from both oceans.  **Time:** O(m·n)  **Space:** O(m·n).
-**Approach:** Instead of testing each cell, flow water backward from the ocean borders uphill (to neighbors with height ≥ current). Cells reachable from the Pacific border form one set, from the Atlantic border another; the answer is their intersection.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -590,6 +595,11 @@ Note that there are other possible paths for these cells to flow to the Pacific 
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** Multi-source DFS from both oceans.  **Time:** O(m·n)  **Space:** O(m·n).
+**Approach:** Instead of testing each cell, flow water backward from the ocean borders uphill (to neighbors with height ≥ current). Cells reachable from the Pacific border form one set, from the Atlantic border another; the answer is their intersection.
+
+
 ```java
 public List<List<Integer>> pacificAtlantic(int[][] h) {
     int m = h.length, n = h[0].length; // Get dimensions of the height matrix
@@ -616,10 +626,6 @@ private void flow(int[][] h, int i, int j, boolean[][] seen) {
 ```
 
 ### Max Area of Island
-**Category:** Tier 3 · Reference
-**Pattern:** Grid DFS returning subtree size.  **Time:** O(m·n)  **Space:** O(m·n).
-**Approach:** Same island flooding as Number of Islands, but each DFS returns the count of cells it sank; track the maximum across all islands. Sinking visited land prevents double counting.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -668,6 +674,11 @@ Return *the maximum **area** of an island in *`grid`. If there is no island, ret
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Grid DFS returning subtree size.  **Time:** O(m·n)  **Space:** O(m·n).
+**Approach:** Same island flooding as Number of Islands, but each DFS returns the count of cells it sank; track the maximum across all islands. Sinking visited land prevents double counting.
+
+
 ```java
 public int maxAreaOfIsland(int[][] grid) {
     int best = 0; // Initialize variable to store the maximum island area found
@@ -690,10 +701,6 @@ private int area(int[][] g, int i, int j) {
 ## BFS Shortest Path (unweighted)
 
 ### Rotting Oranges
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Multi-source BFS over a grid.  **Time:** O(m·n)  **Space:** O(m·n).
-**Approach:** Seed the queue with all initially rotten oranges (time 0) and count fresh oranges. BFS level by level; each level is one minute, and rotting a fresh neighbor decrements the fresh count. Return the last minute, or -1 if any fresh orange remains.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -758,6 +765,11 @@ Return *the minimum number of minutes that must elapse until no cell has a fresh
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Multi-source BFS over a grid.  **Time:** O(m·n)  **Space:** O(m·n).
+**Approach:** Seed the queue with all initially rotten oranges (time 0) and count fresh oranges. BFS level by level; each level is one minute, and rotting a fresh neighbor decrements the fresh count. Return the last minute, or -1 if any fresh orange remains.
+
+
 ```java
 public int orangesRotting(int[][] grid) {
     int m = grid.length, n = grid[0].length, fresh = 0, minutes = 0; // Initialize grid dimensions, fresh count, and minute tracker
@@ -785,10 +797,6 @@ public int orangesRotting(int[][] grid) {
 ```
 
 ### 01 Matrix
-**Category:** Tier 3 · Reference
-**Pattern:** Multi-source BFS from all zeros.  **Time:** O(m·n)  **Space:** O(m·n).
-**Approach:** The distance of each cell to the nearest 0 is computed by BFS seeded from every 0 simultaneously. Initialize 1-cells to "unvisited" and expand outward; the first time a cell is reached gives its shortest distance.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -843,6 +851,11 @@ The distance between two cells sharing a common edge is `1`.
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Multi-source BFS from all zeros.  **Time:** O(m·n)  **Space:** O(m·n).
+**Approach:** The distance of each cell to the nearest 0 is computed by BFS seeded from every 0 simultaneously. Initialize 1-cells to "unvisited" and expand outward; the first time a cell is reached gives its shortest distance.
+
+
 ```java
 public int[][] updateMatrix(int[][] mat) {
     int m = mat.length, n = mat[0].length; // Get matrix dimensions
@@ -869,10 +882,6 @@ public int[][] updateMatrix(int[][] mat) {
 ```
 
 ### Word Ladder
-**Category:** Tier 2 · Reinforce
-**Pattern:** BFS over implicit word graph.  **Time:** O(N·L·26)  **Space:** O(N·L) (N words, L length).
-**Approach:** Words are nodes; an edge connects words differing by one letter. BFS from `beginWord`, generating neighbors by trying all 26 letters at each position and checking membership in the word set. Return the level (number of words in the path) when `endWord` is reached.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -931,6 +940,11 @@ Given two words, `beginWord` and `endWord`, and a dictionary `wordList`, return 
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** BFS over implicit word graph.  **Time:** O(N·L·26)  **Space:** O(N·L) (N words, L length).
+**Approach:** Words are nodes; an edge connects words differing by one letter. BFS from `beginWord`, generating neighbors by trying all 26 letters at each position and checking membership in the word set. Return the level (number of words in the path) when `endWord` is reached.
+
+
 ```java
 public int ladderLength(String beginWord, String endWord, List<String> wordList) {
     Set<String> dict = new HashSet<>(wordList); // Convert word list to a hash set for O(1) lookups
@@ -961,10 +975,6 @@ public int ladderLength(String beginWord, String endWord, List<String> wordList)
 **Alternative:** Bidirectional BFS from both ends roughly halves the explored frontier.
 
 ### Shortest Path in Binary Matrix
-**Category:** Tier 3 · Reference
-**Pattern:** 8-directional grid BFS.  **Time:** O(n²)  **Space:** O(n²).
-**Approach:** Move through 0-cells in 8 directions from top-left to bottom-right. BFS gives the minimum number of cells in the clear path; mark cells visited (set to 1) on enqueue to avoid revisits.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1026,6 +1036,11 @@ The **length of a clear path** is the number of visited cells of this path.
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** 8-directional grid BFS.  **Time:** O(n²)  **Space:** O(n²).
+**Approach:** Move through 0-cells in 8 directions from top-left to bottom-right. BFS gives the minimum number of cells in the clear path; mark cells visited (set to 1) on enqueue to avoid revisits.
+
+
 ```java
 public int shortestPathBinaryMatrix(int[][] grid) {
     int n = grid.length; // Get the grid size n x n
@@ -1053,10 +1068,6 @@ public int shortestPathBinaryMatrix(int[][] grid) {
 ```
 
 ### Open the Lock
-**Category:** Tier 3 · Reference
-**Pattern:** BFS over state graph (10000 states).  **Time:** O(10000·8)  **Space:** O(10000).
-**Approach:** Each 4-digit combination is a state; neighbors turn one wheel up or down (8 per state). BFS from "0000", skipping deadends and visited states, until reaching the target. The level is the minimum number of turns.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1122,6 +1133,11 @@ because the wheels of the lock become stuck after the display becomes the dead e
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** BFS over state graph (10000 states).  **Time:** O(10000·8)  **Space:** O(10000).
+**Approach:** Each 4-digit combination is a state; neighbors turn one wheel up or down (8 per state). BFS from "0000", skipping deadends and visited states, until reaching the target. The level is the minimum number of turns.
+
+
 ```java
 public int openLock(String[] deadends, String target) {
     Set<String> dead = new HashSet<>(Arrays.asList(deadends)); // Convert deadends array to a HashSet for O(1) lookups
@@ -1156,10 +1172,6 @@ public int openLock(String[] deadends, String target) {
 ## Topological Sort
 
 ### Course Schedule
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Cycle detection in a DAG (Kahn's BFS).  **Time:** O(V + E)  **Space:** O(V + E).
-**Approach:** Treat prerequisites as directed edges. Repeatedly remove nodes with in-degree 0; if all nodes can be removed, the graph is acyclic and all courses are finishable. A leftover means a cycle.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1212,6 +1224,11 @@ To take course 1 you should have finished course 0, and to take course 0 you sho
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Cycle detection in a DAG (Kahn's BFS).  **Time:** O(V + E)  **Space:** O(V + E).
+**Approach:** Treat prerequisites as directed edges. Repeatedly remove nodes with in-degree 0; if all nodes can be removed, the graph is acyclic and all courses are finishable. A leftover means a cycle.
+
+
 ```java
 public boolean canFinish(int numCourses, int[][] prerequisites) {
     List<List<Integer>> adj = new ArrayList<>(); // Adjacency list for the directed prerequisite graph
@@ -1230,10 +1247,6 @@ public boolean canFinish(int numCourses, int[][] prerequisites) {
 ```
 
 ### Course Schedule II
-**Category:** Tier 2 · Reinforce
-**Pattern:** Topological order (Kahn's BFS).  **Time:** O(V + E)  **Space:** O(V + E).
-**Approach:** Same as Course Schedule but record the order in which zero-in-degree nodes are removed. If the order contains all courses it is a valid topological sequence; otherwise a cycle exists and we return an empty array.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1296,6 +1309,11 @@ So one correct course order is [0,1,2,3]. Another correct ordering is [0,2,1,3].
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** Topological order (Kahn's BFS).  **Time:** O(V + E)  **Space:** O(V + E).
+**Approach:** Same as Course Schedule but record the order in which zero-in-degree nodes are removed. If the order contains all courses it is a valid topological sequence; otherwise a cycle exists and we return an empty array.
+
+
 ```java
 public int[] findOrder(int numCourses, int[][] prerequisites) {
     List<List<Integer>> adj = new ArrayList<>(); // Adjacency list representation
@@ -1316,12 +1334,13 @@ public int[] findOrder(int numCourses, int[][] prerequisites) {
 ```
 
 ### Alien Dictionary
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 3 · Reference
 **Pattern:** Build a precedence graph, then topological sort.  **Time:** O(C) total chars  **Space:** O(1) (≤26 nodes).
 **Approach:** Compare each pair of adjacent words; the first differing character gives a directed edge (earlier char → later char). Edge case: if a word is a prefix of a shorter word that precedes it, the ordering is invalid. Then run Kahn's algorithm; a cycle means no valid order exists.
 
-
-<!-- Problem Statement not automatically found -->
 
 ```java
 public String alienOrder(String[] words) {
@@ -1369,10 +1388,6 @@ boolean dfsTopo(int node, List<List<Integer>> adj, int[] state, Deque<Integer> o
 ## Union-Find Problems
 
 ### Number of Provinces
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** DSU over an adjacency matrix.  **Time:** O(n²·α)  **Space:** O(n).
-**Approach:** Cities are nodes; `isConnected[i][j] == 1` is an edge. Union all directly connected city pairs; the number of remaining components is the number of provinces (the DSU `count`).
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1427,6 +1442,11 @@ Return *the total number of **provinces***.
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** DSU over an adjacency matrix.  **Time:** O(n²·α)  **Space:** O(n).
+**Approach:** Cities are nodes; `isConnected[i][j] == 1` is an edge. Union all directly connected city pairs; the number of remaining components is the number of provinces (the DSU `count`).
+
+
 ```java
 public int findCircleNum(int[][] isConnected) {
     int n = isConnected.length; // Number of cities
@@ -1439,10 +1459,6 @@ public int findCircleNum(int[][] isConnected) {
 ```
 
 ### Redundant Connection
-**Category:** Tier 2 · Reinforce
-**Pattern:** DSU — first edge that closes a cycle.  **Time:** O(n·α)  **Space:** O(n).
-**Approach:** Process edges in order, unioning endpoints. The first edge whose endpoints already share a root would create a cycle; in a tree-plus-one-edge graph that edge is exactly the redundant one to remove.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1497,6 +1513,11 @@ Return *an edge that can be removed so that the resulting graph is a tree of *`n
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** DSU — first edge that closes a cycle.  **Time:** O(n·α)  **Space:** O(n).
+**Approach:** Process edges in order, unioning endpoints. The first edge whose endpoints already share a root would create a cycle; in a tree-plus-one-edge graph that edge is exactly the redundant one to remove.
+
+
 ```java
 public int[] findRedundantConnection(int[][] edges) {
     DSU dsu = new DSU(edges.length + 1);   // nodes are 1-indexed; allocate enough space
@@ -1508,10 +1529,6 @@ public int[] findRedundantConnection(int[][] edges) {
 ```
 
 ### Accounts Merge
-**Category:** Tier 3 · Reference
-**Pattern:** DSU over emails, grouped by owner.  **Time:** O(N·α + sorting)  **Space:** O(N).
-**Approach:** Assign each email an id and union all emails within the same account (they belong to one person). Map every email to its account name. Group emails by DSU root, sort each group, and prepend the owner name.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1565,6 +1582,11 @@ We could return these lists in any order, for example the answer [['Mary', 'mary
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** DSU over emails, grouped by owner.  **Time:** O(N·α + sorting)  **Space:** O(N).
+**Approach:** Assign each email an id and union all emails within the same account (they belong to one person). Map every email to its account name. Group emails by DSU root, sort each group, and prepend the owner name.
+
+
 ```java
 public List<List<String>> accountsMerge(List<List<String>> accounts) {
     Map<String, Integer> id = new HashMap<>(); // Maps an email to a unique integer ID
@@ -1597,12 +1619,13 @@ public List<List<String>> accountsMerge(List<List<String>> accounts) {
 ```
 
 ### Graph Valid Tree
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 3 · Reference
 **Pattern:** DSU — connectivity + acyclicity.  **Time:** O(n·α)  **Space:** O(n).
 **Approach:** A graph on n nodes is a tree iff it has exactly n-1 edges and is fully connected with no cycles. Union each edge; if any edge connects two already-joined nodes there is a cycle (false). Finally confirm a single component.
 
-
-<!-- Problem Statement not automatically found -->
 
 ```java
 public boolean validTree(int n, int[][] edges) {
@@ -1619,12 +1642,13 @@ public boolean validTree(int n, int[][] edges) {
 ## Weighted Shortest Path
 
 ### Network Delay Time (Dijkstra)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** Dijkstra with a min-heap.  **Time:** O(E log V)  **Space:** O(V + E).
 **Approach:** Find shortest times from source `k` to all nodes, then return the maximum (when the last node receives the signal). Use a priority queue keyed by accumulated time, relaxing edges and skipping stale entries; if any node is unreachable, return -1.
 
-
-<!-- Problem Statement not automatically found -->
 
 ```java
 public int networkDelayTime(int[][] times, int n, int k) {
@@ -1654,12 +1678,13 @@ public int networkDelayTime(int[][] times, int n, int k) {
 ```
 
 ### Cheapest Flights Within K Stops (Bellman-Ford)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 2 · Reinforce
 **Pattern:** Bounded Bellman-Ford (≤ K+1 edges).  **Time:** O(K·E)  **Space:** O(V).
 **Approach:** Relax all edges exactly K+1 times (K stops means at most K+1 flights). To prevent using updates made in the same round, relax from a snapshot of the previous round's distances. The result for `dst` is the cheapest such bounded-hop price.
 
-
-<!-- Problem Statement not automatically found -->
 
 ```java
 public int findCheapestPrice(int n, int[][] flights, int src, int dst, int k) {
@@ -1678,12 +1703,13 @@ public int findCheapestPrice(int n, int[][] flights, int src, int dst, int k) {
 ```
 
 ### Path with Minimum Effort (Dijkstra-style)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 3 · Reference
 **Pattern:** Dijkstra where cost = max edge on path (minimax).  **Time:** O(m·n·log(m·n))  **Space:** O(m·n).
 **Approach:** Define a path's effort as the maximum absolute height difference along it; we want the path minimizing that maximum. Run a Dijkstra variant where the "distance" of a cell is the smallest possible max-difference to reach it, popping the lowest-effort cell first.
 
-
-<!-- Problem Statement not automatically found -->
 
 ```java
 public int minimumEffortPath(int[][] heights) {
@@ -1712,12 +1738,13 @@ public int minimumEffortPath(int[][] heights) {
 ```
 
 ### Floyd-Warshall template
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** 🧩 Template
 **Pattern:** All-pairs shortest path via DP.  **Time:** O(V³)  **Space:** O(V²).
 **Approach:** For every intermediate node `k`, try improving every pair (i, j) by routing through k. After processing all k, `dist[i][j]` holds the shortest distance. Handles negative edges (no negative cycles); use a large sentinel for "no edge" and guard against overflow.
 
-
-<!-- Problem Statement not automatically found -->
 
 ```java
 void floydWarshall(int[][] dist) {   // dist[i][j] init: 0 on diagonal, edge weight, else INF
@@ -1736,12 +1763,13 @@ void floydWarshall(int[][] dist) {   // dist[i][j] init: 0 on diagonal, edge wei
 ## Minimum Spanning Tree
 
 ### Min Cost to Connect All Points — Kruskal
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 2 · Reinforce
 **Pattern:** Sort edges, union greedily.  **Time:** O(n² log n)  **Space:** O(n²).
 **Approach:** Build all pairwise Manhattan-distance edges, sort ascending, and add an edge to the MST only if it joins two different components (DSU prevents cycles). Stop once n-1 edges are chosen.
 
-
-<!-- Problem Statement not automatically found -->
 
 ```java
 public int minCostConnectPoints(int[][] points) {
@@ -1766,12 +1794,13 @@ public int minCostConnectPoints(int[][] points) {
 ```
 
 ### Min Cost to Connect All Points — Prim
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 2 · Reinforce
 **Pattern:** Grow MST from one node with a min-heap.  **Time:** O(n² log n)  **Space:** O(n).
 **Approach:** Start from any point; repeatedly pull the cheapest edge connecting the tree to an unvisited point, add its weight, and push that point's edges to all unvisited points. Each point is finalized once; finish when all n are in the tree.
 
-
-<!-- Problem Statement not automatically found -->
 
 ```java
 public int minCostConnectPointsPrim(int[][] points) {
@@ -1801,10 +1830,6 @@ public int minCostConnectPointsPrim(int[][] points) {
 ## Other
 
 ### Is Graph Bipartite?
-**Category:** Tier 3 · Reference
-**Pattern:** 2-coloring via BFS/DFS.  **Time:** O(V + E)  **Space:** O(V).
-**Approach:** Try to color the graph with two colors so that no edge joins same-colored nodes. BFS each uncolored component, assigning the opposite color to each neighbor; a conflict (a neighbor already has the same color) proves it is not bipartite.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1867,6 +1892,11 @@ Return `true`* if and only if it is **bipartite***.
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** 2-coloring via BFS/DFS.  **Time:** O(V + E)  **Space:** O(V).
+**Approach:** Try to color the graph with two colors so that no edge joins same-colored nodes. BFS each uncolored component, assigning the opposite color to each neighbor; a conflict (a neighbor already has the same color) proves it is not bipartite.
+
+
 ```java
 public boolean isBipartite(int[][] graph) {
     int n = graph.length; // Number of nodes in the graph
@@ -1888,12 +1918,13 @@ public boolean isBipartite(int[][] graph) {
 ```
 
 ### Reconstruct Itinerary (Hierholzer / Eulerian path)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 3 · Reference
 **Pattern:** Hierholzer's algorithm for an Eulerian path.  **Time:** O(E log E)  **Space:** O(E).
 **Approach:** Every ticket is a directed edge; we need an Eulerian path starting at "JFK" using each edge once. Keep destinations sorted (lexical order) per origin. DFS greedily, and on backtracking prepend the node to the route — this yields the valid itinerary in reverse, so reverse it at the end.
 
-
-<!-- Problem Statement not automatically found -->
 
 ```java
 public List<String> findItinerary(List<List<String>> tickets) {

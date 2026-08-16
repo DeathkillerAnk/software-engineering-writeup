@@ -20,10 +20,6 @@ while (lo < hi) { // Continue searching as long as the pointers haven't crossed 
 ```
 
 ### Two Sum II (Input Array Is Sorted)
-**Category:** Tier 2 · Reinforce
-**Pattern:** Two pointers opposite ends  **Time:** O(n)  **Space:** O(1)
-**Approach:** Because the array is sorted, place pointers at both ends. If the sum is too small, the only way to increase it is to move the left pointer right; if too large, move the right pointer left. Each element is visited at most once, so it is linear and needs no hash map.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -86,6 +82,11 @@ Your solution must use only constant extra space.
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** Two pointers opposite ends  **Time:** O(n)  **Space:** O(1)
+**Approach:** Because the array is sorted, place pointers at both ends. If the sum is too small, the only way to increase it is to move the left pointer right; if too large, move the right pointer left. Each element is visited at most once, so it is linear and needs no hash map.
+
+
 ```java
 public int[] twoSum(int[] numbers, int target) {
     int lo = 0, hi = numbers.length - 1; // Initialize pointers at both ends of the sorted array
@@ -100,10 +101,6 @@ public int[] twoSum(int[] numbers, int target) {
 ```
 
 ### 3Sum
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Sort + two pointers opposite ends  **Time:** O(n²)  **Space:** O(1) (excluding output)
-**Approach:** Sort the array, then fix each index `i` and run a two-pointer scan on the remainder looking for pairs summing to `-nums[i]`. Skip duplicate values for both the fixed element and the moving pointers to avoid duplicate triplets. Once `nums[i] > 0` we can stop, since all remaining numbers are positive.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -161,6 +158,11 @@ Notice that the order of the output and the order of the triplets does not matte
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Sort + two pointers opposite ends  **Time:** O(n²)  **Space:** O(1) (excluding output)
+**Approach:** Sort the array, then fix each index `i` and run a two-pointer scan on the remainder looking for pairs summing to `-nums[i]`. Skip duplicate values for both the fixed element and the moving pointers to avoid duplicate triplets. Once `nums[i] > 0` we can stop, since all remaining numbers are positive.
+
+
 ```java
 public List<List<Integer>> threeSum(int[] nums) {
     Arrays.sort(nums); // Sort the array to easily manage duplicates and use two pointers
@@ -185,10 +187,6 @@ public List<List<Integer>> threeSum(int[] nums) {
 ```
 
 ### Container With Most Water
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Two pointers opposite ends  **Time:** O(n)  **Space:** O(1)
-**Approach:** Area is `min(height[lo], height[hi]) * (hi - lo)`. Start at the widest pair. Moving the taller wall inward can never help (width shrinks, height capped by the shorter wall), so always move the shorter wall — that is the only move that could yield a taller bottleneck and a larger area.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -237,6 +235,11 @@ Return *the maximum amount of water a container can store*.
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Two pointers opposite ends  **Time:** O(n)  **Space:** O(1)
+**Approach:** Area is `min(height[lo], height[hi]) * (hi - lo)`. Start at the widest pair. Moving the taller wall inward can never help (width shrinks, height capped by the shorter wall), so always move the shorter wall — that is the only move that could yield a taller bottleneck and a larger area.
+
+
 ```java
 public int maxArea(int[] height) {
     int lo = 0, hi = height.length - 1, best = 0; // Initialize pointers at ends, and max area tracker
@@ -251,10 +254,6 @@ public int maxArea(int[] height) {
 ```
 
 ### Trapping Rain Water
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Two pointers opposite ends  **Time:** O(n)  **Space:** O(1)
-**Approach:** Water above a bar equals `min(maxLeft, maxRight) - height[i]`. Maintain running `leftMax`/`rightMax`. Whichever side has the smaller wall is the binding constraint, so we can safely compute that side's trapped water and advance that pointer — the smaller running max is guaranteed to be the true bound for that cell.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -297,6 +296,11 @@ Given `n` non-negative integers representing an elevation map where the width of
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Two pointers opposite ends  **Time:** O(n)  **Space:** O(1)
+**Approach:** Water above a bar equals `min(maxLeft, maxRight) - height[i]`. Maintain running `leftMax`/`rightMax`. Whichever side has the smaller wall is the binding constraint, so we can safely compute that side's trapped water and advance that pointer — the smaller running max is guaranteed to be the true bound for that cell.
+
+
 ```java
 public int trap(int[] height) {
     int lo = 0, hi = height.length - 1; // Initialize two pointers at the ends of the elevation map
@@ -338,10 +342,6 @@ public int trapStack(int[] height) {
 ```
 
 ### Valid Palindrome
-**Category:** Tier 3 · Reference
-**Pattern:** Two pointers opposite ends  **Time:** O(n)  **Space:** O(1)
-**Approach:** Walk inward from both ends, skipping any non-alphanumeric characters, and compare case-insensitively. If any mismatched pair is found the string is not a palindrome. No extra string allocation is needed.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -395,6 +395,11 @@ Since an empty string reads the same forward and backward, it is a palindrome.
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Two pointers opposite ends  **Time:** O(n)  **Space:** O(1)
+**Approach:** Walk inward from both ends, skipping any non-alphanumeric characters, and compare case-insensitively. If any mismatched pair is found the string is not a palindrome. No extra string allocation is needed.
+
+
 ```java
 public boolean isPalindrome(String s) {
     int lo = 0, hi = s.length() - 1; // Start pointers at the beginning and end of the string
@@ -410,12 +415,13 @@ public boolean isPalindrome(String s) {
 ```
 
 ### Sort Colors (Dutch National Flag)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** Three pointers, one pass  **Time:** O(n)  **Space:** O(1)
 **Approach:** Maintain three regions: `[0,low)` are 0s, `[low,mid)` are 1s, `(high,end]` are 2s. Scan with `mid`: a 0 swaps into the low region; a 2 swaps into the high region (and do not advance `mid`, since the swapped-in value is unexamined); a 1 stays put. Sorts {0,1,2} in a single pass.
 
-
-<!-- Problem Statement not automatically found -->
 
 ```java
 public void sortColors(int[] nums) {
@@ -451,10 +457,6 @@ for (int read = 0; read < arr.length; read++) { // Pointer scanning through all 
 ```
 
 ### Remove Duplicates from Sorted Array
-**Category:** Tier 3 · Reference
-**Pattern:** Same-direction two pointers  **Time:** O(n)  **Space:** O(1)
-**Approach:** Since the array is sorted, duplicates are adjacent. Keep a `write` index pointing at the last unique element; for each `read`, write only when it differs from the previous kept value. Return the new length `write + 1`.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -523,6 +525,11 @@ It does not matter what you leave beyond the returned k (hence they are undersco
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Same-direction two pointers  **Time:** O(n)  **Space:** O(1)
+**Approach:** Since the array is sorted, duplicates are adjacent. Keep a `write` index pointing at the last unique element; for each `read`, write only when it differs from the previous kept value. Return the new length `write + 1`.
+
+
 ```java
 public int removeDuplicates(int[] nums) {
     if (nums.length == 0) return 0; // If the array is empty, the new length is 0
@@ -537,10 +544,6 @@ public int removeDuplicates(int[] nums) {
 ```
 
 ### Move Zeroes
-**Category:** Tier 3 · Reference
-**Pattern:** Same-direction two pointers  **Time:** O(n)  **Space:** O(1)
-**Approach:** A `write` pointer tracks where the next non-zero belongs. Swap each non-zero element into that slot as you scan; swapping (rather than overwriting) automatically pushes the zeroes to the back while preserving relative order of non-zeros.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -582,6 +585,11 @@ Given an integer array `nums`, move all `0`'s to the end of it while maintaining
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Same-direction two pointers  **Time:** O(n)  **Space:** O(1)
+**Approach:** A `write` pointer tracks where the next non-zero belongs. Swap each non-zero element into that slot as you scan; swapping (rather than overwriting) automatically pushes the zeroes to the back while preserving relative order of non-zeros.
+
+
 ```java
 public void moveZeroes(int[] nums) {
     int write = 0; // Pointer tracking where the next non-zero element should be placed
@@ -614,12 +622,13 @@ for (int i = 0; i < arr.length; i++) { // Iterate through the array elements
 ```
 
 ### Maximum Sum Subarray of Size K
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** Fixed sliding window  **Time:** O(n)  **Space:** O(1)
 **Approach:** Build the first window of size `k`, then slide one step at a time: add the new right element and remove the old left element, tracking the running maximum. Each element enters and leaves the window exactly once.
 
-
-<!-- Problem Statement not automatically found -->
 
 ```java
 public int maxSumSubarray(int[] nums, int k) {
@@ -656,10 +665,6 @@ for (int right = 0; right < s.length(); right++) { // Expand the window by movin
 ```
 
 ### Longest Substring Without Repeating Characters
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Variable sliding window  **Time:** O(n)  **Space:** O(min(n, charset))
-**Approach:** Track the last index seen for each character. When a repeat falls inside the current window, jump `left` to just past the previous occurrence. The window `[left, right]` always holds distinct characters, so its width gives a candidate answer at every step.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -711,6 +716,11 @@ Notice that the answer must be a substring, "pwke" is a subsequence and not a su
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Variable sliding window  **Time:** O(n)  **Space:** O(min(n, charset))
+**Approach:** Track the last index seen for each character. When a repeat falls inside the current window, jump `left` to just past the previous occurrence. The window `[left, right]` always holds distinct characters, so its width gives a candidate answer at every step.
+
+
 ```java
 public int lengthOfLongestSubstring(String s) {
     Map<Character, Integer> lastSeen = new HashMap<>(); // Map to store the most recent index of each character
@@ -728,10 +738,6 @@ public int lengthOfLongestSubstring(String s) {
 ```
 
 ### Minimum Window Substring
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Variable sliding window (shrink-to-minimum)  **Time:** O(n + m)  **Space:** O(charset)
-**Approach:** Count required characters of `t`. Expand `right`, decrementing the need; when a character's need reaches zero we have one fully-satisfied char (`formed`). Once all required chars are formed, shrink `left` as far as possible while still valid, recording the smallest window seen.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -793,6 +799,11 @@ Since the largest window of s only has one 'a', return empty string.
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Variable sliding window (shrink-to-minimum)  **Time:** O(n + m)  **Space:** O(charset)
+**Approach:** Count required characters of `t`. Expand `right`, decrementing the need; when a character's need reaches zero we have one fully-satisfied char (`formed`). Once all required chars are formed, shrink `left` as far as possible while still valid, recording the smallest window seen.
+
+
 ```java
 public String minWindow(String s, String t) {
     if (s.length() < t.length()) return ""; // If the search string is shorter than the target, no valid window is possible
@@ -816,10 +827,6 @@ public String minWindow(String s, String t) {
 ```
 
 ### Longest Repeating Character Replacement
-**Category:** Tier 2 · Reinforce
-**Pattern:** Variable sliding window  **Time:** O(n)  **Space:** O(1) (26 letters)
-**Approach:** A window is valid if `(windowLength - countOfMostFrequentChar) <= k`, i.e. the non-majority chars can all be replaced within budget `k`. Track the max frequency seen. When the window becomes invalid, slide `left` forward by one (never shrinking the best answer, since we only ever grow the window when valid).
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -865,6 +872,11 @@ There may exists other ways to achieve this answer too.
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** Variable sliding window  **Time:** O(n)  **Space:** O(1) (26 letters)
+**Approach:** A window is valid if `(windowLength - countOfMostFrequentChar) <= k`, i.e. the non-majority chars can all be replaced within budget `k`. Track the max frequency seen. When the window becomes invalid, slide `left` forward by one (never shrinking the best answer, since we only ever grow the window when valid).
+
+
 ```java
 public int characterReplacement(String s, int k) {
     int[] freq = new int[26]; // Frequency array to count occurrences of each uppercase English letter in the window
@@ -883,10 +895,6 @@ public int characterReplacement(String s, int k) {
 ```
 
 ### Minimum Size Subarray Sum
-**Category:** Tier 2 · Reinforce
-**Pattern:** Variable sliding window (shrink-to-minimum)  **Time:** O(n)  **Space:** O(1)
-**Approach:** Grow a running sum by adding `right`. Whenever the sum reaches `target`, shrink from `left` as much as possible while still ≥ target, recording the shortest length each time. Works because all elements are positive, so shrinking strictly decreases the sum.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -940,6 +948,11 @@ Given an array of positive integers `nums` and a positive integer `target`, retu
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** Variable sliding window (shrink-to-minimum)  **Time:** O(n)  **Space:** O(1)
+**Approach:** Grow a running sum by adding `right`. Whenever the sum reaches `target`, shrink from `left` as much as possible while still ≥ target, recording the shortest length each time. Works because all elements are positive, so shrinking strictly decreases the sum.
+
+
 ```java
 public int minSubArrayLen(int target, int[] nums) {
     int left = 0, sum = 0, best = Integer.MAX_VALUE; // Initialize left boundary, current window sum, and best length to a large value
@@ -955,10 +968,6 @@ public int minSubArrayLen(int target, int[] nums) {
 ```
 
 ### Fruit Into Baskets
-**Category:** Tier 2 · Reinforce
-**Pattern:** Variable sliding window (at most 2 distinct)  **Time:** O(n)  **Space:** O(1)
-**Approach:** This is "longest subarray with at most 2 distinct values." Keep a frequency map of fruit types in the window; when more than 2 types appear, shrink from the left, removing types whose count hits zero. The widest valid window is the answer.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1021,6 +1030,11 @@ If we had started at the first tree, we would only pick from trees [1,2].
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** Variable sliding window (at most 2 distinct)  **Time:** O(n)  **Space:** O(1)
+**Approach:** This is "longest subarray with at most 2 distinct values." Keep a frequency map of fruit types in the window; when more than 2 types appear, shrink from the left, removing types whose count hits zero. The widest valid window is the answer.
+
+
 ```java
 public int totalFruit(int[] fruits) {
     Map<Integer, Integer> count = new HashMap<>(); // Map to track the count of each fruit type in the current window
@@ -1061,10 +1075,6 @@ for (int x : arr) { // Iterate through the array
 ```
 
 ### Subarray Sum Equals K
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Prefix sum + hash map  **Time:** O(n)  **Space:** O(n)
-**Approach:** A subarray `(i,j]` sums to `k` iff `prefix[j] - prefix[i] == k`. Scan left to right keeping a map of how many times each prefix sum has occurred; at each step add the count of `running - k` previously seen. Seed the map with `{0:1}` to count subarrays starting at index 0.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1105,6 +1115,11 @@ A subarray is a contiguous **non-empty** sequence of elements within an array.
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Prefix sum + hash map  **Time:** O(n)  **Space:** O(n)
+**Approach:** A subarray `(i,j]` sums to `k` iff `prefix[j] - prefix[i] == k`. Scan left to right keeping a map of how many times each prefix sum has occurred; at each step add the count of `running - k` previously seen. Seed the map with `{0:1}` to count subarrays starting at index 0.
+
+
 ```java
 public int subarraySum(int[] nums, int k) {
     Map<Integer, Integer> seen = new HashMap<>(); // Map to store prefix sums and their frequencies
@@ -1120,10 +1135,6 @@ public int subarraySum(int[] nums, int k) {
 ```
 
 ### Product of Array Except Self
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Prefix / suffix products  **Time:** O(n)  **Space:** O(1) (excluding output)
-**Approach:** First pass fills each slot with the product of everything to its left. Second pass walks from the right multiplying in a running suffix product. No division is used, so zeros are handled naturally.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1170,6 +1181,11 @@ You must write an algorithm that runs in `O(n)` time and without using the divis
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Prefix / suffix products  **Time:** O(n)  **Space:** O(1) (excluding output)
+**Approach:** First pass fills each slot with the product of everything to its left. Second pass walks from the right multiplying in a running suffix product. No division is used, so zeros are handled naturally.
+
+
 ```java
 public int[] productExceptSelf(int[] nums) {
     int n = nums.length; // Get the length of the input array
@@ -1186,10 +1202,6 @@ public int[] productExceptSelf(int[] nums) {
 ```
 
 ### Find Pivot Index
-**Category:** Tier 3 · Reference
-**Pattern:** Prefix sum  **Time:** O(n)  **Space:** O(1)
-**Approach:** The pivot has equal left and right sums. Compute the total, then sweep left to right maintaining `leftSum`; the right sum is `total - leftSum - nums[i]`. Return the first index where these match.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1256,6 +1268,11 @@ Right sum = nums[1] + nums[2] = 1 + -1 = 0
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Prefix sum  **Time:** O(n)  **Space:** O(1)
+**Approach:** The pivot has equal left and right sums. Compute the total, then sweep left to right maintaining `leftSum`; the right sum is `total - leftSum - nums[i]`. Return the first index where these match.
+
+
 ```java
 public int pivotIndex(int[] nums) {
     int total = 0; // Variable to store the total sum of all elements in the array
@@ -1270,10 +1287,6 @@ public int pivotIndex(int[] nums) {
 ```
 
 ### Continuous Subarray Sum
-**Category:** Tier 3 · Reference
-**Pattern:** Prefix sum modulo + hash map  **Time:** O(n)  **Space:** O(min(n, k))
-**Approach:** A subarray sum is a multiple of `k` iff two prefix sums share the same remainder mod `k`. Store the earliest index for each remainder; if the same remainder reappears at least two indices later, we have a valid subarray of length ≥ 2. Seed remainder `0` at index `-1`.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1340,6 +1353,11 @@ A **good subarray** is a subarray where:
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Prefix sum modulo + hash map  **Time:** O(n)  **Space:** O(min(n, k))
+**Approach:** A subarray sum is a multiple of `k` iff two prefix sums share the same remainder mod `k`. Store the earliest index for each remainder; if the same remainder reappears at least two indices later, we have a valid subarray of length ≥ 2. Seed remainder `0` at index `-1`.
+
+
 ```java
 public boolean checkSubarraySum(int[] nums, int k) {
     Map<Integer, Integer> firstIndex = new HashMap<>(); // Map to store the earliest index we saw a specific remainder
@@ -1359,10 +1377,6 @@ public boolean checkSubarraySum(int[] nums, int k) {
 ```
 
 ### Range Sum Query — Immutable
-**Category:** Tier 3 · Reference
-**Pattern:** Prefix sum (precompute once)  **Time:** O(n) build, O(1) query  **Space:** O(n)
-**Approach:** Precompute a prefix array where `prefix[i]` is the sum of the first `i` elements. Any `sumRange(l, r)` is then `prefix[r+1] - prefix[l]`, answered in constant time regardless of how many queries arrive.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1416,6 +1430,11 @@ numArray.sumRange(0, 5); // return (-2) + 0 + 3 + (-5) + 2 + (-1) = -3
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Prefix sum (precompute once)  **Time:** O(n) build, O(1) query  **Space:** O(n)
+**Approach:** Precompute a prefix array where `prefix[i]` is the sum of the first `i` elements. Any `sumRange(l, r)` is then `prefix[r+1] - prefix[l]`, answered in constant time regardless of how many queries arrive.
+
+
 ```java
 class NumArray {
     private final int[] prefix; // Array to store prefix sums permanently for the object
@@ -1430,12 +1449,13 @@ class NumArray {
 ```
 
 ### Difference Array (Range Updates)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 3 · Reference
 **Pattern:** Difference array (inverse of prefix sum)  **Time:** O(n + q) for q updates  **Space:** O(n)
 **Approach:** To apply many `add val to [l, r]` updates cheaply, record only the boundaries: `diff[l] += val` and `diff[r+1] -= val`. After all updates, a single prefix-sum pass over `diff` reconstructs the final array. Each range update is O(1) instead of O(r-l).
 
-
-<!-- Problem Statement not automatically found -->
 
 ```java
 public int[] applyRangeUpdates(int n, int[][] updates) {
@@ -1470,10 +1490,6 @@ for (int i = 1; i < arr.length; i++) { // Iterate through the array starting fro
 ```
 
 ### Maximum Subarray
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Kadane  **Time:** O(n)  **Space:** O(1)
-**Approach:** `curr` holds the maximum subarray sum ending at the current index: either start fresh at `nums[i]` or extend the previous run. A negative running sum can only hurt, so we drop it by restarting. Track the global best across all positions.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1528,6 +1544,11 @@ Given an integer array `nums`, find the <span data-keyword="subarray-nonempty">s
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Kadane  **Time:** O(n)  **Space:** O(1)
+**Approach:** `curr` holds the maximum subarray sum ending at the current index: either start fresh at `nums[i]` or extend the previous run. A negative running sum can only hurt, so we drop it by restarting. Track the global best across all positions.
+
+
 ```java
 public int maxSubArray(int[] nums) {
     int curr = nums[0], best = nums[0]; // Initialize current running max and overall best max using the first element
@@ -1540,10 +1561,6 @@ public int maxSubArray(int[] nums) {
 ```
 
 ### Maximum Product Subarray
-**Category:** Tier 2 · Reinforce
-**Pattern:** Kadane variant (track min and max)  **Time:** O(n)  **Space:** O(1)
-**Approach:** Products flip sign, so a large negative can become the best after multiplying by another negative. Track both the running max and running min ending here; on a negative element, swap them before updating. The answer is the largest running max seen.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1590,6 +1607,11 @@ The test cases are generated so that the answer will fit in a **32-bit** integer
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** Kadane variant (track min and max)  **Time:** O(n)  **Space:** O(1)
+**Approach:** Products flip sign, so a large negative can become the best after multiplying by another negative. Track both the running max and running min ending here; on a negative element, swap them before updating. The answer is the largest running max seen.
+
+
 ```java
 public int maxProduct(int[] nums) {
     int maxEnding = nums[0], minEnding = nums[0], best = nums[0]; // Track running max product, running min product (for negatives), and global best
@@ -1626,10 +1648,6 @@ while (i < nums.length) { // Loop until the entire array has been processed
 ```
 
 ### Missing Number
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Cyclic sort (range [0, n])  **Time:** O(n)  **Space:** O(1)
-**Approach:** Values are `0..n` with one missing, so value `v` belongs at index `v`. Place each in-range value at its home index. After sorting, the first index whose value doesn't equal the index is the missing number; if all match, the missing one is `n`.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1715,6 +1733,11 @@ Given an array `nums` containing `n` distinct numbers in the range `[0, n]`, ret
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Cyclic sort (range [0, n])  **Time:** O(n)  **Space:** O(1)
+**Approach:** Values are `0..n` with one missing, so value `v` belongs at index `v`. Place each in-range value at its home index. After sorting, the first index whose value doesn't equal the index is the missing number; if all match, the missing one is `n`.
+
+
 ```java
 public int missingNumber(int[] nums) {
     int n = nums.length, i = 0; // Length of array is n, target range is [0, n]
@@ -1741,10 +1764,6 @@ public int missingNumberXor(int[] nums) {
 ```
 
 ### Find All Duplicates in an Array
-**Category:** Tier 3 · Reference
-**Pattern:** Cyclic sort (range [1, n], each appears once or twice)  **Time:** O(n)  **Space:** O(1)
-**Approach:** Value `v` belongs at index `v-1`. Cyclic-sort everything home; afterward any index `i` whose value isn't `i+1` is holding a duplicate (its true home was already occupied by the other copy). Collect those values.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1795,6 +1814,11 @@ You must write an algorithm that runs in `O(n)` time and uses only *constant* au
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Cyclic sort (range [1, n], each appears once or twice)  **Time:** O(n)  **Space:** O(1)
+**Approach:** Value `v` belongs at index `v-1`. Cyclic-sort everything home; afterward any index `i` whose value isn't `i+1` is holding a duplicate (its true home was already occupied by the other copy). Collect those values.
+
+
 ```java
 public List<Integer> findDuplicates(int[] nums) {
     int i = 0; // Start at the first element
@@ -1829,10 +1853,6 @@ public List<Integer> findDuplicatesSign(int[] nums) {
 ```
 
 ### First Missing Positive
-**Category:** Tier 2 · Reinforce
-**Pattern:** Cyclic sort (range [1, n])  **Time:** O(n)  **Space:** O(1)
-**Approach:** Only values in `1..n` can be the answer; place each such value at index `v-1`, ignoring out-of-range and duplicates. After placement, the first index `i` where `nums[i] != i+1` gives the missing positive `i+1`; if all are in place, the answer is `n+1`.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1885,6 +1905,11 @@ You must implement an algorithm that runs in `O(n)` time and uses `O(1)` auxilia
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** Cyclic sort (range [1, n])  **Time:** O(n)  **Space:** O(1)
+**Approach:** Only values in `1..n` can be the answer; place each such value at index `v-1`, ignoring out-of-range and duplicates. After placement, the first index `i` where `nums[i] != i+1` gives the missing positive `i+1`; if all are in place, the answer is `n+1`.
+
+
 ```java
 public int firstMissingPositive(int[] nums) {
     int n = nums.length, i = 0; // Get length and initialize index
@@ -1902,10 +1927,6 @@ public int firstMissingPositive(int[] nums) {
 ```
 
 ### Find the Duplicate Number
-**Category:** Tier 3 · Reference
-**Pattern:** Floyd's cycle detection (read-only)  **Time:** O(n)  **Space:** O(1)
-**Approach:** With `n+1` values in `1..n`, treating `nums[i]` as a "next" pointer creates a linked list with a cycle whose entrance is the duplicate. Phase 1 finds a meeting point with fast/slow pointers; phase 2 walks one pointer from the start and one from the meeting point at equal speed — they meet at the cycle entrance, the duplicate. Does not modify the array.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1967,6 +1988,11 @@ You must solve the problem **without** modifying the array `nums` and using only
 	- Can you solve the problem in linear runtime complexity?
 
 </details>
+
+**Category:** Tier 3 · Reference
+**Pattern:** Floyd's cycle detection (read-only)  **Time:** O(n)  **Space:** O(1)
+**Approach:** With `n+1` values in `1..n`, treating `nums[i]` as a "next" pointer creates a linked list with a cycle whose entrance is the duplicate. Phase 1 finds a meeting point with fast/slow pointers; phase 2 walks one pointer from the start and one from the meeting point at equal speed — they meet at the cycle entrance, the duplicate. Does not modify the array.
+
 
 ```java
 public int findDuplicate(int[] nums) {

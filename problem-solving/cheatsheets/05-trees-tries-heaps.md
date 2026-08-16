@@ -22,11 +22,13 @@ public class TreeNode {
 ## Traversals
 
 ### Preorder / Inorder / Postorder (Recursive)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** DFS recursion  **Time:** O(n)  **Space:** O(h) stack
 **Approach:** Visit the current node relative to its subtrees: preorder = node before children, inorder = node between children (sorted order for a BST), postorder = node after children. The only difference is where you append `root.val`. Recursion implicitly uses the call stack of depth `h`.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 List<Integer> preorder(TreeNode root) {
@@ -55,11 +57,13 @@ void post(TreeNode n, List<Integer> out) {
 ```
 
 ### Preorder / Inorder / Postorder (Iterative)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** Explicit stack  **Time:** O(n)  **Space:** O(h)
 **Approach:** Simulate the call stack manually. Preorder pushes right then left so left pops first. Inorder walks left pushing nodes, then pops and goes right. Postorder is most cleanly done as a reversed "root-right-left" preorder.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 List<Integer> preIter(TreeNode root) {
@@ -104,11 +108,13 @@ List<Integer> postIter(TreeNode root) {
 **Alternative:** Morris inorder traversal achieves O(1) space by threading: for each node with a left child, link the inorder-predecessor's right pointer to the current node, then undo the thread on the second visit. No stack/recursion needed.
 
 ### Level Order Traversal (BFS)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** BFS with queue  **Time:** O(n)  **Space:** O(n)
 **Approach:** Process the tree level by level using a queue. Snapshot the queue size at the start of each level so you know exactly how many nodes belong to the current level before enqueuing their children.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 List<List<Integer>> levelOrder(TreeNode root) {
@@ -132,11 +138,13 @@ List<List<Integer>> levelOrder(TreeNode root) {
 ```
 
 ### Zigzag Level Order
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 3 · Reference
 **Pattern:** BFS + direction flag  **Time:** O(n)  **Space:** O(n)
 **Approach:** Standard level-order BFS, but alternate the insertion order per level. Use a `LinkedList` and `addFirst` on right-to-left levels (or reverse the list) so even levels go left-to-right and odd levels go right-to-left.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 List<List<Integer>> zigzag(TreeNode root) {
@@ -163,9 +171,6 @@ List<List<Integer>> zigzag(TreeNode root) {
 ```
 
 ### Binary Tree Right Side View
-**Category:** Tier 2 · Reinforce
-**Pattern:** BFS, last per level  **Time:** O(n)  **Space:** O(n)
-**Approach:** Do a level-order BFS and record only the last node of each level (the rightmost visible one). Alternatively DFS visiting right before left and capture the first node seen at each depth.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -230,6 +235,11 @@ Given the `root` of a binary tree, imagine yourself standing on the **right side
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** BFS, last per level  **Time:** O(n)  **Space:** O(n)
+**Approach:** Do a level-order BFS and record only the last node of each level (the rightmost visible one). Alternatively DFS visiting right before left and capture the first node seen at each depth.
+
+
 ```java
 List<Integer> rightSideView(TreeNode root) {
     List<Integer> out = new ArrayList<>(); // List to store the rightmost values
@@ -255,11 +265,13 @@ List<Integer> rightSideView(TreeNode root) {
 ## Tree DFS / Divide & Conquer
 
 ### Maximum Depth
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** DFS post-order  **Time:** O(n)  **Space:** O(h)
 **Approach:** The depth of a node is 1 plus the max depth of its two subtrees. Base case: a null node has depth 0. Classic divide-and-conquer.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 int maxDepth(TreeNode root) {
@@ -269,9 +281,6 @@ int maxDepth(TreeNode root) {
 ```
 
 ### Diameter of Binary Tree
-**Category:** Tier 2 · Reinforce
-**Pattern:** DFS, return height + track answer  **Time:** O(n)  **Space:** O(h)
-**Approach:** The diameter through a node equals leftHeight + rightHeight. Compute height bottom-up while updating a global maximum of left+right path lengths. The recursive call returns height so the parent can reuse it.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -316,6 +325,11 @@ The **length** of a path between two nodes is represented by the number of edges
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** DFS, return height + track answer  **Time:** O(n)  **Space:** O(h)
+**Approach:** The diameter through a node equals leftHeight + rightHeight. Compute height bottom-up while updating a global maximum of left+right path lengths. The recursive call returns height so the parent can reuse it.
+
+
 ```java
 int best = 0; // Global variable to track the maximum diameter found
 int diameterOfBinaryTree(TreeNode root) {
@@ -331,9 +345,6 @@ int height(TreeNode n) {
 ```
 
 ### Balanced Binary Tree
-**Category:** Tier 3 · Reference
-**Pattern:** DFS, height with sentinel  **Time:** O(n)  **Space:** O(h)
-**Approach:** A tree is balanced if every node's subtree heights differ by at most 1. Compute height bottom-up and return -1 as a sentinel the moment any subtree is unbalanced, short-circuiting the rest.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -383,6 +394,11 @@ Given a binary tree, determine if it is <span data-keyword="height-balanced">**h
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** DFS, height with sentinel  **Time:** O(n)  **Space:** O(h)
+**Approach:** A tree is balanced if every node's subtree heights differ by at most 1. Compute height bottom-up and return -1 as a sentinel the moment any subtree is unbalanced, short-circuiting the rest.
+
+
 ```java
 boolean isBalanced(TreeNode root) {
     return check(root) != -1; // If check returns -1, it's unbalanced; otherwise, it's balanced
@@ -399,9 +415,6 @@ int check(TreeNode n) {
 ```
 
 ### Path Sum
-**Category:** Tier 3 · Reference
-**Pattern:** DFS root-to-leaf  **Time:** O(n)  **Space:** O(h)
-**Approach:** Subtract the current node value from the target as you descend. At a leaf, success means the remaining target equals the leaf value. Recurse on both children with the reduced target.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -461,6 +474,11 @@ There is no root-to-leaf path with sum = 5.
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** DFS root-to-leaf  **Time:** O(n)  **Space:** O(h)
+**Approach:** Subtract the current node value from the target as you descend. At a leaf, success means the remaining target equals the leaf value. Recurse on both children with the reduced target.
+
+
 ```java
 boolean hasPathSum(TreeNode root, int target) {
     if (root == null) return false; // Base case: an empty tree can't have a path sum
@@ -471,9 +489,6 @@ boolean hasPathSum(TreeNode root, int target) {
 ```
 
 ### Path Sum II
-**Category:** Tier 3 · Reference
-**Pattern:** DFS + backtracking  **Time:** O(n)  **Space:** O(h + #paths)
-**Approach:** Collect every root-to-leaf path that sums to target. Maintain a running path list; add the node on entry and remove it on exit (backtrack). When a leaf hits the target, snapshot a copy of the path.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -530,6 +545,11 @@ A **root-to-leaf** path is a path starting from the root and ending at any leaf 
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** DFS + backtracking  **Time:** O(n)  **Space:** O(h + #paths)
+**Approach:** Collect every root-to-leaf path that sums to target. Maintain a running path list; add the node on entry and remove it on exit (backtrack). When a leaf hits the target, snapshot a copy of the path.
+
+
 ```java
 List<List<Integer>> pathSum(TreeNode root, int target) {
     List<List<Integer>> out = new ArrayList<>(); // Result list of paths
@@ -550,9 +570,6 @@ void dfs(TreeNode n, int rem, List<Integer> path, List<List<Integer>> out) {
 ```
 
 ### Path Sum III
-**Category:** Tier 3 · Reference
-**Pattern:** Prefix-sum hashmap  **Time:** O(n)  **Space:** O(h)
-**Approach:** Count downward paths (not necessarily root-to-leaf) summing to target. Track the running prefix sum from root and a map of prefix-sum counts; the number of valid paths ending at the current node is `count(curr - target)`. Add/remove the current prefix as you enter/leave a node.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -597,6 +614,11 @@ The path does not need to start or end at the root or a leaf, but it must go dow
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Prefix-sum hashmap  **Time:** O(n)  **Space:** O(h)
+**Approach:** Count downward paths (not necessarily root-to-leaf) summing to target. Track the running prefix sum from root and a map of prefix-sum counts; the number of valid paths ending at the current node is `count(curr - target)`. Add/remove the current prefix as you enter/leave a node.
+
+
 ```java
 int pathSumIII(TreeNode root, int target) {
     Map<Long, Integer> seen = new HashMap<>(); // Store the prefix sums and their frequencies
@@ -615,11 +637,13 @@ int dfs(TreeNode n, long curr, int target, Map<Long, Integer> seen) {
 ```
 
 ### Lowest Common Ancestor (Binary Tree)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** DFS post-order  **Time:** O(n)  **Space:** O(h)
 **Approach:** If the current node is null or equals p or q, return it. Recurse on both sides; if both return non-null, the current node is the split point and thus the LCA. Otherwise propagate whichever side found something.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 TreeNode lca(TreeNode root, TreeNode p, TreeNode q) {
@@ -632,9 +656,6 @@ TreeNode lca(TreeNode root, TreeNode p, TreeNode q) {
 ```
 
 ### Binary Tree Maximum Path Sum
-**Category:** Tier 2 · Reinforce
-**Pattern:** DFS, gain vs. global  **Time:** O(n)  **Space:** O(h)
-**Approach:** For each node, the best "gain" it can contribute upward is its value plus the larger of its children's gains (clamped at 0 to drop negatives). The best path *through* a node is value + leftGain + rightGain; update a global max with that, but return only the single-branch gain to the parent.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -681,6 +702,11 @@ Given the `root` of a binary tree, return *the maximum **path sum** of any **non
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** DFS, gain vs. global  **Time:** O(n)  **Space:** O(h)
+**Approach:** For each node, the best "gain" it can contribute upward is its value plus the larger of its children's gains (clamped at 0 to drop negatives). The best path *through* a node is value + leftGain + rightGain; update a global max with that, but return only the single-branch gain to the parent.
+
+
 ```java
 int maxSum = Integer.MIN_VALUE; // Global variable to store the maximum path sum
 int maxPathSum(TreeNode root) {
@@ -697,9 +723,6 @@ int gain(TreeNode n) {
 ```
 
 ### Invert Binary Tree
-**Category:** Tier 2 · Reinforce
-**Pattern:** DFS swap  **Time:** O(n)  **Space:** O(h)
-**Approach:** Swap each node's left and right children, then recurse. Works top-down or bottom-up; either way every node's children are mirrored.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -749,6 +772,11 @@ Given the `root` of a binary tree, invert the tree, and return *its root*.
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** DFS swap  **Time:** O(n)  **Space:** O(h)
+**Approach:** Swap each node's left and right children, then recurse. Works top-down or bottom-up; either way every node's children are mirrored.
+
+
 ```java
 TreeNode invertTree(TreeNode root) {
     if (root == null) return null; // Base case: an empty tree is already inverted
@@ -760,9 +788,6 @@ TreeNode invertTree(TreeNode root) {
 ```
 
 ### Symmetric Tree
-**Category:** Tier 3 · Reference
-**Pattern:** DFS paired comparison  **Time:** O(n)  **Space:** O(h)
-**Approach:** A tree mirrors itself if the left subtree is the mirror of the right subtree. Compare two nodes simultaneously: their values must match, and the outer pair (a.left vs b.right) and inner pair (a.right vs b.left) must each be mirrors.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -806,6 +831,11 @@ Given the `root` of a binary tree, *check whether it is a mirror of itself* (i.e
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** DFS paired comparison  **Time:** O(n)  **Space:** O(h)
+**Approach:** A tree mirrors itself if the left subtree is the mirror of the right subtree. Compare two nodes simultaneously: their values must match, and the outer pair (a.left vs b.right) and inner pair (a.right vs b.left) must each be mirrors.
+
+
 ```java
 boolean isSymmetric(TreeNode root) {
     return root == null || mirror(root.left, root.right); // Empty tree is symmetric; otherwise check if children mirror each other
@@ -818,9 +848,6 @@ boolean mirror(TreeNode a, TreeNode b) {
 ```
 
 ### Same Tree
-**Category:** Tier 3 · Reference
-**Pattern:** DFS paired comparison  **Time:** O(n)  **Space:** O(h)
-**Approach:** Two trees are identical when both nodes are null, or both are non-null with equal values and identical left and right subtrees. Recurse in lockstep.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -873,6 +900,11 @@ Two binary trees are considered the same if they are structurally identical, and
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** DFS paired comparison  **Time:** O(n)  **Space:** O(h)
+**Approach:** Two trees are identical when both nodes are null, or both are non-null with equal values and identical left and right subtrees. Recurse in lockstep.
+
+
 ```java
 boolean isSameTree(TreeNode p, TreeNode q) {
     if (p == null || q == null) return p == q; // If either is null, they must both be null to be the same
@@ -882,11 +914,13 @@ boolean isSameTree(TreeNode p, TreeNode q) {
 ```
 
 ### Count Good Nodes
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 3 · Reference
 **Pattern:** DFS carrying max-on-path  **Time:** O(n)  **Space:** O(h)
 **Approach:** A node is "good" if no node on the root-to-it path has a greater value. Pass down the maximum seen so far; count the node when its value is at least that max, and update the running max for the recursive calls.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 int goodNodes(TreeNode root) {
@@ -905,11 +939,13 @@ int dfs(TreeNode n, int maxSoFar) {
 ## Tree Construction / Serialization
 
 ### Construct from Preorder & Inorder
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 2 · Reinforce
 **Pattern:** Recursive split + index map  **Time:** O(n)  **Space:** O(n)
 **Approach:** Preorder's first element is always the root. Find it in inorder to split left/right subtrees; everything left of it in inorder is the left subtree. A hashmap of value→inorder-index gives O(1) lookups, and a moving preorder pointer feeds roots in order.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 int preIdx = 0; // Global index to track the current root in the preorder array
@@ -930,9 +966,6 @@ TreeNode build(int[] preorder, int lo, int hi) {
 ```
 
 ### Serialize and Deserialize Binary Tree
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Preorder with null markers  **Time:** O(n)  **Space:** O(n)
-**Approach:** Serialize via preorder DFS, emitting a sentinel (e.g. `#`) for null children so structure is recoverable. Deserialize by consuming tokens in the same preorder: a `#` yields null, otherwise build a node and recurse for its two children.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -976,6 +1009,11 @@ Design an algorithm to serialize and deserialize a binary tree. There is no rest
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Preorder with null markers  **Time:** O(n)  **Space:** O(n)
+**Approach:** Serialize via preorder DFS, emitting a sentinel (e.g. `#`) for null children so structure is recoverable. Deserialize by consuming tokens in the same preorder: a `#` yields null, otherwise build a node and recurse for its two children.
+
+
 ```java
 String serialize(TreeNode root) {
     StringBuilder sb = new StringBuilder(); // Use StringBuilder for efficient string concatenation
@@ -1003,9 +1041,6 @@ TreeNode de(Queue<String> q) {
 ```
 
 ### Flatten Binary Tree to Linked List
-**Category:** Tier 3 · Reference
-**Pattern:** Reverse-preorder / Morris-style  **Time:** O(n)  **Space:** O(1)
-**Approach:** Flatten in place into a right-skewed preorder list. For each node with a left child, find the rightmost node of the left subtree, attach the current right subtree there, move the left subtree to the right, and null the left pointer. Advance to the next right node.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1061,6 +1096,11 @@ Given the `root` of a binary tree, flatten the tree into a "linked list":
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Reverse-preorder / Morris-style  **Time:** O(n)  **Space:** O(1)
+**Approach:** Flatten in place into a right-skewed preorder list. For each node with a left child, find the rightmost node of the left subtree, attach the current right subtree there, move the left subtree to the right, and null the left pointer. Advance to the next right node.
+
+
 ```java
 void flatten(TreeNode root) {
     TreeNode cur = root; // Start with the root
@@ -1082,11 +1122,13 @@ void flatten(TreeNode root) {
 ## Binary Search Trees
 
 ### Validate BST
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** DFS with (min, max) bounds  **Time:** O(n)  **Space:** O(h)
 **Approach:** Each node must lie strictly within an open interval that tightens as you descend: going left lowers the upper bound to the node's value, going right raises the lower bound. Use `Long` bounds to avoid integer overflow at the extremes.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 boolean isValidBST(TreeNode root) {
@@ -1101,11 +1143,13 @@ boolean valid(TreeNode n, long min, long max) {
 ```
 
 ### Insert into BST
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 3 · Reference
 **Pattern:** BST descent  **Time:** O(h)  **Space:** O(h)
 **Approach:** Walk down comparing the new value to the current node; recurse left or right. When you reach a null spot, that is where the new leaf belongs. Return the (possibly new) subtree root so parents reattach correctly.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 TreeNode insertIntoBST(TreeNode root, int val) {
@@ -1117,11 +1161,13 @@ TreeNode insertIntoBST(TreeNode root, int val) {
 ```
 
 ### Delete Node in BST
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 3 · Reference
 **Pattern:** BST descent + successor splice  **Time:** O(h)  **Space:** O(h)
 **Approach:** Find the node by BST descent. If it has fewer than two children, replace it with its single child (or null). With two children, swap in its in-order successor (smallest in the right subtree), then delete that successor from the right subtree.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 TreeNode deleteNode(TreeNode root, int key) {
@@ -1141,11 +1187,13 @@ TreeNode deleteNode(TreeNode root, int key) {
 ```
 
 ### Kth Smallest Element in BST
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** Iterative inorder  **Time:** O(h + k)  **Space:** O(h)
 **Approach:** An in-order traversal of a BST yields sorted values, so the kth popped node is the answer. Use an explicit stack and stop early once k nodes have been visited.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 int kthSmallest(TreeNode root, int k) {
@@ -1162,11 +1210,13 @@ int kthSmallest(TreeNode root, int k) {
 ```
 
 ### Lowest Common Ancestor of BST
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 3 · Reference
 **Pattern:** BST descent  **Time:** O(h)  **Space:** O(1)
 **Approach:** Exploit ordering: if both p and q are smaller than the current node, the LCA is in the left subtree; if both larger, go right. The first node where they split (or that equals one of them) is the LCA.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 TreeNode lcaBST(TreeNode root, TreeNode p, TreeNode q) {
@@ -1181,11 +1231,13 @@ TreeNode lcaBST(TreeNode root, TreeNode p, TreeNode q) {
 ```
 
 ### Convert Sorted Array to BST
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 3 · Reference
 **Pattern:** Divide & conquer on midpoint  **Time:** O(n)  **Space:** O(log n)
 **Approach:** Pick the middle element as the root to keep the tree height-balanced, then recursively build the left subtree from the left half and the right subtree from the right half.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 TreeNode sortedArrayToBST(int[] nums) {
@@ -1202,11 +1254,13 @@ TreeNode build(int[] nums, int lo, int hi) {
 ```
 
 ### BST Iterator
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 3 · Reference
 **Pattern:** Controlled inorder via stack  **Time:** O(1) amortized next/hasNext  **Space:** O(h)
 **Approach:** Lazily simulate in-order traversal. Push all left nodes from a starting point; `next()` pops a node, then pushes the left spine of its right child. Each node is pushed and popped exactly once, so amortized cost is O(1).
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 class BSTIterator {
@@ -1229,9 +1283,6 @@ class BSTIterator {
 ## Tries
 
 ### Implement Trie (Prefix Tree)
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Children-array trie  **Time:** O(L) per op  **Space:** O(total chars)
-**Approach:** Each node holds 26 child links and an end-of-word flag. Insert walks/creates nodes per character; `search` requires the terminal flag set, while `startsWith` only needs the prefix path to exist.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1285,6 +1336,11 @@ trie.search("app");     // return True
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Children-array trie  **Time:** O(L) per op  **Space:** O(total chars)
+**Approach:** Each node holds 26 child links and an end-of-word flag. Insert walks/creates nodes per character; `search` requires the terminal flag set, while `startsWith` only needs the prefix path to exist.
+
+
 ```java
 class Trie {
     private final Trie[] kids = new Trie[26]; // Array holding links to child nodes (a-z)
@@ -1317,11 +1373,13 @@ class Trie {
 ```
 
 ### Add and Search Word (with '.' wildcard)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 3 · Reference
 **Pattern:** Trie + DFS for wildcard  **Time:** insert O(L), search O(26^dots · L)  **Space:** O(total chars)
 **Approach:** Insert is a normal trie insert. Search recurses character by character; on a literal it follows the one matching edge, but on `.` it must try all 26 children. The dot branching is what makes search potentially exponential in the number of dots.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 class WordDictionary {
@@ -1352,11 +1410,13 @@ class WordDictionary {
 ```
 
 ### Word Search II (Trie + DFS)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 2 · Reinforce
 **Pattern:** Trie-pruned grid backtracking  **Time:** O(M·N·4·3^(L-1))  **Space:** O(total chars)
 **Approach:** Build a trie of all words so a single board DFS can match many words at once and prune dead branches instantly. From every cell, walk the board following trie edges; when a node carries a word, record it (and null the word field to dedupe). Mark visited cells with a sentinel and restore on backtrack.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 class WordSearchII {
@@ -1395,9 +1455,6 @@ class WordSearchII {
 ```
 
 ### Replace Words
-**Category:** Tier 3 · Reference
-**Pattern:** Trie shortest-root lookup  **Time:** O(total chars)  **Space:** O(total chars)
-**Approach:** Insert all dictionary roots into a trie. For each word in the sentence, walk the trie character by character and stop at the first end-of-word node found — that is the shortest matching root. If no root matches, keep the original word.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1454,6 +1511,11 @@ Return *the `sentence`* after the replacement.
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Trie shortest-root lookup  **Time:** O(total chars)  **Space:** O(total chars)
+**Approach:** Insert all dictionary roots into a trie. For each word in the sentence, walk the trie character by character and stop at the first end-of-word node found — that is the shortest matching root. If no root matches, keep the original word.
+
+
 ```java
 class ReplaceWords {
     static class Node { Node[] kids = new Node[26]; boolean end; } // Trie node definition
@@ -1496,9 +1558,6 @@ class ReplaceWords {
 ## Heaps / Priority Queue
 
 ### Kth Largest Element in an Array
-**Category:** Tier 2 · Reinforce
-**Pattern:** Min-heap of size k  **Time:** O(n log k)  **Space:** O(k)
-**Approach:** Keep a min-heap of the k largest values seen. Push each number, and when the heap exceeds k, pop the smallest; the root is always the kth largest so far. The final root is the answer.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1539,6 +1598,11 @@ Can you solve it without sorting?
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** Min-heap of size k  **Time:** O(n log k)  **Space:** O(k)
+**Approach:** Keep a min-heap of the k largest values seen. Push each number, and when the heap exceeds k, pop the smallest; the root is always the kth largest so far. The final root is the answer.
+
+
 ```java
 int findKthLargest(int[] nums, int k) {
     PriorityQueue<Integer> heap = new PriorityQueue<>(); // min-heap to store the k largest elements
@@ -1575,9 +1639,6 @@ void swap(int[] a, int i, int j) { int t = a[i]; a[i] = a[j]; a[j] = t; } // Uti
 ```
 
 ### Top K Frequent Elements
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Count + min-heap (or bucket sort)  **Time:** O(n log k)  **Space:** O(n)
-**Approach:** Count frequencies in a hashmap, then keep a min-heap of size k ordered by frequency, evicting the least frequent when it overflows. Drain the heap for the answer. Bucket sort by frequency gives an O(n) alternative.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1633,6 +1694,11 @@ Given an integer array `nums` and an integer `k`, return *the* `k` *most frequen
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Count + min-heap (or bucket sort)  **Time:** O(n log k)  **Space:** O(n)
+**Approach:** Count frequencies in a hashmap, then keep a min-heap of size k ordered by frequency, evicting the least frequent when it overflows. Drain the heap for the answer. Bucket sort by frequency gives an O(n) alternative.
+
+
 ```java
 int[] topKFrequent(int[] nums, int k) {
     Map<Integer, Integer> freq = new HashMap<>(); // Map to store frequencies of each number
@@ -1651,9 +1717,6 @@ int[] topKFrequent(int[] nums, int k) {
 **Alternative:** Bucket sort — index buckets by frequency (1..n) and collect from the high end for O(n).
 
 ### K Closest Points to Origin
-**Category:** Tier 2 · Reinforce
-**Pattern:** Max-heap of size k  **Time:** O(n log k)  **Space:** O(k)
-**Approach:** Use squared distance (avoid sqrt). Keep a max-heap of size k so the farthest of the current k is at the top; whenever the heap overflows, evict that farthest point. What remains are the k closest.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1703,6 +1766,11 @@ We only want the closest k = 1 points from the origin, so the answer is just [[-
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** Max-heap of size k  **Time:** O(n log k)  **Space:** O(k)
+**Approach:** Use squared distance (avoid sqrt). Keep a max-heap of size k so the farthest of the current k is at the top; whenever the heap overflows, evict that farthest point. What remains are the k closest.
+
+
 ```java
 int[][] kClosest(int[][] points, int k) {
     PriorityQueue<int[]> heap = new PriorityQueue<>( // Max-heap based on squared distance from origin
@@ -1718,9 +1786,6 @@ int[][] kClosest(int[][] points, int k) {
 ```
 
 ### Find Median from Data Stream
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Two balanced heaps  **Time:** O(log n) add, O(1) median  **Space:** O(n)
-**Approach:** Keep a max-heap (`lo`) for the smaller half and a min-heap (`hi`) for the larger half. Push to `lo`, shift its top into `hi`, then rebalance so `lo` is never smaller than `hi`. The median is `lo`'s top (odd total) or the average of both tops (even).
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1783,6 +1848,11 @@ medianFinder.findMedian(); // return 2.0
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Two balanced heaps  **Time:** O(log n) add, O(1) median  **Space:** O(n)
+**Approach:** Keep a max-heap (`lo`) for the smaller half and a min-heap (`hi`) for the larger half. Push to `lo`, shift its top into `hi`, then rebalance so `lo` is never smaller than `hi`. The median is `lo`'s top (odd total) or the average of both tops (even).
+
+
 ```java
 class MedianFinder {
     private PriorityQueue<Integer> lo = new PriorityQueue<>(Collections.reverseOrder()); // Max-heap for the smaller half
@@ -1800,9 +1870,6 @@ class MedianFinder {
 ```
 
 ### Merge K Sorted Lists
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Min-heap of list heads  **Time:** O(n log k)  **Space:** O(k)
-**Approach:** Seed a min-heap with the head of every list. Repeatedly pop the smallest node, append it to the result, and push its successor. The heap always holds at most k candidates, one per list. (Uses the standard `ListNode`.)
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1868,6 +1935,11 @@ merging them into one sorted linked list:
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Min-heap of list heads  **Time:** O(n log k)  **Space:** O(k)
+**Approach:** Seed a min-heap with the head of every list. Repeatedly pop the smallest node, append it to the result, and push its successor. The heap always holds at most k candidates, one per list. (Uses the standard `ListNode`.)
+
+
 ```java
 // class ListNode { int val; ListNode next; ListNode(int v){val=v;} }
 ListNode mergeKLists(ListNode[] lists) {
@@ -1885,11 +1957,13 @@ ListNode mergeKLists(ListNode[] lists) {
 ```
 
 ### Kth Smallest in a Sorted Matrix
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 3 · Reference
 **Pattern:** Binary search on value  **Time:** O(n log(max-min))  **Space:** O(1)
 **Approach:** Each row and column is sorted, so binary search the value range. For a candidate value, count entries ≤ it by walking from the bottom-left corner in O(n). Narrow the range until lo == hi, which lands on a matrix value.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 int kthSmallest(int[][] matrix, int k) {
@@ -1914,9 +1988,6 @@ int countLE(int[][] m, int val) { // Helper to count elements <= val
 **Alternative:** Min-heap of size k seeded with the first row, expanding right/down — O(k log n).
 
 ### Task Scheduler
-**Category:** Tier 2 · Reinforce
-**Pattern:** Greedy with frequency math  **Time:** O(n)  **Space:** O(1)
-**Approach:** The busiest task dictates the schedule's skeleton: `(maxFreq - 1)` full cooling frames of length `(n + 1)`, plus a final slot for every task tied at the max frequency. The answer is the max of that formula and the total task count (when there are enough distinct tasks to fill idle gaps).
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -2025,6 +2096,11 @@ There are only two types of tasks, A and B, which need to be separated by 3 inte
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** Greedy with frequency math  **Time:** O(n)  **Space:** O(1)
+**Approach:** The busiest task dictates the schedule's skeleton: `(maxFreq - 1)` full cooling frames of length `(n + 1)`, plus a final slot for every task tied at the max frequency. The answer is the max of that formula and the total task count (when there are enough distinct tasks to fill idle gaps).
+
+
 ```java
 int leastInterval(char[] tasks, int n) {
     int[] freq = new int[26]; // Array to count frequencies of tasks A-Z
@@ -2040,9 +2116,6 @@ int leastInterval(char[] tasks, int n) {
 ```
 
 ### Reorganize String
-**Category:** Tier 3 · Reference
-**Pattern:** Max-heap greedy  **Time:** O(n log 26)  **Space:** O(1)
-**Approach:** Always place the most frequent remaining character that differs from the last placed one. Use a max-heap by count; hold the just-used character aside (decrementing its count) and push it back on the next iteration so it can't repeat adjacently. If no valid character is available mid-build, no arrangement exists.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -2080,6 +2153,11 @@ Return *any possible rearrangement of* `s` *or return* `""` *if not possible*.
 	- `s` consists of lowercase English letters.
 
 </details>
+
+**Category:** Tier 3 · Reference
+**Pattern:** Max-heap greedy  **Time:** O(n log 26)  **Space:** O(1)
+**Approach:** Always place the most frequent remaining character that differs from the last placed one. Use a max-heap by count; hold the just-used character aside (decrementing its count) and push it back on the next iteration so it can't repeat adjacently. If no valid character is available mid-build, no arrangement exists.
+
 
 ```java
 String reorganizeString(String s) {

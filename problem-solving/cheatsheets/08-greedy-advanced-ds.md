@@ -18,9 +18,6 @@ When neither holds cleanly, greedy is probably wrong — reach for DP instead.
 ## GREEDY
 
 ### Jump Game
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Greedy reachability (greedy-stays-ahead)  **Time:** O(n)  **Space:** O(1)
-**Approach:** Track the farthest index reachable so far. Scan left to right; if the current index `i` exceeds `farthest`, we can never reach it, so return false. Otherwise extend `farthest = max(farthest, i + nums[i])`. Greedy stays ahead because the maximum reach is monotonically non-decreasing and dominates any other strategy.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -63,6 +60,11 @@ Return `true`* if you can reach the last index, or *`false`* otherwise*.
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Greedy reachability (greedy-stays-ahead)  **Time:** O(n)  **Space:** O(1)
+**Approach:** Track the farthest index reachable so far. Scan left to right; if the current index `i` exceeds `farthest`, we can never reach it, so return false. Otherwise extend `farthest = max(farthest, i + nums[i])`. Greedy stays ahead because the maximum reach is monotonically non-decreasing and dominates any other strategy.
+
+
 ```java
 class Solution {
     public boolean canJump(int[] nums) { // Returns true if we can reach the last index
@@ -78,9 +80,6 @@ class Solution {
 ```
 
 ### Jump Game II
-**Category:** Tier 3 · Reference
-**Pattern:** Greedy BFS-by-level (implicit layers)  **Time:** O(n)  **Space:** O(1)
-**Approach:** Treat each "jump" as a BFS level. `curEnd` is the farthest index reachable with the current number of jumps; `farthest` is the best reach considering the current window. When `i` hits `curEnd`, we must spend a jump and advance the boundary to `farthest`. This is minimal because we only pay a jump when forced, and within a level we already considered every reachable position.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -130,6 +129,11 @@ Return *the minimum number of jumps to reach index *`n - 1`. The test cases are 
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Greedy BFS-by-level (implicit layers)  **Time:** O(n)  **Space:** O(1)
+**Approach:** Treat each "jump" as a BFS level. `curEnd` is the farthest index reachable with the current number of jumps; `farthest` is the best reach considering the current window. When `i` hits `curEnd`, we must spend a jump and advance the boundary to `farthest`. This is minimal because we only pay a jump when forced, and within a level we already considered every reachable position.
+
+
 ```java
 class Solution {
     public int jump(int[] nums) { // Returns the minimum number of jumps to reach the last index
@@ -147,9 +151,6 @@ class Solution {
 ```
 
 ### Gas Station
-**Category:** Tier 3 · Reference
-**Pattern:** Greedy with running balance + reset  **Time:** O(n)  **Space:** O(1)
-**Approach:** If total gas `>=` total cost a solution exists (and is unique modulo ties). Track a running tank from a candidate start; whenever it drops below zero, no station in `[start..i]` can be a valid start (each prefix would also fail), so reset start to `i+1` and zero the tank. The single surviving start is the answer.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -211,6 +212,11 @@ Therefore, you can't travel around the circuit once no matter where you start.
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Greedy with running balance + reset  **Time:** O(n)  **Space:** O(1)
+**Approach:** If total gas `>=` total cost a solution exists (and is unique modulo ties). Track a running tank from a candidate start; whenever it drops below zero, no station in `[start..i]` can be a valid start (each prefix would also fail), so reset start to `i+1` and zero the tank. The single surviving start is the answer.
+
+
 ```java
 class Solution {
     public int canCompleteCircuit(int[] gas, int[] cost) { // Returns the starting station index or -1 if impossible
@@ -230,9 +236,6 @@ class Solution {
 ```
 
 ### Candy
-**Category:** Tier 3 · Reference
-**Pattern:** Two-pass greedy (left + right constraints)  **Time:** O(n)  **Space:** O(n)
-**Approach:** Each child needs at least 1 candy and more than a lower-rated neighbor. Do a left-to-right pass enforcing the left-neighbor constraint, then a right-to-left pass enforcing the right-neighbor constraint by taking the max. Each constraint is satisfied independently and the max merges them with the minimum total — neither pass can be reduced without violating a rule.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -284,6 +287,11 @@ The third child gets 1 candy because it satisfies the above two conditions.
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Two-pass greedy (left + right constraints)  **Time:** O(n)  **Space:** O(n)
+**Approach:** Each child needs at least 1 candy and more than a lower-rated neighbor. Do a left-to-right pass enforcing the left-neighbor constraint, then a right-to-left pass enforcing the right-neighbor constraint by taking the max. Each constraint is satisfied independently and the max merges them with the minimum total — neither pass can be reduced without violating a rule.
+
+
 ```java
 class Solution {
     public int candy(int[] ratings) { // Returns the minimum total candies needed
@@ -304,9 +312,6 @@ class Solution {
 ```
 
 ### Partition Labels
-**Category:** Tier 3 · Reference
-**Pattern:** Greedy interval merge by last occurrence  **Time:** O(n)  **Space:** O(1) (26 letters)
-**Approach:** Record the last index of each character. Walk the string keeping `end = max last-index of any char seen in the current partition`. When `i == end`, every character in this window appears nowhere later, so we can cut here. This is the smallest valid cut point, maximizing the number of partitions.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -353,6 +358,11 @@ A partition like "ababcbacadefegde", "hijhklij" is incorrect, because it splits 
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Greedy interval merge by last occurrence  **Time:** O(n)  **Space:** O(1) (26 letters)
+**Approach:** Record the last index of each character. Walk the string keeping `end = max last-index of any char seen in the current partition`. When `i == end`, every character in this window appears nowhere later, so we can cut here. This is the smallest valid cut point, maximizing the number of partitions.
+
+
 ```java
 class Solution {
     public java.util.List<Integer> partitionLabels(String s) { // Returns lengths of partition segments
@@ -374,9 +384,6 @@ class Solution {
 ```
 
 ### Non-overlapping Intervals
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Interval scheduling, sort by end (exchange argument)  **Time:** O(n log n)  **Space:** O(1)
-**Approach:** To keep the maximum number of non-overlapping intervals (equivalently remove the fewest), sort by end time and greedily keep an interval whenever it starts at or after the last kept end. Exchange argument: the interval ending earliest leaves the most room for the rest, so it's always safe to include it. Removals = total − kept.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -431,6 +438,11 @@ Given an array of intervals `intervals` where `intervals[i] = [start<sub>i</sub>
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Interval scheduling, sort by end (exchange argument)  **Time:** O(n log n)  **Space:** O(1)
+**Approach:** To keep the maximum number of non-overlapping intervals (equivalently remove the fewest), sort by end time and greedily keep an interval whenever it starts at or after the last kept end. Exchange argument: the interval ending earliest leaves the most room for the rest, so it's always safe to include it. Removals = total − kept.
+
+
 ```java
 class Solution {
     public int eraseOverlapIntervals(int[][] intervals) { // Returns min intervals to remove to avoid overlaps
@@ -449,9 +461,6 @@ class Solution {
 ```
 
 ### Minimum Number of Arrows to Burst Balloons
-**Category:** Tier 3 · Reference
-**Pattern:** Interval point cover, sort by end  **Time:** O(n log n)  **Space:** O(1)
-**Approach:** Sort by end coordinate. Shoot an arrow at the end of the first balloon; it bursts every balloon overlapping that point. Skip all balloons whose start `<= arrowPos`, then shoot a new arrow at the next uncovered balloon's end. Same exchange argument as interval scheduling: the earliest end maximizes coverage. (Use `Integer.compare` to avoid overflow from `a[1]-b[1]`.)
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -512,6 +521,11 @@ Given the array `points`, return *the **minimum** number of arrows that must be 
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Interval point cover, sort by end  **Time:** O(n log n)  **Space:** O(1)
+**Approach:** Sort by end coordinate. Shoot an arrow at the end of the first balloon; it bursts every balloon overlapping that point. Skip all balloons whose start `<= arrowPos`, then shoot a new arrow at the next uncovered balloon's end. Same exchange argument as interval scheduling: the earliest end maximizes coverage. (Use `Integer.compare` to avoid overflow from `a[1]-b[1]`.)
+
+
 ```java
 class Solution {
     public int findMinArrowShots(int[][] points) { // Returns minimum arrows needed to burst all balloons
@@ -531,9 +545,6 @@ class Solution {
 ```
 
 ### Assign Cookies
-**Category:** Tier 3 · Reference
-**Pattern:** Two-pointer greedy after sorting  **Time:** O(n log n)  **Space:** O(1)
-**Approach:** Sort children by greed and cookies by size. Give the smallest cookie that can satisfy the least greedy unsatisfied child. Exchange argument: assigning the smallest sufficient cookie wastes nothing larger and never reduces how many children we can later satisfy.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -586,6 +597,11 @@ You need to output 2.
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Two-pointer greedy after sorting  **Time:** O(n log n)  **Space:** O(1)
+**Approach:** Sort children by greed and cookies by size. Give the smallest cookie that can satisfy the least greedy unsatisfied child. Exchange argument: assigning the smallest sufficient cookie wastes nothing larger and never reduces how many children we can later satisfy.
+
+
 ```java
 class Solution {
     public int findContentChildren(int[] g, int[] s) { // Returns max number of content children
@@ -602,9 +618,6 @@ class Solution {
 ```
 
 ### Queue Reconstruction by Height
-**Category:** Tier 3 · Reference
-**Pattern:** Sort + insertion by k-index  **Time:** O(n^2)  **Space:** O(n)
-**Approach:** Sort by height descending, breaking ties by `k` ascending. Insert each person at list index `k`. Because we process tallest first, everyone already placed is `>=` the current person, so inserting at position `k` guarantees exactly `k` taller-or-equal people stand in front — and later (shorter) insertions don't disturb that count.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -657,6 +670,11 @@ Hence [[5,0],[7,0],[5,2],[6,1],[4,4],[7,1]] is the reconstructed queue.
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Sort + insertion by k-index  **Time:** O(n^2)  **Space:** O(n)
+**Approach:** Sort by height descending, breaking ties by `k` ascending. Insert each person at list index `k`. Because we process tallest first, everyone already placed is `>=` the current person, so inserting at position `k` guarantees exactly `k` taller-or-equal people stand in front — and later (shorter) insertions don't disturb that count.
+
+
 ```java
 class Solution {
     public int[][] reconstructQueue(int[][] people) { // Reconstructs queue based on heights and k-values
@@ -671,11 +689,13 @@ class Solution {
 ```
 
 ### Task Scheduler (greedy framing)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 2 · Reinforce
 **Pattern:** Greedy by most-frequent task + idle-slot formula  **Time:** O(n) (counting) **Space:** O(1)
 **Approach:** The bottleneck is the most frequent task. Lay out its occurrences `maxCount` times separated by gaps of length `n`, creating `(maxCount-1)` frames of size `(n+1)`. Other tasks fill the gaps; only the most-frequent tasks occupy the final frame. The schedule length is `max(totalTasks, (maxCount-1)*(n+1) + numMax)` — we take the max because if there are enough distinct tasks no idle time is needed.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 class Solution {
@@ -700,11 +720,13 @@ class Solution {
 ## ADVANCED DATA STRUCTURES
 
 ### Segment Tree — Range Sum & Range Min
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** 🧩 Template
 **Pattern:** Recursive segment tree, point update + range query  **Time:** build O(n), query/update O(log n)  **Space:** O(n)
 **Approach:** Store the array in a complete binary tree of size `~4n`. Each internal node holds the aggregate (sum or min) of its child range. `build` recurses splitting `[l,r]` at the midpoint. A range query descends only into nodes that overlap the query range, combining the aggregates of fully-covered nodes. A point update walks down to the leaf and recombines on the way back up. The combine operation (`+` for sum, `min` for min) is the only thing that changes per variant.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 // Range Sum segment tree (point update, range query)
@@ -787,11 +809,13 @@ class SegTreeMin {
 ```
 
 ### Segment Tree — Lazy Propagation (range update + range query)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** 🧩 Template
 **Pattern:** Deferred range updates  **Time:** O(log n) per op  **Space:** O(n)
 **Approach:** When adding a value to an entire range, instead of touching every leaf we mark a node "lazy": apply the delta to the node's aggregate now and store the pending delta in `lazy[node]` to push down only when a later query/update needs to descend through it. `push` distributes a parent's pending delta to its two children. This keeps every range operation O(log n).
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 class LazySegTree {
@@ -852,11 +876,13 @@ class LazySegTree {
 ```
 
 ### Fenwick Tree (BIT) — point update + prefix sum
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** 🧩 Template
 **Pattern:** Binary Indexed Tree  **Time:** update/query O(log n)  **Space:** O(n)
 **Approach:** A BIT stores partial sums indexed so that `i & (-i)` (the lowest set bit) tells how large a range each slot covers. `update` adds a delta and walks *up* by `i += i & -i`; `prefixSum` accumulates by walking *down* by `i -= i & -i`. It is 1-indexed internally. Compared to a segment tree it is far less code and uses less memory, but only supports invertible aggregates (sum). Range sum `[l,r] = prefix(r) - prefix(l-1)`.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 class Fenwick {
@@ -890,11 +916,13 @@ class Fenwick {
 ```
 
 ### Range Sum Query - Mutable (LeetCode 307)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 3 · Reference
 **Pattern:** BIT storing deltas  **Time:** update/query O(log n)  **Space:** O(n)
 **Approach:** Wrap a Fenwick tree. Keep the original values so `update(i, val)` can compute the delta `val - nums[i]` and feed it to the BIT. `sumRange` is a difference of prefix sums.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 class NumArray {
@@ -933,11 +961,13 @@ class NumArray {
 ```
 
 ### Count of Smaller Numbers After Self (LeetCode 315)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 3 · Reference
 **Pattern:** Coordinate compression + BIT, iterate right-to-left  **Time:** O(n log n)  **Space:** O(n)
 **Approach:** Compress values to ranks `1..m`. Scan from right to left; for each element query the BIT prefix sum of `rank-1` (count of already-seen elements strictly smaller, all of which lie to the right), then insert the current rank. The BIT acts as a frequency table over ranks.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 class Solution {
@@ -968,11 +998,13 @@ class Solution {
 **Alternative:** A modified merge sort counts the same inversions in O(n log n) without coordinate compression.
 
 ### Reverse Pairs (LeetCode 493)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 3 · Reference
 **Pattern:** BIT over compressed values, count `nums[i] > 2*nums[j]`  **Time:** O(n log n)  **Space:** O(n)
 **Approach:** A reverse pair is `i < j` with `nums[i] > 2 * nums[j]`. Compress both the values and the doubled values into one sorted coordinate set. Scan left to right: for each `j`, the number of earlier `i` with `nums[i] > 2*nums[j]` equals total inserted minus the prefix count of ranks `<= rank(2*nums[j])`. Then insert `nums[j]`. Using `long` for the doubled value avoids overflow.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 class Solution {
@@ -1010,11 +1042,13 @@ class Solution {
 **Alternative:** Merge sort while counting cross-pairs is the canonical alternative and avoids coordinate compression.
 
 ### DSU recap — Weighted Union-Find
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** 🧩 Template
 **Pattern:** Disjoint Set Union with path compression + union by rank/size  **Time:** ~O(α(n)) amortized per op  **Space:** O(n)
 **Approach:** Each element points to a parent; the root identifies the set. `find` uses path compression (re-point nodes directly to the root). `union` attaches the smaller tree under the larger (union by rank or size) to keep trees shallow. Together they give near-constant amortized cost (inverse Ackermann). The size array additionally answers "how big is my component?".
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 class DSU {
@@ -1063,11 +1097,13 @@ class DSU {
 ## DESIGN PROBLEMS
 
 ### LRU Cache (LeetCode 146)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 3 · Reference
 **Pattern:** HashMap + doubly linked list  **Time:** O(1) get/put  **Space:** O(capacity)
 **Approach:** A HashMap gives O(1) key→node lookup; a doubly linked list keeps usage order with the most-recently-used near the head and the least-recently-used near the tail. `get`/`put` move the touched node to the head; on overflow evict the tail. Sentinel head/tail nodes remove edge-case branches.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 class LRUCache {
@@ -1129,11 +1165,13 @@ class LRUCache {
 ```
 
 ### LFU Cache (LeetCode 460)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 3 · Reference
 **Pattern:** Two HashMaps + per-frequency LinkedHashSet + minFreq pointer  **Time:** O(1) get/put  **Space:** O(capacity)
 **Approach:** Maintain `keyToVal`, `keyToFreq`, and `freqToKeys` (a `LinkedHashSet` per frequency preserving insertion order for LRU tie-break). Track `minFreq`. On access, bump the key's frequency by moving it from bucket `f` to `f+1`; if bucket `minFreq` becomes empty and equals the bumped freq, increment `minFreq`. On overflow evict the first (oldest) key in the `minFreq` bucket. New keys start at frequency 1, resetting `minFreq` to 1.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 class LFUCache {
@@ -1187,11 +1225,13 @@ class LFUCache {
 ```
 
 ### Insert Delete GetRandom O(1) (LeetCode 380)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 3 · Reference
 **Pattern:** ArrayList + HashMap with swap-to-end deletion  **Time:** O(1) avg all ops  **Space:** O(n)
 **Approach:** Store values in an `ArrayList` for O(1) random access and a `HashMap` value→index for O(1) lookup. To delete, swap the target with the last element, fix the moved element's index in the map, then pop the last slot — avoiding O(n) shifting. `getRandom` indexes the list with a random position.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 class RandomizedSet {
@@ -1225,11 +1265,13 @@ class RandomizedSet {
 ```
 
 ### Time Based Key-Value Store (LeetCode 981)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 3 · Reference
 **Pattern:** HashMap of (sorted) timestamp lists + binary search  **Time:** set O(1), get O(log n)  **Space:** O(n)
 **Approach:** Each key maps to a list of `(timestamp, value)` appended in strictly increasing timestamp order (the problem guarantees this), so the list stays sorted. `get` binary-searches for the largest timestamp `<= query` (floor) and returns its value, or empty string if none precedes it.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 class TimeMap {
@@ -1267,11 +1309,13 @@ class TimeMap {
 ```
 
 ### Design Twitter (LeetCode 355)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 3 · Reference
 **Pattern:** Follow sets + per-user tweet lists + k-way merge via heap  **Time:** getNewsFeed O(F + k log F)  **Space:** O(users + tweets)
 **Approach:** Keep a global monotonically increasing timestamp on each tweet. Each user has a list of `(time, tweetId)` and a set of followees. To build a news feed, gather the latest tweets of the user and everyone they follow, then use a max-heap keyed on timestamp to pull the 10 most recent. A user implicitly follows themselves.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 class Twitter {

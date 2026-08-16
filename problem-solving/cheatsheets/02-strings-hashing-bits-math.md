@@ -7,9 +7,6 @@ A pattern-first cheatsheet with clean, compilable Java for string manipulation, 
 ## STRINGS
 
 ### Valid Anagram
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Frequency count  **Time:** O(n)  **Space:** O(1)
-**Approach:** Two strings are anagrams iff they have identical character frequencies. Use a fixed-size count array (26 for lowercase letters), increment for the first string and decrement for the second. If every bucket ends at zero the strings match. Length mismatch is an immediate reject.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -52,6 +49,11 @@ Given two strings `s` and `t`, return `true` if `t` is an <span data-keyword="an
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Frequency count  **Time:** O(n)  **Space:** O(1)
+**Approach:** Two strings are anagrams iff they have identical character frequencies. Use a fixed-size count array (26 for lowercase letters), increment for the first string and decrement for the second. If every bucket ends at zero the strings match. Length mismatch is an immediate reject.
+
+
 ```java
 class Solution {
     public boolean isAnagram(String s, String t) {
@@ -83,9 +85,6 @@ class Solution {
 **Alternative(s):** For arbitrary Unicode, use a `HashMap<Character,Integer>` or sort both strings (O(n log n)).
 
 ### Group Anagrams
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Hashing by canonical key  **Time:** O(n·k log k)  **Space:** O(n·k)
-**Approach:** Anagrams share a canonical form. Compute a key by sorting each string's characters (or by a 26-length count signature) and bucket strings by that key in a map. Each bucket's value list is one anagram group.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -144,6 +143,11 @@ Given an array of strings `strs`, group the <span data-keyword="anagram">anagram
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Hashing by canonical key  **Time:** O(n·k log k)  **Space:** O(n·k)
+**Approach:** Anagrams share a canonical form. Compute a key by sorting each string's characters (or by a 26-length count signature) and bucket strings by that key in a map. Each bucket's value list is one anagram group.
+
+
 ```java
 import java.util.*;
 
@@ -173,9 +177,6 @@ class Solution {
 **Alternative(s):** Build the key from a count array to get O(n·k) total: `count[0]#count[1]#...` avoids the sort.
 
 ### Find All Anagrams in a String
-**Category:** Tier 2 · Reinforce
-**Pattern:** Sliding window + frequency match  **Time:** O(n)  **Space:** O(1)
-**Approach:** Slide a fixed window of length `p.length()` across `s`, maintaining a running count array. Track how many of the 26 buckets currently match the target counts. When all 26 match, the window start is an anagram index. Add/remove one character per step and update the match tally incrementally.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -221,6 +222,11 @@ The substring with start index = 2 is "ab", which is an anagram of "ab".
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** Sliding window + frequency match  **Time:** O(n)  **Space:** O(1)
+**Approach:** Slide a fixed window of length `p.length()` across `s`, maintaining a running count array. Track how many of the 26 buckets currently match the target counts. When all 26 match, the window start is an anagram index. Add/remove one character per step and update the match tally incrementally.
+
+
 ```java
 import java.util.*;
 
@@ -259,9 +265,6 @@ class Solution {
 ```
 
 ### Longest Palindromic Substring
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Expand around center  **Time:** O(n²)  **Space:** O(1)
-**Approach:** Every palindrome has a center: either a single character (odd length) or a gap between two characters (even length). For each of the 2n-1 centers, expand outward while characters match and record the longest span found. This avoids the O(n²) space of DP.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -300,6 +303,11 @@ Given a string `s`, return *the longest* <span data-keyword="palindromic-string"
 	- `s` consist of only digits and English letters.
 
 </details>
+
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Expand around center  **Time:** O(n²)  **Space:** O(1)
+**Approach:** Every palindrome has a center: either a single character (odd length) or a gap between two characters (even length). For each of the 2n-1 centers, expand outward while characters match and record the longest span found. This avoids the O(n²) space of DP.
+
 
 ```java
 class Solution {
@@ -350,9 +358,6 @@ class Solution {
 **Alternative(s):** Manacher's algorithm solves this in O(n) by transforming the string (insert separators like `#`) and reusing a symmetry array `P[]` around a running center/right boundary to avoid redundant re-expansion. It's the optimal solution but rarely needed in interviews; know that it exists and is O(n).
 
 ### Palindromic Substrings
-**Category:** Tier 2 · Reinforce
-**Pattern:** Expand around center (count)  **Time:** O(n²)  **Space:** O(1)
-**Approach:** Same expand-around-center idea, but instead of tracking the longest, count every valid palindrome. Each successful expansion step (characters still match) contributes exactly one palindromic substring.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -397,6 +402,11 @@ A **substring** is a contiguous sequence of characters within the string.
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** Expand around center (count)  **Time:** O(n²)  **Space:** O(1)
+**Approach:** Same expand-around-center idea, but instead of tracking the longest, count every valid palindrome. Each successful expansion step (characters still match) contributes exactly one palindromic substring.
+
+
 ```java
 class Solution {
     public int countSubstrings(String s) {
@@ -437,9 +447,6 @@ class Solution {
 ```
 
 ### Valid Parentheses
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Stack matching  **Time:** O(n)  **Space:** O(n)
-**Approach:** Push opening brackets onto a stack. On a closing bracket, the stack top must be the matching opener; otherwise the string is invalid. A valid string leaves the stack empty at the end.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -516,6 +523,11 @@ An input string is valid if:
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Stack matching  **Time:** O(n)  **Space:** O(n)
+**Approach:** Push opening brackets onto a stack. On a closing bracket, the stack top must be the matching opener; otherwise the string is invalid. A valid string leaves the stack empty at the end.
+
+
 ```java
 import java.util.*;
 
@@ -543,9 +555,6 @@ class Solution {
 ```
 
 ### Decode String
-**Category:** Tier 2 · Reinforce
-**Pattern:** Two stacks (nested)  **Time:** O(n·maxK)  **Space:** O(n)
-**Approach:** Parse left to right using one stack for repeat counts and one for the string built so far. On `[`, push the current number and accumulated string, then reset. On `]`, pop the count and previous string, and append the current segment repeated `count` times. Digits accumulate multi-digit numbers; letters append to the current segment.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -603,6 +612,11 @@ The test cases are generated so that the length of the output will never exceed 
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** Two stacks (nested)  **Time:** O(n·maxK)  **Space:** O(n)
+**Approach:** Parse left to right using one stack for repeat counts and one for the string built so far. On `[`, push the current number and accumulated string, then reset. On `]`, pop the count and previous string, and append the current segment repeated `count` times. Digits accumulate multi-digit numbers; letters append to the current segment.
+
+
 ```java
 import java.util.*;
 
@@ -652,9 +666,6 @@ class Solution {
 ```
 
 ### Basic Calculator II
-**Category:** Tier 2 · Reinforce
-**Pattern:** Stack of terms (precedence)  **Time:** O(n)  **Space:** O(n)
-**Approach:** Handle `+ - * /` without parentheses by tracking the last operator. Accumulate each number, then on the next operator (or end of string) apply the pending operator: push for `+`, push negated for `-`, or pop-and-combine for `*` `/`. The final answer is the sum of the stack.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -711,6 +722,11 @@ You may assume that the given expression is always valid. All intermediate resul
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** Stack of terms (precedence)  **Time:** O(n)  **Space:** O(n)
+**Approach:** Handle `+ - * /` without parentheses by tracking the last operator. Accumulate each number, then on the next operator (or end of string) apply the pending operator: push for `+`, push negated for `-`, or pop-and-combine for `*` `/`. The final answer is the sum of the stack.
+
+
 ```java
 import java.util.*;
 
@@ -755,9 +771,6 @@ class Solution {
 ```
 
 ### Simplify Path
-**Category:** Tier 3 · Reference
-**Pattern:** Stack of path components  **Time:** O(n)  **Space:** O(n)
-**Approach:** Split the Unix path on `/`. Ignore empty components and `.`; on `..` pop the last directory if present; otherwise push the directory name. Join the stack with `/` and prepend a leading slash for the canonical absolute path.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -867,6 +880,11 @@ Going one level up from the root directory is not possible.
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Stack of path components  **Time:** O(n)  **Space:** O(n)
+**Approach:** Split the Unix path on `/`. Ignore empty components and `.`; on `..` pop the last directory if present; otherwise push the directory name. Join the stack with `/` and prepend a leading slash for the canonical absolute path.
+
+
 ```java
 import java.util.*;
 
@@ -904,11 +922,13 @@ class Solution {
 ```
 
 ### Implement strStr / KMP
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** Failure function (LPS array)  **Time:** O(n + m)  **Space:** O(m)
 **Approach:** Build the longest-proper-prefix-that-is-also-suffix (LPS) array for the pattern, then scan the text without ever backing up the text pointer. On a mismatch, fall back the pattern pointer to `lps[j-1]` instead of restarting. The LPS build itself is a self-match of the pattern against its own prefix.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 class Solution {
@@ -966,9 +986,6 @@ class Solution {
 **Alternative(s):** Rabin-Karp uses a rolling hash for average O(n+m) but has hash-collision worst cases; the naive O(n·m) double loop is fine for short inputs.
 
 ### String Compression
-**Category:** Tier 3 · Reference
-**Pattern:** In-place two pointers  **Time:** O(n)  **Space:** O(1)
-**Approach:** Use a read pointer to count consecutive runs and a write pointer to emit the character followed by the count digits (only when count > 1). Write in place into the same array and return the new logical length. Multi-digit counts are written digit by digit.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1036,6 +1053,11 @@ After modifying the input array in-place, the first 4 characters of `chars` shou
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** In-place two pointers  **Time:** O(n)  **Space:** O(1)
+**Approach:** Use a read pointer to count consecutive runs and a write pointer to emit the character followed by the count digits (only when count > 1). Write in place into the same array and return the new logical length. Multi-digit counts are written digit by digit.
+
+
 ```java
 class Solution {
     public int compress(char[] chars) {
@@ -1074,9 +1096,6 @@ class Solution {
 ```
 
 ### Reverse Words in a String
-**Category:** Tier 2 · Reinforce
-**Pattern:** Split / trim / reverse  **Time:** O(n)  **Space:** O(n)
-**Approach:** Trim outer whitespace, split on one-or-more spaces to drop internal gaps, reverse the resulting word list, and join with single spaces. This normalizes messy spacing in one pass of tokenization.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1138,6 +1157,11 @@ Return *a string of the words in reverse order concatenated by a single space.*
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** Split / trim / reverse  **Time:** O(n)  **Space:** O(n)
+**Approach:** Trim outer whitespace, split on one-or-more spaces to drop internal gaps, reverse the resulting word list, and join with single spaces. This normalizes messy spacing in one pass of tokenization.
+
+
 ```java
 class Solution {
     public String reverseWords(String s) {
@@ -1167,9 +1191,6 @@ class Solution {
 ## HASHING
 
 ### Two Sum
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Complement hash map  **Time:** O(n)  **Space:** O(n)
-**Approach:** For each number, check if its complement (`target - num`) has already been seen. Store each number's index in a map as you go; the first hit gives the answer pair in a single pass.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1229,6 +1250,11 @@ You can return the answer in any order.
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Complement hash map  **Time:** O(n)  **Space:** O(n)
+**Approach:** For each number, check if its complement (`target - num`) has already been seen. Store each number's index in a map as you go; the first hit gives the answer pair in a single pass.
+
+
 ```java
 import java.util.*;
 
@@ -1256,9 +1282,6 @@ class Solution {
 ```
 
 ### Contains Duplicate
-**Category:** Tier 3 · Reference
-**Pattern:** Set membership  **Time:** O(n)  **Space:** O(n)
-**Approach:** Insert elements into a hash set; if an insertion fails (element already present) a duplicate exists. Early-return on the first collision.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1314,6 +1337,11 @@ All elements are distinct.
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Set membership  **Time:** O(n)  **Space:** O(n)
+**Approach:** Insert elements into a hash set; if an insertion fails (element already present) a duplicate exists. Early-return on the first collision.
+
+
 ```java
 import java.util.*;
 
@@ -1335,9 +1363,6 @@ class Solution {
 ```
 
 ### Longest Consecutive Sequence
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Hash set sequence-start scan  **Time:** O(n)  **Space:** O(n)
-**Approach:** Put all numbers in a set. Only start counting a run from a number whose predecessor (`num-1`) is absent — that guarantees it's a sequence start. Walk upward counting consecutive members. Each number is visited at most twice, giving overall O(n).
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1388,6 +1413,11 @@ You must write an algorithm that runs in `O(n)` time.
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Hash set sequence-start scan  **Time:** O(n)  **Space:** O(n)
+**Approach:** Put all numbers in a set. Only start counting a run from a number whose predecessor (`num-1`) is absent — that guarantees it's a sequence start. Walk upward counting consecutive members. Each number is visited at most twice, giving overall O(n).
+
+
 ```java
 import java.util.*;
 
@@ -1424,9 +1454,6 @@ class Solution {
 ```
 
 ### Isomorphic Strings
-**Category:** Tier 2 · Reinforce
-**Pattern:** Bidirectional mapping  **Time:** O(n)  **Space:** O(1)
-**Approach:** A character in `s` must map to exactly one character in `t` and vice versa. Track both mappings; on any conflict with a previously recorded mapping, reject. Two arrays indexed by char code make the checks O(1).
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1493,6 +1520,11 @@ The strings `s` and `t` can not be made identical as `'1'` needs to be mapped to
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** Bidirectional mapping  **Time:** O(n)  **Space:** O(1)
+**Approach:** A character in `s` must map to exactly one character in `t` and vice versa. Track both mappings; on any conflict with a previously recorded mapping, reject. Two arrays indexed by char code make the checks O(1).
+
+
 ```java
 class Solution {
     public boolean isIsomorphic(String s, String t) {
@@ -1525,9 +1557,6 @@ class Solution {
 ```
 
 ### Word Pattern
-**Category:** Tier 3 · Reference
-**Pattern:** Bidirectional mapping  **Time:** O(n)  **Space:** O(n)
-**Approach:** Same bijection idea as Isomorphic Strings but between pattern characters and whitespace-split words. Maintain char→word and word→char maps; any inconsistency or word-count mismatch fails. Both directions are required to reject cases like `"ab"` with words `["dog","dog"]`.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1600,6 +1629,11 @@ The bijection can be established as:
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Bidirectional mapping  **Time:** O(n)  **Space:** O(n)
+**Approach:** Same bijection idea as Isomorphic Strings but between pattern characters and whitespace-split words. Maintain char→word and word→char maps; any inconsistency or word-count mismatch fails. Both directions are required to reject cases like `"ab"` with words `["dog","dog"]`.
+
+
 ```java
 import java.util.*;
 
@@ -1640,6 +1674,9 @@ class Solution {
 ## BIT MANIPULATION
 
 ### Bit Tricks Reference
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** 🧩 Template
 Handy identities used throughout the problems below:
 ```text
@@ -1668,7 +1705,6 @@ Integer.numberOfTrailingZeros(x)
 **Pattern:** XOR fold  **Time:** O(n)  **Space:** O(1)
 **Approach:** Every element appears twice except one. XOR cancels pairs (`a ^ a = 0`) and leaves the unique element, since XOR is commutative and associative.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 class Solution {
@@ -1690,9 +1726,6 @@ class Solution {
 ```
 
 ### Single Number II
-**Category:** Tier 3 · Reference
-**Pattern:** Bitwise state machine  **Time:** O(n)  **Space:** O(1)
-**Approach:** Every element appears three times except one. Track two accumulators `ones` and `twos` representing bits seen once and twice (mod 3). Each bit cycles through 0→1→2→0 as duplicates arrive, so after processing, `ones` holds the unique number.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1733,6 +1766,11 @@ You must implement a solution with a linear runtime complexity and use only cons
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Bitwise state machine  **Time:** O(n)  **Space:** O(1)
+**Approach:** Every element appears three times except one. Track two accumulators `ones` and `twos` representing bits seen once and twice (mod 3). Each bit cycles through 0→1→2→0 as duplicates arrive, so after processing, `ones` holds the unique number.
+
+
 ```java
 class Solution {
     public int singleNumber(int[] nums) {
@@ -1757,9 +1795,6 @@ class Solution {
 **Alternative(s):** Sum each of the 32 bit positions across all numbers; `sum % 3` reconstructs the unique number bit by bit. Clearer but O(32n).
 
 ### Single Number III
-**Category:** Tier 3 · Reference
-**Pattern:** XOR + lowest-set-bit partition  **Time:** O(n)  **Space:** O(1)
-**Approach:** Two elements appear once; the rest twice. XOR all numbers to get `a ^ b`. Any set bit in that result differs between `a` and `b`; isolate the lowest set bit (`xor & -xor`) and use it to partition numbers into two groups, XORing each group separately to recover `a` and `b`.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1812,6 +1847,11 @@ You must write an algorithm that runs in linear runtime complexity and uses only
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** XOR + lowest-set-bit partition  **Time:** O(n)  **Space:** O(1)
+**Approach:** Two elements appear once; the rest twice. XOR all numbers to get `a ^ b`. Any set bit in that result differs between `a` and `b`; isolate the lowest set bit (`xor & -xor`) and use it to partition numbers into two groups, XORing each group separately to recover `a` and `b`.
+
+
 ```java
 class Solution {
     public int[] singleNumber(int[] nums) {
@@ -1839,9 +1879,6 @@ class Solution {
 ```
 
 ### Number of 1 Bits
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Clear-lowest-set-bit loop  **Time:** O(#bits set)  **Space:** O(1)
-**Approach:** Repeatedly apply `n & (n - 1)`, which clears the lowest set bit each iteration. The number of iterations equals the population count. Use `>>>`/unsigned handling implicitly since the loop only touches set bits.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1902,6 +1939,11 @@ The input binary string **1111111111111111111111111111101** has a total of thirt
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Clear-lowest-set-bit loop  **Time:** O(#bits set)  **Space:** O(1)
+**Approach:** Repeatedly apply `n & (n - 1)`, which clears the lowest set bit each iteration. The number of iterations equals the population count. Use `>>>`/unsigned handling implicitly since the loop only touches set bits.
+
+
 ```java
 class Solution {
     public int hammingWeight(int n) {
@@ -1923,9 +1965,6 @@ class Solution {
 ```
 
 ### Counting Bits
-**Category:** Tier 2 · Reinforce
-**Pattern:** DP on bits  **Time:** O(n)  **Space:** O(n)
-**Approach:** `bits[i] = bits[i >> 1] + (i & 1)`: dropping the lowest bit of `i` gives an already-computed smaller value, and the removed bit adds 0 or 1. This builds the full 0..n table in linear time.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1980,6 +2019,11 @@ Do not solve it with built-in functions (i.e., like `__builtin_popcount` in C++)
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** DP on bits  **Time:** O(n)  **Space:** O(n)
+**Approach:** `bits[i] = bits[i >> 1] + (i & 1)`: dropping the lowest bit of `i` gives an already-computed smaller value, and the removed bit adds 0 or 1. This builds the full 0..n table in linear time.
+
+
 ```java
 class Solution {
     public int[] countBits(int n) {
@@ -2000,9 +2044,6 @@ class Solution {
 ```
 
 ### Reverse Bits
-**Category:** Tier 3 · Reference
-**Pattern:** Bit-by-bit shift and OR  **Time:** O(32)  **Space:** O(1)
-**Approach:** Shift the result left, take the lowest bit of the input, OR it into the result, then shift the input right. After 32 iterations the bit order is fully reversed. Use `>>>` for the unsigned input shift.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -2083,6 +2124,11 @@ Reverse bits of a given 32 bits signed integer.
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Bit-by-bit shift and OR  **Time:** O(32)  **Space:** O(1)
+**Approach:** Shift the result left, take the lowest bit of the input, OR it into the result, then shift the input right. After 32 iterations the bit order is fully reversed. Use `>>>` for the unsigned input shift.
+
+
 ```java
 public class Solution {
     public int reverseBits(int n) {
@@ -2107,9 +2153,6 @@ public class Solution {
 ```
 
 ### Power of Two
-**Category:** Tier 3 · Reference
-**Pattern:** Clear-lowest-bit trick  **Time:** O(1)  **Space:** O(1)
-**Approach:** A positive power of two has exactly one set bit, so `n & (n - 1)` is zero. Guard against non-positive inputs first.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -2162,6 +2205,11 @@ An integer `n` is a power of two, if there exists an integer `x` such that `n ==
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Clear-lowest-bit trick  **Time:** O(1)  **Space:** O(1)
+**Approach:** A positive power of two has exactly one set bit, so `n & (n - 1)` is zero. Guard against non-positive inputs first.
+
+
 ```java
 class Solution {
     public boolean isPowerOfTwo(int n) {
@@ -2174,11 +2222,13 @@ class Solution {
 ```
 
 ### Sum of Two Integers (without +)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 2 · Reinforce
 **Pattern:** XOR + carry loop  **Time:** O(1)  **Space:** O(1)
 **Approach:** XOR gives the sum without carries; AND-then-left-shift gives the carry bits. Repeat until there is no carry left. This is how a full adder works, expressed iteratively.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 class Solution {
@@ -2203,11 +2253,13 @@ class Solution {
 ```
 
 ### Subsets via Bitmask
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 3 · Reference
 **Pattern:** Enumerate 2^n masks  **Time:** O(n·2^n)  **Space:** O(n·2^n)
 **Approach:** Each subset corresponds to an n-bit mask where bit `j` set means element `j` is included. Iterate all masks from 0 to 2^n − 1 and build the subset by testing each bit. Elegant when n is small (≤ ~20).
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 import java.util.*;
@@ -2248,11 +2300,13 @@ class Solution {
 ## MATH / NUMBER THEORY
 
 ### Pow(x, n) — Fast Exponentiation
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** Binary exponentiation  **Time:** O(log n)  **Space:** O(1)
 **Approach:** Square the base while halving the exponent; multiply the result whenever the current exponent bit is set. Handle negative exponents by inverting the base and using a `long` for the exponent to avoid overflow when negating `Integer.MIN_VALUE`.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 class Solution {
@@ -2288,11 +2342,13 @@ class Solution {
 ```
 
 ### Sqrt(x) — Binary Search
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 2 · Reinforce
 **Pattern:** Binary search on answer  **Time:** O(log x)  **Space:** O(1)
 **Approach:** Search for the largest integer `m` with `m*m <= x`. Compare using `m <= x / m` to sidestep multiplication overflow. Narrow the range until it collapses on the floor of the square root.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 class Solution {
@@ -2328,9 +2384,6 @@ class Solution {
 ```
 
 ### Happy Number
-**Category:** Tier 3 · Reference
-**Pattern:** Cycle detection (Floyd)  **Time:** O(log n)  **Space:** O(1)
-**Approach:** Repeatedly replace the number with the sum of the squares of its digits. A happy number reaches 1; an unhappy one enters a cycle. Use fast/slow pointers to detect the loop without extra memory.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -2382,6 +2435,11 @@ Return `true` *if* `n` *is a happy number, and* `false` *if not*.
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Cycle detection (Floyd)  **Time:** O(log n)  **Space:** O(1)
+**Approach:** Repeatedly replace the number with the sum of the squares of its digits. A happy number reaches 1; an unhappy one enters a cycle. Use fast/slow pointers to detect the loop without extra memory.
+
+
 ```java
 class Solution {
     public boolean isHappy(int n) {
@@ -2419,9 +2477,6 @@ class Solution {
 **Alternative(s):** A `HashSet` of seen values detects the cycle too, at O(log n) extra space.
 
 ### Excel Sheet Column Number
-**Category:** Tier 3 · Reference
-**Pattern:** Base-26 parse  **Time:** O(n)  **Space:** O(1)
-**Approach:** Treat the title as a bijective base-26 number where A=1..Z=26. Fold left to right: `result = result * 26 + (char - 'A' + 1)`.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -2486,6 +2541,11 @@ AB -> 28
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Base-26 parse  **Time:** O(n)  **Space:** O(1)
+**Approach:** Treat the title as a bijective base-26 number where A=1..Z=26. Fold left to right: `result = result * 26 + (char - 'A' + 1)`.
+
+
 ```java
 class Solution {
     public int titleToNumber(String columnTitle) {
@@ -2506,9 +2566,6 @@ class Solution {
 ```
 
 ### Excel Sheet Column Title
-**Category:** Tier 3 · Reference
-**Pattern:** Base-26 (bijective) build  **Time:** O(log n)  **Space:** O(n)
-**Approach:** Convert a number to a bijective base-26 title. Because there is no zero digit, decrement by 1 before each `% 26` and `/ 26` step, then prepend the mapped letter. Build the string from least to most significant.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -2569,6 +2626,11 @@ AB -> 28
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Base-26 (bijective) build  **Time:** O(log n)  **Space:** O(n)
+**Approach:** Convert a number to a bijective base-26 title. Because there is no zero digit, decrement by 1 before each `% 26` and `/ 26` step, then prepend the mapped letter. Build the string from least to most significant.
+
+
 ```java
 class Solution {
     public String convertToTitle(int columnNumber) {
@@ -2594,9 +2656,6 @@ class Solution {
 ```
 
 ### Roman to Integer
-**Category:** Tier 2 · Reinforce
-**Pattern:** Subtractive scan  **Time:** O(n)  **Space:** O(1)
-**Approach:** Map each numeral to its value. Scan left to right; if a symbol's value is less than the next symbol's value, subtract it (e.g. IV, IX), otherwise add it. This handles the six subtractive combinations naturally.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -2673,6 +2732,11 @@ Given a roman numeral, convert it to an integer.
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** Subtractive scan  **Time:** O(n)  **Space:** O(1)
+**Approach:** Map each numeral to its value. Scan left to right; if a symbol's value is less than the next symbol's value, subtract it (e.g. IV, IX), otherwise add it. This handles the six subtractive combinations naturally.
+
+
 ```java
 class Solution {
     public int romanToInt(String s) {
@@ -2707,9 +2771,6 @@ class Solution {
 ```
 
 ### Integer to Roman
-**Category:** Tier 2 · Reinforce
-**Pattern:** Greedy with value table  **Time:** O(1)  **Space:** O(1)
-**Approach:** Precompute values and symbols in descending order, including the subtractive forms (900=CM, 400=CD, 90=XC, etc.). Greedily subtract the largest fitting value and append its symbol until the number reaches zero.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -2839,6 +2900,11 @@ Note: 49 is not 1 (I) less of 50 (L) because the conversion is based on decimal 
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** Greedy with value table  **Time:** O(1)  **Space:** O(1)
+**Approach:** Precompute values and symbols in descending order, including the subtractive forms (900=CM, 400=CD, 90=XC, etc.). Greedily subtract the largest fitting value and append its symbol until the number reaches zero.
+
+
 ```java
 class Solution {
     public String intToRoman(int num) {
@@ -2869,11 +2935,13 @@ class Solution {
 ```
 
 ### GCD / LCM (Euclid)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 3 · Reference
 **Pattern:** Euclidean algorithm  **Time:** O(log min(a,b))  **Space:** O(1)
 **Approach:** `gcd(a, b) = gcd(b, a % b)` until the remainder is zero. LCM follows from `a / gcd(a,b) * b` — divide before multiplying to reduce overflow risk (use `long` for large inputs).
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 class Solution {
@@ -2902,11 +2970,13 @@ class Solution {
 ```
 
 ### Count Primes (Sieve of Eratosthenes)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** Sieve  **Time:** O(n log log n)  **Space:** O(n)
 **Approach:** Mark multiples of each prime starting from its square as composite. Anything left unmarked below `n` is prime. Iterate `i` only up to `sqrt(n)` and start crossing out at `i*i` since smaller multiples were already handled by smaller primes.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 class Solution {
@@ -2941,11 +3011,13 @@ class Solution {
 ```
 
 ### Reverse Integer (overflow handling)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 2 · Reinforce
 **Pattern:** Digit pop with overflow guard  **Time:** O(log n)  **Space:** O(1)
 **Approach:** Pop digits with `% 10` and push onto the reversed result. Before each push, check whether the multiply-and-add would exceed 32-bit `int` bounds; if so, return 0. This avoids relying on `long` and works for both positive and negative inputs.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 class Solution {
@@ -2979,9 +3051,6 @@ class Solution {
 ```
 
 ### Palindrome Number
-**Category:** Tier 3 · Reference
-**Pattern:** Reverse half the digits  **Time:** O(log n)  **Space:** O(1)
-**Approach:** Negatives and numbers ending in 0 (except 0 itself) are never palindromes. Build the reversed second half digit by digit and stop when it meets or passes the remaining first half. Compare the two halves, accounting for an odd middle digit.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -3033,6 +3102,11 @@ Given an integer `x`, return `true` if `x` is a <span data-keyword="palindrome-i
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Reverse half the digits  **Time:** O(log n)  **Space:** O(1)
+**Approach:** Negatives and numbers ending in 0 (except 0 itself) are never palindromes. Build the reversed second half digit by digit and stop when it meets or passes the remaining first half. Compare the two halves, accounting for an odd middle digit.
+
+
 ```java
 class Solution {
     public boolean isPalindrome(int x) {
@@ -3058,9 +3132,6 @@ class Solution {
 ```
 
 ### Multiply Strings
-**Category:** Tier 3 · Reference
-**Pattern:** Grade-school multiplication  **Time:** O(m·n)  **Space:** O(m+n)
-**Approach:** Multiply each pair of digits and place the product into a result array where digits `i` and `j` contribute to positions `i+j` and `i+j+1`. Accumulate carries in a second pass, then strip leading zeros. This handles arbitrarily large numbers without overflow.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -3100,6 +3171,11 @@ Given two non-negative integers `num1` and `num2` represented as strings, return
 	- Both `num1` and `num2` do not contain any leading zero, except the number `0` itself.
 
 </details>
+
+**Category:** Tier 3 · Reference
+**Pattern:** Grade-school multiplication  **Time:** O(m·n)  **Space:** O(m+n)
+**Approach:** Multiply each pair of digits and place the product into a result array where digits `i` and `j` contribute to positions `i+j` and `i+j+1`. Accumulate carries in a second pass, then strip leading zeros. This handles arbitrarily large numbers without overflow.
+
 
 ```java
 class Solution {

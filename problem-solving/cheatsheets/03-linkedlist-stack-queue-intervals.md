@@ -17,11 +17,13 @@ class ListNode {
 ## Linked List — Fast / Slow Pointers
 
 ### Linked List Cycle I
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 2 · Reinforce
 **Pattern:** Floyd's cycle detection  **Time:** O(n)  **Space:** O(1)
 **Approach:** Advance a slow pointer one step and a fast pointer two steps per iteration. If a cycle exists, the fast pointer eventually laps the slow one and they meet inside the loop. If fast reaches null, the list is acyclic.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 public boolean hasCycle(ListNode head) {
@@ -36,11 +38,13 @@ public boolean hasCycle(ListNode head) {
 ```
 
 ### Linked List Cycle II (find start)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** Floyd's cycle detection + math  **Time:** O(n)  **Space:** O(1)
 **Approach:** First detect the meeting point with slow/fast. The distance from head to the cycle start equals the distance from the meeting point to the cycle start (mod cycle length). Reset one pointer to head and advance both one step at a time; they meet at the cycle entrance.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 public ListNode detectCycle(ListNode head) {
@@ -62,9 +66,6 @@ public ListNode detectCycle(ListNode head) {
 ```
 
 ### Middle of the Linked List
-**Category:** Tier 3 · Reference
-**Pattern:** Fast / slow pointers  **Time:** O(n)  **Space:** O(1)
-**Approach:** Move slow one step and fast two steps. When fast reaches the end, slow is at the middle. For even length this returns the second of the two middle nodes (standard LeetCode convention).
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -109,6 +110,11 @@ If there are two middle nodes, return **the second middle** node.
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Fast / slow pointers  **Time:** O(n)  **Space:** O(1)
+**Approach:** Move slow one step and fast two steps. When fast reaches the end, slow is at the middle. For even length this returns the second of the two middle nodes (standard LeetCode convention).
+
+
 ```java
 public ListNode middleNode(ListNode head) {
     ListNode slow = head, fast = head; // Start both pointers at the head
@@ -121,9 +127,6 @@ public ListNode middleNode(ListNode head) {
 ```
 
 ### Palindrome Linked List
-**Category:** Tier 2 · Reinforce
-**Pattern:** Fast/slow + reversal  **Time:** O(n)  **Space:** O(1)
-**Approach:** Find the middle with slow/fast, reverse the second half in place, then compare it node-by-node against the first half. This avoids the O(n) space of copying values into an array. Optionally restore the list by reversing the second half back.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -167,6 +170,11 @@ Given the `head` of a singly linked list, return `true`* if it is a *<span data-
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** Fast/slow + reversal  **Time:** O(n)  **Space:** O(1)
+**Approach:** Find the middle with slow/fast, reverse the second half in place, then compare it node-by-node against the first half. This avoids the O(n) space of copying values into an array. Optionally restore the list by reversing the second half back.
+
+
 ```java
 public boolean isPalindrome(ListNode head) {
     ListNode slow = head, fast = head; // Initialize slow and fast pointers to find the middle
@@ -203,9 +211,6 @@ private ListNode reverse(ListNode node) {
 ## Linked List — Reversal
 
 ### Reverse Linked List
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Pointer reversal  **Time:** O(n)  **Space:** O(1) iterative / O(n) recursive
-**Approach:** Iteratively walk the list keeping a `prev` pointer; redirect each node's `next` to `prev` before advancing. The recursive version reverses the tail first, then fixes the link so the next node points back to the current one.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -259,6 +264,11 @@ Given the `head` of a singly linked list, reverse the list, and return *the reve
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Pointer reversal  **Time:** O(n)  **Space:** O(1) iterative / O(n) recursive
+**Approach:** Iteratively walk the list keeping a `prev` pointer; redirect each node's `next` to `prev` before advancing. The recursive version reverses the tail first, then fixes the link so the next node points back to the current one.
+
+
 ```java
 // Iterative
 public ListNode reverseList(ListNode head) {
@@ -283,11 +293,13 @@ public ListNode reverseListRec(ListNode head) {
 ```
 
 ### Reverse Linked List II (between m..n)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 3 · Reference
 **Pattern:** Pointer reversal with dummy head  **Time:** O(n)  **Space:** O(1)
 **Approach:** Use a dummy node to handle reversal starting at the head. Advance to the node before position `left`, then repeatedly splice the node after the current "tail of reversed segment" to the front of that segment (head-insertion). After `right - left` splices the sublist is reversed in place.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 public ListNode reverseBetween(ListNode head, int left, int right) {
@@ -306,9 +318,6 @@ public ListNode reverseBetween(ListNode head, int left, int right) {
 ```
 
 ### Reverse Nodes in k-Group
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Segmented reversal  **Time:** O(n)  **Space:** O(1)
-**Approach:** Walk the list checking whether at least k nodes remain. If so, reverse that block of k using standard pointer reversal, then connect the previous group's tail to the new head and continue. Remaining nodes fewer than k are left untouched.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -359,6 +368,11 @@ You may not alter the values in the list's nodes, only nodes themselves may be c
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Segmented reversal  **Time:** O(n)  **Space:** O(1)
+**Approach:** Walk the list checking whether at least k nodes remain. If so, reverse that block of k using standard pointer reversal, then connect the previous group's tail to the new head and continue. Remaining nodes fewer than k are left untouched.
+
+
 ```java
 public ListNode reverseKGroup(ListNode head, int k) {
     ListNode dummy = new ListNode(0, head); // Use dummy node to handle head modification gracefully
@@ -384,9 +398,6 @@ public ListNode reverseKGroup(ListNode head, int k) {
 ```
 
 ### Swap Nodes in Pairs
-**Category:** Tier 3 · Reference
-**Pattern:** Pointer manipulation with dummy  **Time:** O(n)  **Space:** O(1)
-**Approach:** With a dummy head, repeatedly take two consecutive nodes and rewire `prev -> second -> first -> rest`. Advance `prev` to the node now in the second position and continue until fewer than two nodes remain.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -447,6 +458,11 @@ Given a linked list, swap every two adjacent nodes and return its head. You must
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Pointer manipulation with dummy  **Time:** O(n)  **Space:** O(1)
+**Approach:** With a dummy head, repeatedly take two consecutive nodes and rewire `prev -> second -> first -> rest`. Advance `prev` to the node now in the second position and continue until fewer than two nodes remain.
+
+
 ```java
 public ListNode swapPairs(ListNode head) {
     ListNode dummy = new ListNode(0, head); // Dummy node simplifies handling the new head
@@ -464,9 +480,6 @@ public ListNode swapPairs(ListNode head) {
 ```
 
 ### Rotate List
-**Category:** Tier 3 · Reference
-**Pattern:** Cycle + cut  **Time:** O(n)  **Space:** O(1)
-**Approach:** Count the length and connect the tail to the head to form a ring. The new tail sits at index `len - k % len - 1`; walk there, break the ring after it, and the node after becomes the new head. Take `k % len` to handle rotations larger than the list.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -509,6 +522,11 @@ Given the `head` of a linked list, rotate the list to the right by `k` places.
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Cycle + cut  **Time:** O(n)  **Space:** O(1)
+**Approach:** Count the length and connect the tail to the head to form a ring. The new tail sits at index `len - k % len - 1`; walk there, break the ring after it, and the node after becomes the new head. Take `k % len` to handle rotations larger than the list.
+
+
 ```java
 public ListNode rotateRight(ListNode head, int k) {
     if (head == null || head.next == null || k == 0) return head; // Base case: empty, single node, or no rotation
@@ -531,9 +549,6 @@ public ListNode rotateRight(ListNode head, int k) {
 ## Linked List — Merge / Manipulate
 
 ### Merge Two Sorted Lists
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Two-pointer merge with dummy  **Time:** O(n + m)  **Space:** O(1)
-**Approach:** Use a dummy head and a tail pointer. At each step append the smaller of the two current nodes and advance that list. When one list is exhausted, splice the remaining tail of the other directly.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -588,6 +603,11 @@ Return *the head of the merged linked list*.
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Two-pointer merge with dummy  **Time:** O(n + m)  **Space:** O(1)
+**Approach:** Use a dummy head and a tail pointer. At each step append the smaller of the two current nodes and advance that list. When one list is exhausted, splice the remaining tail of the other directly.
+
+
 ```java
 public ListNode mergeTwoLists(ListNode l1, ListNode l2) {
     ListNode dummy = new ListNode(0); // Dummy node simplifies the edge cases when merging
@@ -608,9 +628,6 @@ public ListNode mergeTwoLists(ListNode l1, ListNode l2) {
 ```
 
 ### Add Two Numbers
-**Category:** Tier 2 · Reinforce
-**Pattern:** Digit-by-digit with carry  **Time:** O(max(n, m))  **Space:** O(max(n, m))
-**Approach:** Digits are stored in reverse order, so traverse both lists simultaneously, summing corresponding digits plus a carry. Create a new node for each `sum % 10` and propagate `sum / 10`. Continue while either list remains or a carry is pending.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -664,6 +681,11 @@ You may assume the two numbers do not contain any leading zero, except the numbe
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** Digit-by-digit with carry  **Time:** O(max(n, m))  **Space:** O(max(n, m))
+**Approach:** Digits are stored in reverse order, so traverse both lists simultaneously, summing corresponding digits plus a carry. Create a new node for each `sum % 10` and propagate `sum / 10`. Continue while either list remains or a carry is pending.
+
+
 ```java
 public ListNode addTwoNumbers(ListNode l1, ListNode l2) {
     ListNode dummy = new ListNode(0); // Dummy node to anchor the result list
@@ -682,11 +704,13 @@ public ListNode addTwoNumbers(ListNode l1, ListNode l2) {
 ```
 
 ### Remove Nth Node From End
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** Two-pointer gap  **Time:** O(n)  **Space:** O(1)
 **Approach:** Advance a `fast` pointer n steps ahead of `slow` (both starting at a dummy). Then move both until `fast` reaches the last node; `slow` now sits just before the target, so unlink it. The dummy elegantly handles removing the head.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 public ListNode removeNthFromEnd(ListNode head, int n) {
@@ -703,9 +727,6 @@ public ListNode removeNthFromEnd(ListNode head, int n) {
 ```
 
 ### Reorder List
-**Category:** Tier 2 · Reinforce
-**Pattern:** Find middle + reverse + merge  **Time:** O(n)  **Space:** O(1)
-**Approach:** Split the list at the middle, reverse the second half, then interleave the two halves node by node. This produces the pattern L0 -> Ln -> L1 -> Ln-1 -> ... without extra storage.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -762,6 +783,11 @@ You may not modify the values in the list's nodes. Only nodes themselves may be 
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** Find middle + reverse + merge  **Time:** O(n)  **Space:** O(1)
+**Approach:** Split the list at the middle, reverse the second half, then interleave the two halves node by node. This produces the pattern L0 -> Ln -> L1 -> Ln-1 -> ... without extra storage.
+
+
 ```java
 public void reorderList(ListNode head) {
     if (head == null || head.next == null) return; // Base case: lists of length 0 or 1 need no reordering
@@ -791,9 +817,6 @@ public void reorderList(ListNode head) {
 ```
 
 ### Copy List with Random Pointer
-**Category:** Tier 2 · Reinforce
-**Pattern:** Interleaving / hashmap clone  **Time:** O(n)  **Space:** O(1) interleave / O(n) map
-**Approach:** Interleave cloned nodes right after their originals (A -> A' -> B -> B' ...). Set each clone's random from `orig.random.next`, then unweave the two lists. This achieves the clone in constant extra space.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -861,6 +884,11 @@ Your code will **only** be given the `head` of the original linked list.
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** Interleaving / hashmap clone  **Time:** O(n)  **Space:** O(1) interleave / O(n) map
+**Approach:** Interleave cloned nodes right after their originals (A -> A' -> B -> B' ...). Set each clone's random from `orig.random.next`, then unweave the two lists. This achieves the clone in constant extra space.
+
+
 ```java
 class Node {
     int val; // Value of the node
@@ -899,9 +927,6 @@ public Node copyRandomList(Node head) {
 ## Stack / Queue Design
 
 ### Min Stack
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Auxiliary tracking  **Time:** O(1) per op  **Space:** O(n)
-**Approach:** Keep a second stack that tracks the minimum seen so far. On push, store `min(value, currentMin)`; on pop, remove from both. The top of the min stack always reflects the minimum of the current contents.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -961,6 +986,11 @@ minStack.getMin(); // return -2
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Auxiliary tracking  **Time:** O(1) per op  **Space:** O(n)
+**Approach:** Keep a second stack that tracks the minimum seen so far. On push, store `min(value, currentMin)`; on pop, remove from both. The top of the min stack always reflects the minimum of the current contents.
+
+
 ```java
 class MinStack {
     private Deque<Integer> stack = new ArrayDeque<>(); // Main stack to hold elements
@@ -985,9 +1015,6 @@ class MinStack {
 ```
 
 ### Implement Queue using Stacks
-**Category:** Tier 2 · Reinforce
-**Pattern:** Two-stack amortization  **Time:** O(1) amortized  **Space:** O(n)
-**Approach:** Push always goes to an `in` stack. For pop/peek, if the `out` stack is empty, transfer everything from `in` to `out`, reversing order so the oldest element is on top. Each element is moved at most once, giving amortized O(1).
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1050,6 +1077,11 @@ myQueue.empty(); // return false
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** Two-stack amortization  **Time:** O(1) amortized  **Space:** O(n)
+**Approach:** Push always goes to an `in` stack. For pop/peek, if the `out` stack is empty, transfer everything from `in` to `out`, reversing order so the oldest element is on top. Each element is moved at most once, giving amortized O(1).
+
+
 ```java
 class MyQueue {
     private Deque<Integer> in = new ArrayDeque<>(); // Stack used for enqueueing elements
@@ -1074,9 +1106,6 @@ class MyQueue {
 ```
 
 ### Implement Stack using Queues
-**Category:** Tier 3 · Reference
-**Pattern:** Single-queue rotation  **Time:** O(n) push, O(1) pop  **Space:** O(n)
-**Approach:** Use one queue. On push, enqueue the new element, then rotate every preceding element to the back so the newest sits at the front. Pop/top then become trivial front operations.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1139,6 +1168,11 @@ myStack.empty(); // return False
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Single-queue rotation  **Time:** O(n) push, O(1) pop  **Space:** O(n)
+**Approach:** Use one queue. On push, enqueue the new element, then rotate every preceding element to the back so the newest sits at the front. Pop/top then become trivial front operations.
+
+
 ```java
 class MyStack {
     private Queue<Integer> q = new LinkedList<>(); // Single queue to simulate a stack
@@ -1167,9 +1201,6 @@ class MyStack {
 ## Monotonic Stack
 
 ### Next Greater Element I
-**Category:** Tier 2 · Reinforce
-**Pattern:** Monotonic decreasing stack + hashmap  **Time:** O(n + m)  **Space:** O(n)
-**Approach:** Scan `nums2` keeping a stack of values awaiting a greater element. When the current value exceeds the stack top, it is that element's next-greater; record it in a map and pop. Finally look up each `nums1` element.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1228,6 +1259,11 @@ Return *an array *`ans`* of length *`nums1.length`* such that *`ans[i]`* is the 
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** Monotonic decreasing stack + hashmap  **Time:** O(n + m)  **Space:** O(n)
+**Approach:** Scan `nums2` keeping a stack of values awaiting a greater element. When the current value exceeds the stack top, it is that element's next-greater; record it in a map and pop. Finally look up each `nums1` element.
+
+
 ```java
 public int[] nextGreaterElement(int[] nums1, int[] nums2) {
     Map<Integer, Integer> nge = new HashMap<>(); // Map to store the next greater element for each value in nums2
@@ -1246,9 +1282,6 @@ public int[] nextGreaterElement(int[] nums1, int[] nums2) {
 ```
 
 ### Daily Temperatures
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Monotonic decreasing stack of indices  **Time:** O(n)  **Space:** O(n)
-**Approach:** Maintain a stack of indices whose warmer day hasn't been found yet. When today is warmer than the day at the stack top, pop and record the index gap as the wait. Each index is pushed and popped once.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1293,6 +1326,11 @@ Given an array of integers `temperatures` represents the daily temperatures, ret
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Monotonic decreasing stack of indices  **Time:** O(n)  **Space:** O(n)
+**Approach:** Maintain a stack of indices whose warmer day hasn't been found yet. When today is warmer than the day at the stack top, pop and record the index gap as the wait. Each index is pushed and popped once.
+
+
 ```java
 public int[] dailyTemperatures(int[] temps) {
     int n = temps.length; // Length of the temperatures array
@@ -1311,9 +1349,6 @@ public int[] dailyTemperatures(int[] temps) {
 ```
 
 ### Largest Rectangle in Histogram
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Monotonic increasing stack  **Time:** O(n)  **Space:** O(n)
-**Approach:** Keep a stack of indices with increasing bar heights. When a shorter bar appears, pop taller bars and compute the rectangle each can form: its height times the width bounded by the new bar on the right and the new stack top on the left. A sentinel height of 0 flushes the stack at the end.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1356,6 +1391,11 @@ The largest rectangle is shown in the red area, which has an area = 10 units.
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Monotonic increasing stack  **Time:** O(n)  **Space:** O(n)
+**Approach:** Keep a stack of indices with increasing bar heights. When a shorter bar appears, pop taller bars and compute the rectangle each can form: its height times the width bounded by the new bar on the right and the new stack top on the left. A sentinel height of 0 flushes the stack at the end.
+
+
 ```java
 public int largestRectangleArea(int[] heights) {
     int n = heights.length, max = 0; // Initialize max area to 0
@@ -1376,9 +1416,6 @@ public int largestRectangleArea(int[] heights) {
 ```
 
 ### Remove K Digits
-**Category:** Tier 2 · Reinforce
-**Pattern:** Monotonic increasing stack (greedy)  **Time:** O(n)  **Space:** O(n)
-**Approach:** Build the smallest number by greedily removing a preceding digit whenever it is larger than the current one (it costs the most at a high place value). Use a stack as the result buffer, removing up to `k` digits; trim any leftover removals from the end and strip leading zeros.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1431,6 +1468,11 @@ Given string num representing a non-negative integer `num`, and an integer `k`, 
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** Monotonic increasing stack (greedy)  **Time:** O(n)  **Space:** O(n)
+**Approach:** Build the smallest number by greedily removing a preceding digit whenever it is larger than the current one (it costs the most at a high place value). Use a stack as the result buffer, removing up to `k` digits; trim any leftover removals from the end and strip leading zeros.
+
+
 ```java
 public String removeKdigits(String num, int k) {
     Deque<Character> stack = new ArrayDeque<>(); // Deque used as a monotonic increasing stack
@@ -1453,11 +1495,13 @@ public String removeKdigits(String num, int k) {
 ```
 
 ### Stock Span
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 3 · Reference
 **Pattern:** Monotonic decreasing stack of (price, span)  **Time:** O(1) amortized  **Space:** O(n)
 **Approach:** For each day, the span is the count of consecutive prior days with price <= today. Keep a stack of (price, span) pairs; pop and accumulate spans while the top price is <= today's, then push the merged span. Each price is pushed/popped once.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 class StockSpanner {
@@ -1479,9 +1523,6 @@ class StockSpanner {
 ## Monotonic Deque
 
 ### Sliding Window Maximum
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Monotonic decreasing deque of indices  **Time:** O(n)  **Space:** O(k)
-**Approach:** Maintain a deque of indices whose values are in decreasing order; the front is always the window's maximum. Before adding index `i`, pop smaller values from the back and evict the front if it has slid out of the window. Record the front once the first full window forms.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1533,6 +1574,11 @@ Window position                Max
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Monotonic decreasing deque of indices  **Time:** O(n)  **Space:** O(k)
+**Approach:** Maintain a deque of indices whose values are in decreasing order; the front is always the window's maximum. Before adding index `i`, pop smaller values from the back and evict the front if it has slid out of the window. Record the front once the first full window forms.
+
+
 ```java
 public int[] maxSlidingWindow(int[] nums, int k) {
     int n = nums.length; // Length of input array
@@ -1553,9 +1599,6 @@ public int[] maxSlidingWindow(int[] nums, int k) {
 ```
 
 ### Shortest Subarray with Sum at Least K
-**Category:** Tier 3 · Reference
-**Pattern:** Prefix sums + monotonic increasing deque  **Time:** O(n)  **Space:** O(n)
-**Approach:** Compute prefix sums; a subarray sum is `prefix[j] - prefix[i]`. Maintain a deque of indices with increasing prefix values. For each `j`, pop from the front while `prefix[j] - prefix[front] >= K` (recording the length), and pop from the back any index whose prefix is >= the current — it can never beat a smaller, later prefix.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1604,6 +1647,11 @@ A **subarray** is a **contiguous** part of an array.
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Prefix sums + monotonic increasing deque  **Time:** O(n)  **Space:** O(n)
+**Approach:** Compute prefix sums; a subarray sum is `prefix[j] - prefix[i]`. Maintain a deque of indices with increasing prefix values. For each `j`, pop from the front while `prefix[j] - prefix[front] >= K` (recording the length), and pop from the back any index whose prefix is >= the current — it can never beat a smaller, later prefix.
+
+
 ```java
 public int shortestSubarray(int[] nums, int k) {
     int n = nums.length; // Array length
@@ -1629,9 +1677,6 @@ public int shortestSubarray(int[] nums, int k) {
 ## Merge Intervals
 
 ### Merge Intervals
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Sort + sweep  **Time:** O(n log n)  **Space:** O(n)
-**Approach:** Sort intervals by start. Walk through them, extending the current merged interval's end whenever the next interval overlaps (its start <= current end); otherwise close the current interval and start a new one.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1684,6 +1729,11 @@ Given an array of `intervals` where `intervals[i] = [start<sub>i</sub>, end<sub>
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Sort + sweep  **Time:** O(n log n)  **Space:** O(n)
+**Approach:** Sort intervals by start. Walk through them, extending the current merged interval's end whenever the next interval overlaps (its start <= current end); otherwise close the current interval and start a new one.
+
+
 ```java
 public int[][] merge(int[][] intervals) {
     // Sort intervals by their start times to process them chronologically
@@ -1704,9 +1754,6 @@ public int[][] merge(int[][] intervals) {
 ```
 
 ### Insert Interval
-**Category:** Tier 2 · Reinforce
-**Pattern:** Three-phase sweep  **Time:** O(n)  **Space:** O(n)
-**Approach:** The input is already sorted. Copy all intervals ending before the new one starts, then merge every interval that overlaps the new one by widening its bounds, finally copy the rest. No global sort needed.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1762,6 +1809,11 @@ Return `intervals`* after the insertion*.
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** Three-phase sweep  **Time:** O(n)  **Space:** O(n)
+**Approach:** The input is already sorted. Copy all intervals ending before the new one starts, then merge every interval that overlaps the new one by widening its bounds, finally copy the rest. No global sort needed.
+
+
 ```java
 public int[][] insert(int[][] intervals, int[] newInterval) {
     List<int[]> res = new ArrayList<>(); // List to store the final intervals
@@ -1782,9 +1834,6 @@ public int[][] insert(int[][] intervals, int[] newInterval) {
 ```
 
 ### Non-overlapping Intervals
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Greedy by earliest end  **Time:** O(n log n)  **Space:** O(1)
-**Approach:** Sort by end time. Greedily keep an interval if it starts at or after the last kept end; otherwise it overlaps and must be removed. Choosing the interval that ends earliest leaves the most room for the rest.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1839,6 +1888,11 @@ Given an array of intervals `intervals` where `intervals[i] = [start<sub>i</sub>
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Greedy by earliest end  **Time:** O(n log n)  **Space:** O(1)
+**Approach:** Sort by end time. Greedily keep an interval if it starts at or after the last kept end; otherwise it overlaps and must be removed. Choosing the interval that ends earliest leaves the most room for the rest.
+
+
 ```java
 public int eraseOverlapIntervals(int[][] intervals) {
     // Sort intervals by their end times to greedily leave the most space for remaining intervals
@@ -1853,11 +1907,13 @@ public int eraseOverlapIntervals(int[][] intervals) {
 ```
 
 ### Meeting Rooms II
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 2 · Reinforce
 **Pattern:** Min-heap of end times (or sweep line)  **Time:** O(n log n)  **Space:** O(n)
 **Approach:** Sort meetings by start time and use a min-heap holding the end times of rooms currently in use. For each meeting, if the earliest-ending room is free by its start, reuse it (poll); otherwise allocate a new room. The heap size's peak is the answer.
 
-<!-- Problem Statement not automatically found -->
 
 ```java
 public int minMeetingRooms(int[][] intervals) {
@@ -1876,9 +1932,6 @@ public int minMeetingRooms(int[][] intervals) {
 **Alternative:** Sweep line — sort all start (+1) and end (-1) events, track a running counter and its maximum. Same complexity, O(n) extra.
 
 ### Interval List Intersections
-**Category:** Tier 3 · Reference
-**Pattern:** Two-pointer merge  **Time:** O(n + m)  **Space:** O(n + m)
-**Approach:** Both lists are sorted. For the pair under each pointer, the intersection (if any) is `[max(starts), min(ends)]`; emit it when valid. Advance the pointer whose interval ends first, since it cannot intersect any later interval in the other list.
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1931,6 +1984,11 @@ The **intersection** of two closed intervals is a set of real numbers that are e
 	- `end<sub>j</sub> < start<sub>j+1</sub>`
 
 </details>
+
+**Category:** Tier 3 · Reference
+**Pattern:** Two-pointer merge  **Time:** O(n + m)  **Space:** O(n + m)
+**Approach:** Both lists are sorted. For the pair under each pointer, the intersection (if any) is `[max(starts), min(ends)]`; emit it when valid. Advance the pointer whose interval ends first, since it cannot intersect any later interval in the other list.
+
 
 ```java
 public int[][] intervalIntersection(int[][] A, int[][] B) {

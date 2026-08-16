@@ -26,10 +26,6 @@ A useful sanity check: the time complexity of a DP is (number of states) × (wor
 These problems have a linear state `dp[i]` that depends on a constant number of previous states.
 
 ### Climbing Stairs
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** 1-D Fibonacci  **Time:** O(n)  **Space:** O(1)
-**Approach:** State `dp[i]` = number of distinct ways to reach step `i`. To reach step `i` you either took a single step from `i-1` or a double step from `i-2`, so `dp[i] = dp[i-1] + dp[i-2]`. Base cases `dp[0] = 1` (one way to stand at the bottom) and `dp[1] = 1`. Since each value uses only the previous two, we keep two rolling variables.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -74,6 +70,11 @@ Each time you can either climb `1` or `2` steps. In how many distinct ways can y
 	- `1 <= n <= 45`
 
 </details>
+
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** 1-D Fibonacci  **Time:** O(n)  **Space:** O(1)
+**Approach:** State `dp[i]` = number of distinct ways to reach step `i`. To reach step `i` you either took a single step from `i-1` or a double step from `i-2`, so `dp[i] = dp[i-1] + dp[i-2]`. Base cases `dp[0] = 1` (one way to stand at the bottom) and `dp[1] = 1`. Since each value uses only the previous two, we keep two rolling variables.
+
 
 ```java
 public int climbStairs(int n) {
@@ -123,10 +124,6 @@ private int go(int n, int[] memo) {
 ```
 
 ### House Robber
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** 1-D pick/skip  **Time:** O(n)  **Space:** O(1)
-**Approach:** State `dp[i]` = max money robbable considering houses `0..i`. At house `i` you either rob it (then you cannot rob `i-1`, giving `nums[i] + dp[i-2]`) or skip it (`dp[i-1]`). So `dp[i] = max(dp[i-1], nums[i] + dp[i-2])`. Only the last two values matter, so use two rolling variables.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -171,6 +168,11 @@ Total amount you can rob = 2 + 9 + 1 = 12.
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** 1-D pick/skip  **Time:** O(n)  **Space:** O(1)
+**Approach:** State `dp[i]` = max money robbable considering houses `0..i`. At house `i` you either rob it (then you cannot rob `i-1`, giving `nums[i] + dp[i-2]`) or skip it (`dp[i-1]`). So `dp[i] = max(dp[i-1], nums[i] + dp[i-2])`. Only the last two values matter, so use two rolling variables.
+
+
 ```java
 public int rob(int[] nums) {
     // prev2 tracks the max loot from houses up to i-2
@@ -194,10 +196,6 @@ public int rob(int[] nums) {
 ```
 
 ### House Robber II
-**Category:** Tier 2 · Reinforce
-**Pattern:** 1-D pick/skip on a circle  **Time:** O(n)  **Space:** O(1)
-**Approach:** Houses are arranged in a circle, so the first and last houses are adjacent and cannot both be robbed. Split into two independent linear House Robber problems: one over `[0, n-2]` (exclude the last house) and one over `[1, n-1]` (exclude the first), then take the max. Handle the single-house edge case separately.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -250,6 +248,11 @@ Total amount you can rob = 1 + 3 = 4.
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** 1-D pick/skip on a circle  **Time:** O(n)  **Space:** O(1)
+**Approach:** Houses are arranged in a circle, so the first and last houses are adjacent and cannot both be robbed. Split into two independent linear House Robber problems: one over `[0, n-2]` (exclude the last house) and one over `[1, n-1]` (exclude the first), then take the max. Handle the single-house edge case separately.
+
+
 ```java
 public int rob(int[] nums) {
     int n = nums.length;
@@ -282,10 +285,6 @@ private int robLine(int[] nums, int lo, int hi) {
 ```
 
 ### Decode Ways
-**Category:** Tier 3 · Reference
-**Pattern:** 1-D Fibonacci with validity checks  **Time:** O(n)  **Space:** O(1)
-**Approach:** State `dp[i]` = number of ways to decode the prefix of length `i`. A single digit `s[i-1]` decodes if it is `1..9`, contributing `dp[i-1]`. A two-digit number `s[i-2..i-1]` decodes if it is `10..26`, contributing `dp[i-2]`. So `dp[i] = (single valid ? dp[i-1] : 0) + (double valid ? dp[i-2] : 0)`. Base case `dp[0] = 1` (empty string has one decoding).
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -367,6 +366,11 @@ The test cases are generated so that the answer fits in a **32-bit** integer.
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** 1-D Fibonacci with validity checks  **Time:** O(n)  **Space:** O(1)
+**Approach:** State `dp[i]` = number of ways to decode the prefix of length `i`. A single digit `s[i-1]` decodes if it is `1..9`, contributing `dp[i-1]`. A two-digit number `s[i-2..i-1]` decodes if it is `10..26`, contributing `dp[i-2]`. So `dp[i] = (single valid ? dp[i-1] : 0) + (double valid ? dp[i-2] : 0)`. Base case `dp[0] = 1` (empty string has one decoding).
+
+
 ```java
 public int numDecodings(String s) {
     // If the string starts with '0', it cannot be decoded at all
@@ -399,10 +403,6 @@ public int numDecodings(String s) {
 ```
 
 ### Min Cost Climbing Stairs
-**Category:** Tier 3 · Reference
-**Pattern:** 1-D Fibonacci (min)  **Time:** O(n)  **Space:** O(1)
-**Approach:** State `dp[i]` = minimum cost to reach step `i` (the top is index `n`). To stand on step `i` you arrive from `i-1` or `i-2`, each costing that step's `cost` to step off: `dp[i] = min(dp[i-1] + cost[i-1], dp[i-2] + cost[i-2])`. You may start at step 0 or 1 for free, so `dp[0] = dp[1] = 0`.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -456,6 +456,11 @@ The total cost is 6.
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** 1-D Fibonacci (min)  **Time:** O(n)  **Space:** O(1)
+**Approach:** State `dp[i]` = minimum cost to reach step `i` (the top is index `n`). To stand on step `i` you arrive from `i-1` or `i-2`, each costing that step's `cost` to step off: `dp[i] = min(dp[i-1] + cost[i-1], dp[i-2] + cost[i-2])`. You may start at step 0 or 1 for free, so `dp[0] = dp[1] = 0`.
+
+
 ```java
 public int minCostClimbingStairs(int[] cost) {
     // prev2 is the min cost to reach i-2, prev1 is the min cost to reach i-1
@@ -484,12 +489,13 @@ public int minCostClimbingStairs(int[] cost) {
 Each item may be taken **at most once**. The state tracks which items are considered and how much capacity remains. The crucial detail when space-optimizing to 1-D: iterate capacity **backwards** so each item is used once.
 
 ### 0/1 Knapsack (template)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** 🧩 Template
 **Pattern:** 0/1 Knapsack  **Time:** O(n·W)  **Space:** O(W)
 **Approach:** State `dp[i][w]` = max value using the first `i` items within capacity `w`. For each item you either skip it (`dp[i-1][w]`) or take it if it fits (`val[i-1] + dp[i-1][w - wt[i-1]]`). Take the max. Space-optimize to a 1-D array `dp[w]` by iterating `w` from high to low so the value of `dp[w - wt]` still refers to the previous item (not the current one).
 
-
-<!-- Problem Statement not automatically found -->
 
 ```java
 public int knapsack(int[] wt, int[] val, int W) {
@@ -538,10 +544,6 @@ public int knapsack2D(int[] wt, int[] val, int W) {
 ```
 
 ### Partition Equal Subset Sum
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** 0/1 Knapsack (subset-sum feasibility)  **Time:** O(n·sum)  **Space:** O(sum)
-**Approach:** We can split into two equal halves iff a subset sums to `total/2`. State `dp[s]` = is sum `s` achievable with some subset. Transition is the boolean knapsack: `dp[s] |= dp[s - num]`. If `total` is odd, immediately return false. Iterate the target sum backwards so each number is used once.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -582,6 +584,11 @@ Given an integer array `nums`, return `true` *if you can partition the array int
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** 0/1 Knapsack (subset-sum feasibility)  **Time:** O(n·sum)  **Space:** O(sum)
+**Approach:** We can split into two equal halves iff a subset sums to `total/2`. State `dp[s]` = is sum `s` achievable with some subset. Transition is the boolean knapsack: `dp[s] |= dp[s - num]`. If `total` is odd, immediately return false. Iterate the target sum backwards so each number is used once.
+
+
 ```java
 public boolean canPartition(int[] nums) {
     int total = 0;
@@ -614,10 +621,6 @@ public boolean canPartition(int[] nums) {
 ```
 
 ### Target Sum
-**Category:** Tier 3 · Reference
-**Pattern:** 0/1 Knapsack (count subsets)  **Time:** O(n·sum)  **Space:** O(sum)
-**Approach:** Assigning `+`/`-` to each number and reaching `target` is equivalent to choosing a positive subset `P` with `sum(P) = (total + target) / 2` (the rest are negative). So count subsets summing to that value. State `dp[s]` = number of subsets summing to `s`; transition `dp[s] += dp[s - num]`. The required sum must be a non-negative even split, else the answer is 0.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -672,6 +675,11 @@ Return the number of different **expressions** that you can build, which evaluat
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** 0/1 Knapsack (count subsets)  **Time:** O(n·sum)  **Space:** O(sum)
+**Approach:** Assigning `+`/`-` to each number and reaching `target` is equivalent to choosing a positive subset `P` with `sum(P) = (total + target) / 2` (the rest are negative). So count subsets summing to that value. State `dp[s]` = number of subsets summing to `s`; transition `dp[s] += dp[s - num]`. The required sum must be a non-negative even split, else the answer is 0.
+
+
 ```java
 public int findTargetSumWays(int[] nums, int target) {
     int total = 0;
@@ -703,10 +711,6 @@ public int findTargetSumWays(int[] nums, int target) {
 ```
 
 ### Last Stone Weight II
-**Category:** Tier 3 · Reference
-**Pattern:** 0/1 Knapsack (minimize difference)  **Time:** O(n·sum)  **Space:** O(sum)
-**Approach:** Smashing stones partitions them into two groups with sums `S1` and `S2`; the final stone equals `|S1 - S2|`. To minimize this, pick a subset whose sum is as close as possible to `total/2`. State `dp[s]` = is sum `s` reachable; find the largest reachable `s <= total/2`, then the answer is `total - 2*s`.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -760,6 +764,11 @@ we can combine 1 and 1 to get 0, so the array converts to [1], then that's the o
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** 0/1 Knapsack (minimize difference)  **Time:** O(n·sum)  **Space:** O(sum)
+**Approach:** Smashing stones partitions them into two groups with sums `S1` and `S2`; the final stone equals `|S1 - S2|`. To minimize this, pick a subset whose sum is as close as possible to `total/2`. State `dp[s]` = is sum `s` reachable; find the largest reachable `s <= total/2`, then the answer is `total - 2*s`.
+
+
 ```java
 public int lastStoneWeightII(int[] stones) {
     int total = 0;
@@ -798,12 +807,13 @@ public int lastStoneWeightII(int[] stones) {
 Each item may be taken **any number of times**. The space-optimized loop iterates capacity **forwards** so the current item can be reused within the same pass.
 
 ### Coin Change (minimum coins)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** Unbounded Knapsack (min)  **Time:** O(n·amount)  **Space:** O(amount)
 **Approach:** State `dp[a]` = minimum number of coins to make amount `a`. For each amount, try every coin: `dp[a] = min(dp[a], dp[a - coin] + 1)`. Initialize to a sentinel "infinity" (`amount + 1`) and `dp[0] = 0`. Forward iteration over `a` lets a coin be reused. If `dp[amount]` is still the sentinel, the amount is unreachable.
 
-
-<!-- Problem Statement not automatically found -->
 
 ```java
 public int coinChange(int[] coins, int amount) {
@@ -831,12 +841,13 @@ public int coinChange(int[] coins, int amount) {
 ```
 
 ### Coin Change II (count combinations)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 2 · Reinforce
 **Pattern:** Unbounded Knapsack (count combinations)  **Time:** O(n·amount)  **Space:** O(amount)
 **Approach:** State `dp[a]` = number of **combinations** summing to `a`. Transition `dp[a] += dp[a - coin]`. The coin loop must be the **outer** loop so combinations are counted regardless of order (each coin type is fully processed before moving on), which avoids counting `1+2` and `2+1` as distinct. Base case `dp[0] = 1` (the empty combination).
 
-
-<!-- Problem Statement not automatically found -->
 
 ```java
 public int change(int amount, int[] coins) {
@@ -860,10 +871,6 @@ public int change(int amount, int[] coins) {
 ```
 
 ### Combination Sum IV
-**Category:** Tier 3 · Reference
-**Pattern:** Unbounded Knapsack (count permutations)  **Time:** O(n·target)  **Space:** O(target)
-**Approach:** Here different orderings count as distinct, so we count **permutations**. State `dp[t]` = number of ordered sequences summing to `t`, with `dp[t] += dp[t - num]`. The target loop is **outer** and the numbers loop is inner — the mirror image of Coin Change II — because at each total we consider every possible last element. Use `long` accumulation to avoid overflow if intermediate counts are large.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -922,6 +929,11 @@ Note that different sequences are counted as different combinations.
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Unbounded Knapsack (count permutations)  **Time:** O(n·target)  **Space:** O(target)
+**Approach:** Here different orderings count as distinct, so we count **permutations**. State `dp[t]` = number of ordered sequences summing to `t`, with `dp[t] += dp[t - num]`. The target loop is **outer** and the numbers loop is inner — the mirror image of Coin Change II — because at each total we consider every possible last element. Use `long` accumulation to avoid overflow if intermediate counts are large.
+
+
 ```java
 public int combinationSum4(int[] nums, int target) {
     // dp[t] stores the number of valid sequences that sum up to t
@@ -944,12 +956,13 @@ public int combinationSum4(int[] nums, int target) {
 ```
 
 ### Rod Cutting
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 3 · Reference
 **Pattern:** Unbounded Knapsack (max value)  **Time:** O(n²)  **Space:** O(n)
 **Approach:** Given prices for each length `1..n`, state `dp[len]` = max revenue obtainable from a rod of length `len`. Make the first cut of size `i` (revenue `price[i-1]`) and recurse on the remainder: `dp[len] = max over i of price[i-1] + dp[len - i]`. Pieces are reusable, so this is unbounded knapsack with weight = length and value = price.
 
-
-<!-- Problem Statement not automatically found -->
 
 ```java
 public int rodCutting(int[] price, int n) {
@@ -979,10 +992,6 @@ public int rodCutting(int[] price, int n) {
 These operate on one or two sequences, with state indexing positions in those sequences.
 
 ### Longest Increasing Subsequence
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Subsequence DP  **Time:** O(n²) or O(n log n)  **Space:** O(n)
-**Approach (O(n²)):** State `dp[i]` = length of the longest strictly increasing subsequence ending exactly at index `i`. For each `i`, look at every `j < i` with `nums[j] < nums[i]` and take `dp[i] = max(dp[i], dp[j] + 1)`. The answer is the max over all `dp[i]`.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1034,6 +1043,11 @@ Given an integer array `nums`, return *the length of the longest **strictly incr
 **Follow up:** Can you come up with an algorithm that runs in `O(n log(n))` time complexity?
 
 </details>
+
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Subsequence DP  **Time:** O(n²) or O(n log n)  **Space:** O(n)
+**Approach (O(n²)):** State `dp[i]` = length of the longest strictly increasing subsequence ending exactly at index `i`. For each `i`, look at every `j < i` with `nums[j] < nums[i]` and take `dp[i] = max(dp[i], dp[j] + 1)`. The answer is the max over all `dp[i]`.
+
 
 ```java
 public int lengthOfLIS(int[] nums) {
@@ -1093,10 +1107,6 @@ public int lengthOfLIS(int[] nums) {
 ```
 
 ### Longest Common Subsequence
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Two-sequence DP  **Time:** O(m·n)  **Space:** O(min(m,n)) optimizable
-**Approach:** State `dp[i][j]` = LCS length of `a[0..i)` and `b[0..j)`. If the last characters match, extend the diagonal: `dp[i][j] = dp[i-1][j-1] + 1`. Otherwise drop one character: `dp[i][j] = max(dp[i-1][j], dp[i][j-1])`. Base row/column are zero (empty string).
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1153,6 +1163,11 @@ A **common subsequence** of two strings is a subsequence that is common to both 
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Two-sequence DP  **Time:** O(m·n)  **Space:** O(min(m,n)) optimizable
+**Approach:** State `dp[i][j]` = LCS length of `a[0..i)` and `b[0..j)`. If the last characters match, extend the diagonal: `dp[i][j] = dp[i-1][j-1] + 1`. Otherwise drop one character: `dp[i][j] = max(dp[i-1][j], dp[i][j-1])`. Base row/column are zero (empty string).
+
+
 ```java
 public int longestCommonSubsequence(String a, String b) {
     int m = a.length(), n = b.length();
@@ -1179,10 +1194,6 @@ public int longestCommonSubsequence(String a, String b) {
 ```
 
 ### Edit Distance
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Two-sequence DP  **Time:** O(m·n)  **Space:** O(m·n)
-**Approach:** State `dp[i][j]` = minimum operations (insert/delete/replace) to turn `a[0..i)` into `b[0..j)`. If the last chars match, no cost: `dp[i][j] = dp[i-1][j-1]`. Otherwise take `1 + min` of replace (`dp[i-1][j-1]`), delete (`dp[i-1][j]`), insert (`dp[i][j-1]`). Base cases: converting to/from an empty string costs that string's length.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1239,6 +1250,11 @@ exection -> execution (insert 'u')
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Two-sequence DP  **Time:** O(m·n)  **Space:** O(m·n)
+**Approach:** State `dp[i][j]` = minimum operations (insert/delete/replace) to turn `a[0..i)` into `b[0..j)`. If the last chars match, no cost: `dp[i][j] = dp[i-1][j-1]`. Otherwise take `1 + min` of replace (`dp[i-1][j-1]`), delete (`dp[i-1][j]`), insert (`dp[i][j-1]`). Base cases: converting to/from an empty string costs that string's length.
+
+
 ```java
 public int minDistance(String a, String b) {
     int m = a.length(), n = b.length();
@@ -1271,10 +1287,6 @@ public int minDistance(String a, String b) {
 ```
 
 ### Distinct Subsequences
-**Category:** Tier 3 · Reference
-**Pattern:** Two-sequence DP (count)  **Time:** O(m·n)  **Space:** O(n)
-**Approach:** State `dp[i][j]` = number of times `t[0..j)` appears as a subsequence of `s[0..i)`. We always have the option to skip `s[i-1]`: `dp[i][j] = dp[i-1][j]`. If `s[i-1] == t[j-1]` we may also match it, adding `dp[i-1][j-1]`. Base: `dp[i][0] = 1` (empty `t` matches once). Space-optimize to 1-D by iterating `j` backwards.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1326,6 +1338,11 @@ As shown below, there are 5 ways you can generate "bag" from s.
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Two-sequence DP (count)  **Time:** O(m·n)  **Space:** O(n)
+**Approach:** State `dp[i][j]` = number of times `t[0..j)` appears as a subsequence of `s[0..i)`. We always have the option to skip `s[i-1]`: `dp[i][j] = dp[i-1][j]`. If `s[i-1] == t[j-1]` we may also match it, adding `dp[i-1][j-1]`. Base: `dp[i][0] = 1` (empty `t` matches once). Space-optimize to 1-D by iterating `j` backwards.
+
+
 ```java
 public int numDistinct(String s, String t) {
     int n = t.length();
@@ -1354,10 +1371,6 @@ public int numDistinct(String s, String t) {
 ```
 
 ### Longest Palindromic Subsequence
-**Category:** Tier 3 · Reference
-**Pattern:** Interval / subsequence DP  **Time:** O(n²)  **Space:** O(n²)
-**Approach:** State `dp[i][j]` = length of the longest palindromic subsequence within `s[i..j]`. If the ends match, they wrap an inner palindrome: `dp[i][j] = dp[i+1][j-1] + 2`. Otherwise drop one end: `dp[i][j] = max(dp[i+1][j], dp[i][j-1])`. Single characters are palindromes of length 1. Iterate `i` from high to low (so `i+1` is ready) and `j` from `i+1` up.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1400,6 +1413,11 @@ A **subsequence** is a sequence that can be derived from another sequence by del
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Interval / subsequence DP  **Time:** O(n²)  **Space:** O(n²)
+**Approach:** State `dp[i][j]` = length of the longest palindromic subsequence within `s[i..j]`. If the ends match, they wrap an inner palindrome: `dp[i][j] = dp[i+1][j-1] + 2`. Otherwise drop one end: `dp[i][j] = max(dp[i+1][j], dp[i][j-1])`. Single characters are palindromes of length 1. Iterate `i` from high to low (so `i+1` is ready) and `j` from `i+1` up.
+
+
 ```java
 public int longestPalindromeSubseq(String s) {
     int n = s.length();
@@ -1435,10 +1453,6 @@ public int longestPalindromeSubseq(String s) {
 The state is an interval `[i, j]`; transitions pick a split point or a "last action" inside the interval. Iterate by increasing interval length.
 
 ### Burst Balloons
-**Category:** Tier 3 · Reference
-**Pattern:** Interval DP (last to burst)  **Time:** O(n³)  **Space:** O(n²)
-**Approach:** Pad the array with virtual `1`s at both ends. State `dp[i][j]` = max coins from bursting all balloons strictly between `i` and `j`. The trick: choose `k` as the **last** balloon burst in `(i, j)`; at that moment its neighbors are exactly `i` and `j`, giving `nums[i]*nums[k]*nums[j]`, plus the independently-solved left `dp[i][k]` and right `dp[k][j]`. Maximize over `k`.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1485,6 +1499,11 @@ coins =  3*1*5    +   3*5*8   +  1*3*8  + 1*8*1 = 167
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Interval DP (last to burst)  **Time:** O(n³)  **Space:** O(n²)
+**Approach:** Pad the array with virtual `1`s at both ends. State `dp[i][j]` = max coins from bursting all balloons strictly between `i` and `j`. The trick: choose `k` as the **last** balloon burst in `(i, j)`; at that moment its neighbors are exactly `i` and `j`, giving `nums[i]*nums[k]*nums[j]`, plus the independently-solved left `dp[i][k]` and right `dp[k][j]`. Maximize over `k`.
+
+
 ```java
 public int maxCoins(int[] nums) {
     int n = nums.length;
@@ -1517,12 +1536,13 @@ public int maxCoins(int[] nums) {
 ```
 
 ### Matrix Chain Multiplication
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 3 · Reference
 **Pattern:** Interval DP (split point)  **Time:** O(n³)  **Space:** O(n²)
 **Approach:** Given dimensions `p[0..n]` where matrix `i` is `p[i-1] × p[i]`, state `dp[i][j]` = min scalar multiplications to multiply matrices `i..j`. Try every split `k` where the last multiplication joins the products of `i..k` and `k+1..j`, costing `p[i-1]*p[k]*p[j]`: `dp[i][j] = min over k of dp[i][k] + dp[k+1][j] + p[i-1]*p[k]*p[j]`. Single matrices cost 0.
 
-
-<!-- Problem Statement not automatically found -->
 
 ```java
 public int matrixChainOrder(int[] p) {
@@ -1555,10 +1575,6 @@ public int matrixChainOrder(int[] p) {
 ```
 
 ### Palindrome Partitioning II
-**Category:** Tier 3 · Reference
-**Pattern:** Interval precompute + 1-D DP  **Time:** O(n²)  **Space:** O(n²)
-**Approach:** We want the minimum cuts to split `s` into palindromes. First precompute `pal[i][j]` = whether `s[i..j]` is a palindrome (interval DP: `s[i]==s[j]` and inner is palindrome). Then `cut[i]` = min cuts for prefix `s[0..i)`: if `s[0..i)` is itself a palindrome, `cut[i] = 0`; otherwise `cut[i] = min over j of cut[j] + 1` where `s[j..i)` is a palindrome.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1609,6 +1625,11 @@ Return *the **minimum** cuts needed for a palindrome partitioning of* `s`.
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Interval precompute + 1-D DP  **Time:** O(n²)  **Space:** O(n²)
+**Approach:** We want the minimum cuts to split `s` into palindromes. First precompute `pal[i][j]` = whether `s[i..j]` is a palindrome (interval DP: `s[i]==s[j]` and inner is palindrome). Then `cut[i]` = min cuts for prefix `s[0..i)`: if `s[0..i)` is itself a palindrome, `cut[i] = 0`; otherwise `cut[i] = min over j of cut[j] + 1` where `s[j..i)` is a palindrome.
+
+
 ```java
 public int minCut(String s) {
     int n = s.length();
@@ -1653,10 +1674,6 @@ public int minCut(String s) {
 The state is a cell `(r, c)`; transitions come from adjacent cells (usually top and left). Many of these collapse to a single rolling row.
 
 ### Unique Paths
-**Category:** ⭐ Tier 1 · Core
-**Pattern:** Grid DP (count)  **Time:** O(m·n)  **Space:** O(n)
-**Approach:** A robot moves only right or down from top-left to bottom-right. State `dp[c]` = number of ways to reach the current row's column `c`. Each cell is reached from above (`dp[c]`, the value before update = the cell above) plus from the left (`dp[c-1]`): `dp[c] += dp[c-1]`. The first column is always 1 (only one way: straight down).
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1702,6 +1719,11 @@ The test cases are generated so that the answer will be less than or equal to `2
 
 </details>
 
+**Category:** ⭐ Tier 1 · Core
+**Pattern:** Grid DP (count)  **Time:** O(m·n)  **Space:** O(n)
+**Approach:** A robot moves only right or down from top-left to bottom-right. State `dp[c]` = number of ways to reach the current row's column `c`. Each cell is reached from above (`dp[c]`, the value before update = the cell above) plus from the left (`dp[c-1]`): `dp[c] += dp[c-1]`. The first column is always 1 (only one way: straight down).
+
+
 ```java
 public int uniquePaths(int m, int n) {
     // dp[c] represents the number of ways to reach column c in the current row
@@ -1727,10 +1749,6 @@ public int uniquePaths(int m, int n) {
 ```
 
 ### Unique Paths II
-**Category:** Tier 2 · Reinforce
-**Pattern:** Grid DP (count with obstacles)  **Time:** O(m·n)  **Space:** O(n)
-**Approach:** Same as Unique Paths but obstacle cells (value 1) have zero paths. State `dp[c]` = ways to reach column `c` in the current row; set it to 0 at obstacles, otherwise `dp[c] += dp[c-1]`. Initialize `dp[0] = 1` only if the starting cell is free.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1785,6 +1803,11 @@ There are two ways to reach the bottom-right corner:
 
 </details>
 
+**Category:** Tier 2 · Reinforce
+**Pattern:** Grid DP (count with obstacles)  **Time:** O(m·n)  **Space:** O(n)
+**Approach:** Same as Unique Paths but obstacle cells (value 1) have zero paths. State `dp[c]` = ways to reach column `c` in the current row; set it to 0 at obstacles, otherwise `dp[c] += dp[c-1]`. Initialize `dp[0] = 1` only if the starting cell is free.
+
+
 ```java
 public int uniquePathsWithObstacles(int[][] grid) {
     int n = grid[0].length;
@@ -1815,10 +1838,6 @@ public int uniquePathsWithObstacles(int[][] grid) {
 ```
 
 ### Minimum Path Sum
-**Category:** Tier 3 · Reference
-**Pattern:** Grid DP (min)  **Time:** O(m·n)  **Space:** O(n)
-**Approach:** State `dp[c]` = min cost to reach cell `(r, c)` moving only right/down. Each cell adds its own value to the cheaper of the cell above (`dp[c]` pre-update) and the cell to the left (`dp[c-1]`): `dp[c] = grid[r][c] + min(dp[c], dp[c-1])`. Handle the first row (no above) and first column (no left) as edge cases.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1865,6 +1884,11 @@ Given a `m x n` `grid` filled with non-negative numbers, find a path from top le
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Grid DP (min)  **Time:** O(m·n)  **Space:** O(n)
+**Approach:** State `dp[c]` = min cost to reach cell `(r, c)` moving only right/down. Each cell adds its own value to the cheaper of the cell above (`dp[c]` pre-update) and the cell to the left (`dp[c-1]`): `dp[c] = grid[r][c] + min(dp[c], dp[c-1])`. Handle the first row (no above) and first column (no left) as edge cases.
+
+
 ```java
 public int minPathSum(int[][] grid) {
     int m = grid.length, n = grid[0].length;
@@ -1897,10 +1921,6 @@ public int minPathSum(int[][] grid) {
 ```
 
 ### Maximal Square
-**Category:** Tier 3 · Reference
-**Pattern:** Grid DP (largest square)  **Time:** O(m·n)  **Space:** O(n)
-**Approach:** State `dp[r][c]` = side length of the largest all-`1` square whose bottom-right corner is `(r, c)`. If the cell is `1`, it equals `1 + min` of its top, left, and top-left neighbors (the limiting square). The answer is the max side found, squared for area. Space-optimize to one row plus a `prev` (top-left) scalar.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -1954,6 +1974,11 @@ Given an `m x n` binary `matrix` filled with `0`'s and `1`'s, *find the largest 
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Grid DP (largest square)  **Time:** O(m·n)  **Space:** O(n)
+**Approach:** State `dp[r][c]` = side length of the largest all-`1` square whose bottom-right corner is `(r, c)`. If the cell is `1`, it equals `1 + min` of its top, left, and top-left neighbors (the limiting square). The answer is the max side found, squared for area. Space-optimize to one row plus a `prev` (top-left) scalar.
+
+
 ```java
 public int maximalSquare(char[][] matrix) {
     int n = matrix[0].length;
@@ -1989,10 +2014,6 @@ public int maximalSquare(char[][] matrix) {
 ```
 
 ### Dungeon Game
-**Category:** Tier 3 · Reference
-**Pattern:** Grid DP (reverse direction)  **Time:** O(m·n)  **Space:** O(n)
-**Approach:** We need the minimum starting health so HP stays `>= 1` everywhere. Because the requirement at a cell depends on the *future*, we fill the table from bottom-right to top-left. State `dp[r][c]` = min HP needed entering `(r, c)`. Need = `min(dp[right], dp[down]) - dungeon[r][c]`, clamped to at least 1 (you can't enter dead). The bottom-right cell needs `max(1, 1 - value)`.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -2047,6 +2068,11 @@ Return *the knight's minimum initial health so that he can rescue the princess*.
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Grid DP (reverse direction)  **Time:** O(m·n)  **Space:** O(n)
+**Approach:** We need the minimum starting health so HP stays `>= 1` everywhere. Because the requirement at a cell depends on the *future*, we fill the table from bottom-right to top-left. State `dp[r][c]` = min HP needed entering `(r, c)`. Need = `min(dp[right], dp[down]) - dungeon[r][c]`, clamped to at least 1 (you can't enter dead). The bottom-right cell needs `max(1, 1 - value)`.
+
+
 ```java
 public int calculateMinimumHP(int[][] dungeon) {
     int m = dungeon.length, n = dungeon[0].length;
@@ -2082,12 +2108,13 @@ public int calculateMinimumHP(int[][] dungeon) {
 State machine DP over days × (holding / not holding) × extra dimensions like remaining transactions or cooldown.
 
 ### Best Time to Buy and Sell with Cooldown
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 3 · Reference
 **Pattern:** State-machine DP  **Time:** O(n)  **Space:** O(1)
 **Approach:** Track three rolling states per day: `hold` (currently own a stock), `sold` (just sold today, must cooldown tomorrow), and `rest` (idle, free to buy). Transitions: `hold = max(hold, rest - price)` (keep or buy from rest), `sold = hold + price` (sell), `rest = max(rest, sold)` (stay idle or come off cooldown). The answer is `max(sold, rest)` on the last day.
 
-
-<!-- Problem Statement not automatically found -->
 
 ```java
 public int maxProfit(int[] prices) {
@@ -2118,12 +2145,13 @@ public int maxProfit(int[] prices) {
 ```
 
 ### Best Time to Buy and Sell Stock IV (k transactions)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 3 · Reference
 **Pattern:** State-machine DP with transaction count  **Time:** O(n·k)  **Space:** O(k)
 **Approach:** For each allowed transaction `t` keep two values: `buy[t]` = best balance having opened up to `t` buys, `sell[t]` = best balance having completed up to `t` sells. Per price: `buy[t] = max(buy[t], sell[t-1] - price)` and `sell[t] = max(sell[t], buy[t] + price)`. When `k >= n/2` it reduces to the unlimited-transaction greedy (sum every upward step).
 
-
-<!-- Problem Statement not automatically found -->
 
 ```java
 public int maxProfit(int k, int[] prices) {
@@ -2164,12 +2192,13 @@ public int maxProfit(int k, int[] prices) {
 ```
 
 ### Best Time to Buy and Sell with Transaction Fee
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 3 · Reference
 **Pattern:** State-machine DP  **Time:** O(n)  **Space:** O(1)
 **Approach:** Two rolling states: `cash` (not holding) and `hold` (holding). The fee is charged once per completed transaction, conveniently applied at sell time. Per day: `cash = max(cash, hold + price - fee)` (sell, pay fee) and `hold = max(hold, cash - price)` (buy). Start `hold = -prices[0]`. The final `cash` is the answer.
 
-
-<!-- Problem Statement not automatically found -->
 
 ```java
 public int maxProfit(int[] prices, int fee) {
@@ -2200,10 +2229,6 @@ public int maxProfit(int[] prices, int fee) {
 The state encodes a *subset* as the bits of an integer. Useful when `n` is small (≤ ~20).
 
 ### Partition to K Equal Sum Subsets
-**Category:** Tier 3 · Reference
-**Pattern:** Bitmask DP / subset enumeration  **Time:** O(n·2ⁿ)  **Space:** O(2ⁿ)
-**Approach:** Total must divide evenly; let `target = total/k`. State `dp[mask]` = the running sum *within the current bucket* using exactly the elements in `mask` (modulo `target`), or -1 if `mask` is unreachable. For each reachable `mask`, try adding each unused element `i` if it keeps the current bucket `<= target`. Filling all elements (`mask` all ones) with each completed bucket resetting to 0 means a valid partition exists.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -2244,6 +2269,11 @@ Given an integer array `nums` and an integer `k`, return `true` if it is possibl
 	- The frequency of each element is in the range `[1, 4]`.
 
 </details>
+
+**Category:** Tier 3 · Reference
+**Pattern:** Bitmask DP / subset enumeration  **Time:** O(n·2ⁿ)  **Space:** O(2ⁿ)
+**Approach:** Total must divide evenly; let `target = total/k`. State `dp[mask]` = the running sum *within the current bucket* using exactly the elements in `mask` (modulo `target`), or -1 if `mask` is unreachable. For each reachable `mask`, try adding each unused element `i` if it keeps the current bucket `<= target`. Filling all elements (`mask` all ones) with each completed bucket resetting to 0 means a valid partition exists.
+
 
 ```java
 public boolean canPartitionKSubsets(int[] nums, int k) {
@@ -2289,12 +2319,13 @@ public boolean canPartitionKSubsets(int[] nums, int k) {
 ```
 
 ### Travelling Salesman Problem (brief)
+
+<!-- Problem Statement not automatically found -->
+
 **Category:** Tier 3 · Reference
 **Pattern:** Bitmask DP (Held–Karp)  **Time:** O(n²·2ⁿ)  **Space:** O(n·2ⁿ)
 **Approach:** State `dp[mask][i]` = min cost of a path that has visited exactly the cities in `mask` and currently sits at city `i`. Transition: extend to an unvisited city `j` via `dp[mask | (1<<j)][j] = min(..., dp[mask][i] + dist[i][j])`. Start at city 0 (`dp[1][0] = 0`). The answer closes the tour: `min over i of dp[full][i] + dist[i][0]`.
 
-
-<!-- Problem Statement not automatically found -->
 
 ```java
 public int tsp(int[][] dist) {
@@ -2347,10 +2378,6 @@ public int tsp(int[][] dist) {
 State is computed per node from its children via post-order traversal; each node returns one or more values that the parent combines.
 
 ### House Robber III
-**Category:** Tier 3 · Reference
-**Pattern:** Tree DP (pick/skip per node)  **Time:** O(n)  **Space:** O(h)
-**Approach:** For each node return a pair `{rob, skip}`: `rob` = max money if we rob this node (so we must skip both children) = `node.val + left.skip + right.skip`; `skip` = max money if we don't rob this node (children may be robbed or not) = `max(left.rob, left.skip) + max(right.rob, right.skip)`. The answer at the root is `max(rob, skip)`.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -2397,6 +2424,11 @@ Given the `root` of the binary tree, return *the maximum amount of money the thi
 
 </details>
 
+**Category:** Tier 3 · Reference
+**Pattern:** Tree DP (pick/skip per node)  **Time:** O(n)  **Space:** O(h)
+**Approach:** For each node return a pair `{rob, skip}`: `rob` = max money if we rob this node (so we must skip both children) = `node.val + left.skip + right.skip`; `skip` = max money if we don't rob this node (children may be robbed or not) = `max(left.rob, left.skip) + max(right.rob, right.skip)`. The answer at the root is `max(rob, skip)`.
+
+
 ```java
 public int rob(TreeNode root) {
     // DFS returns an array where index 0 is 'rob this node' and index 1 is 'skip this node'
@@ -2425,10 +2457,6 @@ private int[] dfs(TreeNode node) {
 ```
 
 ### Binary Tree Cameras
-**Category:** Tier 3 · Reference
-**Pattern:** Tree DP (greedy state per node)  **Time:** O(n)  **Space:** O(h)
-**Approach:** Each node reports one of three states upward: `0` = not covered (needs a parent camera), `1` = covered but has no camera, `2` = has a camera. Post-order: if either child is uncovered (`0`), this node must place a camera (`2`, increment count). If either child has a camera (`2`), this node is covered without one (`1`). Otherwise this node is uncovered (`0`) and relies on its parent. Null children are treated as covered (`1`) so leaves report uncovered. Finally, if the root reports uncovered, add one camera.
-
 
 <details><summary><b>Problem Statement & Examples</b></summary>
 
@@ -2472,6 +2500,11 @@ Return *the minimum number of cameras needed to monitor all nodes of the tree*.
 	- `Node.val == 0`
 
 </details>
+
+**Category:** Tier 3 · Reference
+**Pattern:** Tree DP (greedy state per node)  **Time:** O(n)  **Space:** O(h)
+**Approach:** Each node reports one of three states upward: `0` = not covered (needs a parent camera), `1` = covered but has no camera, `2` = has a camera. Post-order: if either child is uncovered (`0`), this node must place a camera (`2`, increment count). If either child has a camera (`2`), this node is covered without one (`1`). Otherwise this node is uncovered (`0`) and relies on its parent. Null children are treated as covered (`1`) so leaves report uncovered. Finally, if the root reports uncovered, add one camera.
+
 
 ```java
 private int cameras = 0; // Global tracker for total cameras deployed
