@@ -4,11 +4,11 @@ Patterns and idiomatic Java for linked-list manipulation, stack/queue design, mo
 
 ```java
 class ListNode {
-    int val;
-    ListNode next;
-    ListNode() {}
-    ListNode(int val) { this.val = val; }
-    ListNode(int val, ListNode next) { this.val = val; this.next = next; }
+    int val; // Store the node's integer value
+    ListNode next; // Pointer to the next node in the linked list
+    ListNode() {} // Default constructor for dummy nodes or empty initialization
+    ListNode(int val) { this.val = val; } // Constructor to initialize a node with a specific value
+    ListNode(int val, ListNode next) { this.val = val; this.next = next; } // Constructor to initialize both value and next pointer
 }
 ```
 
@@ -25,13 +25,13 @@ class ListNode {
 
 ```java
 public boolean hasCycle(ListNode head) {
-    ListNode slow = head, fast = head;
-    while (fast != null && fast.next != null) {
-        slow = slow.next;
-        fast = fast.next.next;
-        if (slow == fast) return true;
+    ListNode slow = head, fast = head; // Initialize both slow and fast pointers at the head of the list
+    while (fast != null && fast.next != null) { // Continue while fast pointer and its next node are not null (prevents NullPointerException)
+        slow = slow.next; // Move slow pointer one step forward
+        fast = fast.next.next; // Move fast pointer two steps forward
+        if (slow == fast) return true; // If slow and fast meet, a cycle exists in the linked list
     }
-    return false;
+    return false; // If the loop terminates, the fast pointer reached the end of the list, so no cycle exists
 }
 ```
 
@@ -44,20 +44,20 @@ public boolean hasCycle(ListNode head) {
 
 ```java
 public ListNode detectCycle(ListNode head) {
-    ListNode slow = head, fast = head;
-    while (fast != null && fast.next != null) {
-        slow = slow.next;
-        fast = fast.next.next;
-        if (slow == fast) {
-            ListNode p = head;
-            while (p != slow) {
-                p = p.next;
-                slow = slow.next;
+    ListNode slow = head, fast = head; // Initialize both pointers at the head of the list
+    while (fast != null && fast.next != null) { // Traverse the list, fast moving twice as fast
+        slow = slow.next; // Move slow pointer by 1 step
+        fast = fast.next.next; // Move fast pointer by 2 steps
+        if (slow == fast) { // A cycle is detected when they intersect
+            ListNode p = head; // Start a new pointer p from the head of the list
+            while (p != slow) { // Move both p and slow one step at a time
+                p = p.next; // Advance p by 1 step
+                slow = slow.next; // Advance slow by 1 step; they will meet at the start of the cycle
             }
-            return p;
+            return p; // Return the node where they meet, which is the start of the cycle
         }
     }
-    return null;
+    return null; // If loop ends, there's no cycle, return null
 }
 ```
 
@@ -111,12 +111,12 @@ If there are two middle nodes, return **the second middle** node.
 
 ```java
 public ListNode middleNode(ListNode head) {
-    ListNode slow = head, fast = head;
-    while (fast != null && fast.next != null) {
-        slow = slow.next;
-        fast = fast.next.next;
+    ListNode slow = head, fast = head; // Start both pointers at the head
+    while (fast != null && fast.next != null) { // Loop until fast reaches the end
+        slow = slow.next; // Move slow pointer 1 step
+        fast = fast.next.next; // Move fast pointer 2 steps
     }
-    return slow;
+    return slow; // When fast is at the end, slow will be exactly at the middle node
 }
 ```
 
@@ -169,31 +169,31 @@ Given the `head` of a singly linked list, return `true`* if it is a *<span data-
 
 ```java
 public boolean isPalindrome(ListNode head) {
-    ListNode slow = head, fast = head;
-    while (fast != null && fast.next != null) {
-        slow = slow.next;
-        fast = fast.next.next;
+    ListNode slow = head, fast = head; // Initialize slow and fast pointers to find the middle
+    while (fast != null && fast.next != null) { // Traverse to locate the middle of the linked list
+        slow = slow.next; // Advance slow by 1
+        fast = fast.next.next; // Advance fast by 2
     }
-    ListNode second = reverse(slow);
-    ListNode p1 = head, p2 = second;
-    boolean ok = true;
-    while (p2 != null) {
-        if (p1.val != p2.val) { ok = false; break; }
-        p1 = p1.next;
-        p2 = p2.next;
+    ListNode second = reverse(slow); // Reverse the second half of the list starting from the middle
+    ListNode p1 = head, p2 = second; // p1 points to the start, p2 points to the reversed second half
+    boolean ok = true; // Flag to store the palindrome result
+    while (p2 != null) { // Iterate through the reversed second half
+        if (p1.val != p2.val) { ok = false; break; } // If values don't match, it's not a palindrome
+        p1 = p1.next; // Move p1 forward
+        p2 = p2.next; // Move p2 forward
     }
-    return ok;
+    return ok; // Return the result (could optionally reverse the second half back to its original state here)
 }
 
 private ListNode reverse(ListNode node) {
-    ListNode prev = null;
-    while (node != null) {
-        ListNode next = node.next;
-        node.next = prev;
-        prev = node;
-        node = next;
+    ListNode prev = null; // prev starts as null, will become the new tail
+    while (node != null) { // Traverse the list to reverse it
+        ListNode next = node.next; // Save the next node temporarily
+        node.next = prev; // Reverse the link to point to the previous node
+        prev = node; // Move prev forward to the current node
+        node = next; // Move current node forward to the saved next node
     }
-    return prev;
+    return prev; // Return prev, which is the new head of the reversed list
 }
 ```
 **Alternative:** Push all values to an array/deque and two-pointer compare — O(n) space but simpler.
@@ -262,23 +262,23 @@ Given the `head` of a singly linked list, reverse the list, and return *the reve
 ```java
 // Iterative
 public ListNode reverseList(ListNode head) {
-    ListNode prev = null;
-    while (head != null) {
-        ListNode next = head.next;
-        head.next = prev;
-        prev = head;
-        head = next;
+    ListNode prev = null; // prev starts as null; it will eventually become the new head
+    while (head != null) { // Iterate through the list until the end
+        ListNode next = head.next; // Temporarily store the next node
+        head.next = prev; // Reverse the current node's pointer to point to the previous node
+        prev = head; // Move prev pointer forward to the current node
+        head = next; // Move head pointer forward to the next node in the original list
     }
-    return prev;
+    return prev; // prev is now the new head of the reversed list
 }
 
 // Recursive
 public ListNode reverseListRec(ListNode head) {
-    if (head == null || head.next == null) return head;
-    ListNode newHead = reverseListRec(head.next);
-    head.next.next = head;
-    head.next = null;
-    return newHead;
+    if (head == null || head.next == null) return head; // Base case: empty list or single node is already reversed
+    ListNode newHead = reverseListRec(head.next); // Recursively reverse the rest of the list
+    head.next.next = head; // Make the next node point back to the current node (reverse the link)
+    head.next = null; // Clear the current node's next pointer to prevent cycles
+    return newHead; // Return the new head from the deepest recursive call
 }
 ```
 
@@ -291,17 +291,17 @@ public ListNode reverseListRec(ListNode head) {
 
 ```java
 public ListNode reverseBetween(ListNode head, int left, int right) {
-    ListNode dummy = new ListNode(0, head);
-    ListNode prev = dummy;
-    for (int i = 0; i < left - 1; i++) prev = prev.next;
-    ListNode cur = prev.next;
-    for (int i = 0; i < right - left; i++) {
-        ListNode next = cur.next;
-        cur.next = next.next;
-        next.next = prev.next;
-        prev.next = next;
+    ListNode dummy = new ListNode(0, head); // Dummy node simplifies cases where head itself changes
+    ListNode prev = dummy; // prev will eventually point to the node right before the reversed sublist
+    for (int i = 0; i < left - 1; i++) prev = prev.next; // Advance prev to the node just before index 'left'
+    ListNode cur = prev.next; // cur is the first node of the sublist to be reversed (it will become the sublist's tail)
+    for (int i = 0; i < right - left; i++) { // Loop exactly 'right - left' times to reverse the sublist
+        ListNode next = cur.next; // 'next' is the node to be moved to the front of the reversed segment
+        cur.next = next.next; // Detach 'next' from the list by linking 'cur' to the node after 'next'
+        next.next = prev.next; // Insert 'next' at the front of the reversed segment
+        prev.next = next; // Update prev to point to the newly moved 'next' node
     }
-    return dummy.next;
+    return dummy.next; // Return the head of the modified list
 }
 ```
 
@@ -361,25 +361,25 @@ You may not alter the values in the list's nodes, only nodes themselves may be c
 
 ```java
 public ListNode reverseKGroup(ListNode head, int k) {
-    ListNode dummy = new ListNode(0, head);
-    ListNode groupPrev = dummy;
-    while (true) {
-        ListNode kth = groupPrev;
-        for (int i = 0; i < k && kth != null; i++) kth = kth.next;
-        if (kth == null) break;
-        ListNode groupNext = kth.next;
-        ListNode prev = groupNext, cur = groupPrev.next;
-        while (cur != groupNext) {
-            ListNode next = cur.next;
-            cur.next = prev;
-            prev = cur;
-            cur = next;
+    ListNode dummy = new ListNode(0, head); // Use dummy node to handle head modification gracefully
+    ListNode groupPrev = dummy; // Points to the node just before the current k-group
+    while (true) { // Loop until we can no longer find a complete k-group
+        ListNode kth = groupPrev; // kth will find the last node in the current k-group
+        for (int i = 0; i < k && kth != null; i++) kth = kth.next; // Advance kth by k steps
+        if (kth == null) break; // If fewer than k nodes remain, we are done
+        ListNode groupNext = kth.next; // Store the first node of the next group
+        ListNode prev = groupNext, cur = groupPrev.next; // Initialize pointers to reverse the current k-group
+        while (cur != groupNext) { // Reverse nodes until we reach the start of the next group
+            ListNode next = cur.next; // Temporarily store the next node
+            cur.next = prev; // Reverse the link
+            prev = cur; // Move prev forward
+            cur = next; // Move cur forward
         }
-        ListNode newTail = groupPrev.next;
-        groupPrev.next = kth;
-        groupPrev = newTail;
+        ListNode newTail = groupPrev.next; // The original first node of the group is now its tail
+        groupPrev.next = kth; // Link the previous part of the list to the new head of the reversed group
+        groupPrev = newTail; // Move groupPrev to the end of the newly reversed group for the next iteration
     }
-    return dummy.next;
+    return dummy.next; // Return the actual head of the resulting list
 }
 ```
 
@@ -449,17 +449,17 @@ Given a linked list, swap every two adjacent nodes and return its head. You must
 
 ```java
 public ListNode swapPairs(ListNode head) {
-    ListNode dummy = new ListNode(0, head);
-    ListNode prev = dummy;
-    while (prev.next != null && prev.next.next != null) {
-        ListNode first = prev.next;
-        ListNode second = first.next;
-        first.next = second.next;
-        second.next = first;
-        prev.next = second;
-        prev = first;
+    ListNode dummy = new ListNode(0, head); // Dummy node simplifies handling the new head
+    ListNode prev = dummy; // prev tracks the node preceding the pair being swapped
+    while (prev.next != null && prev.next.next != null) { // Loop while there is at least a pair left to swap
+        ListNode first = prev.next; // First node of the pair
+        ListNode second = first.next; // Second node of the pair
+        first.next = second.next; // Link first node to the rest of the list
+        second.next = first; // Link second node back to first, completing the swap
+        prev.next = second; // Link the previous part of the list to the new first node (formerly second)
+        prev = first; // Advance prev to the end of the swapped pair
     }
-    return dummy.next;
+    return dummy.next; // Return the new head, skipping the dummy node
 }
 ```
 
@@ -511,18 +511,18 @@ Given the `head` of a linked list, rotate the list to the right by `k` places.
 
 ```java
 public ListNode rotateRight(ListNode head, int k) {
-    if (head == null || head.next == null || k == 0) return head;
-    int len = 1;
-    ListNode tail = head;
-    while (tail.next != null) { tail = tail.next; len++; }
-    k %= len;
-    if (k == 0) return head;
-    tail.next = head;                // close ring
-    ListNode newTail = head;
-    for (int i = 0; i < len - k - 1; i++) newTail = newTail.next;
-    ListNode newHead = newTail.next;
-    newTail.next = null;
-    return newHead;
+    if (head == null || head.next == null || k == 0) return head; // Base case: empty, single node, or no rotation
+    int len = 1; // Variable to store list length
+    ListNode tail = head; // Start tail at head
+    while (tail.next != null) { tail = tail.next; len++; } // Traverse to find the tail node and compute length
+    k %= len; // Effective rotations needed, since rotating by length returns the exact same list
+    if (k == 0) return head; // If effective rotations is 0, no change is needed
+    tail.next = head;                // close ring: connect tail to head to form a circular list
+    ListNode newTail = head; // Use newTail to find the new end of the list
+    for (int i = 0; i < len - k - 1; i++) newTail = newTail.next; // Move forward to the (len - k - 1)-th node
+    ListNode newHead = newTail.next; // The new head is just after the new tail
+    newTail.next = null; // Break the circle to finalize the rotated list
+    return newHead; // Return the new head
 }
 ```
 
@@ -590,15 +590,20 @@ Return *the head of the merged linked list*.
 
 ```java
 public ListNode mergeTwoLists(ListNode l1, ListNode l2) {
-    ListNode dummy = new ListNode(0);
-    ListNode tail = dummy;
-    while (l1 != null && l2 != null) {
-        if (l1.val <= l2.val) { tail.next = l1; l1 = l1.next; }
-        else { tail.next = l2; l2 = l2.next; }
-        tail = tail.next;
+    ListNode dummy = new ListNode(0); // Dummy node simplifies the edge cases when merging
+    ListNode tail = dummy; // Tail pointer tracks the end of the merged list
+    while (l1 != null && l2 != null) { // Loop until we reach the end of either list
+        if (l1.val <= l2.val) { // Compare values, prefer l1 if it's smaller or equal
+            tail.next = l1; // Append l1's node to the merged list
+            l1 = l1.next; // Advance l1 pointer
+        } else {
+            tail.next = l2; // Append l2's node to the merged list
+            l2 = l2.next; // Advance l2 pointer
+        }
+        tail = tail.next; // Move the tail pointer forward to the newly added node
     }
-    tail.next = (l1 != null) ? l1 : l2;
-    return dummy.next;
+    tail.next = (l1 != null) ? l1 : l2; // Splice the remaining elements of the non-empty list directly
+    return dummy.next; // Return the head of the merged list, skipping the dummy node
 }
 ```
 
@@ -661,18 +666,18 @@ You may assume the two numbers do not contain any leading zero, except the numbe
 
 ```java
 public ListNode addTwoNumbers(ListNode l1, ListNode l2) {
-    ListNode dummy = new ListNode(0);
-    ListNode cur = dummy;
-    int carry = 0;
-    while (l1 != null || l2 != null || carry != 0) {
-        int sum = carry;
-        if (l1 != null) { sum += l1.val; l1 = l1.next; }
-        if (l2 != null) { sum += l2.val; l2 = l2.next; }
-        carry = sum / 10;
-        cur.next = new ListNode(sum % 10);
-        cur = cur.next;
+    ListNode dummy = new ListNode(0); // Dummy node to anchor the result list
+    ListNode cur = dummy; // cur pointer builds the result list
+    int carry = 0; // Carry tracks values >= 10 to add to the next significant digit
+    while (l1 != null || l2 != null || carry != 0) { // Continue while digits remain or a carry is pending
+        int sum = carry; // Start the sum with the previous carry
+        if (l1 != null) { sum += l1.val; l1 = l1.next; } // Add l1's digit if available and move pointer
+        if (l2 != null) { sum += l2.val; l2 = l2.next; } // Add l2's digit if available and move pointer
+        carry = sum / 10; // Compute the new carry (either 0 or 1, since 9+9+1 = 19)
+        cur.next = new ListNode(sum % 10); // Store the last digit of the sum in a new node
+        cur = cur.next; // Move to the newly created node
     }
-    return dummy.next;
+    return dummy.next; // Return the result list, skipping the dummy node
 }
 ```
 
@@ -685,12 +690,15 @@ public ListNode addTwoNumbers(ListNode l1, ListNode l2) {
 
 ```java
 public ListNode removeNthFromEnd(ListNode head, int n) {
-    ListNode dummy = new ListNode(0, head);
-    ListNode fast = dummy, slow = dummy;
-    for (int i = 0; i < n; i++) fast = fast.next;
-    while (fast.next != null) { fast = fast.next; slow = slow.next; }
-    slow.next = slow.next.next;
-    return dummy.next;
+    ListNode dummy = new ListNode(0, head); // Dummy node helps handle cases where the head is removed
+    ListNode fast = dummy, slow = dummy; // Initialize two pointers at dummy
+    for (int i = 0; i < n; i++) fast = fast.next; // Create a gap of n nodes between fast and slow
+    while (fast.next != null) { // Move both pointers simultaneously until fast reaches the end
+        fast = fast.next; // Move fast forward
+        slow = slow.next; // Move slow forward; slow will eventually point to the node just before the target
+    }
+    slow.next = slow.next.next; // Unlink the nth node from the end by skipping over it
+    return dummy.next; // Return the new head
 }
 ```
 
@@ -756,28 +764,28 @@ You may not modify the values in the list's nodes. Only nodes themselves may be 
 
 ```java
 public void reorderList(ListNode head) {
-    if (head == null || head.next == null) return;
-    ListNode slow = head, fast = head;
-    while (fast.next != null && fast.next.next != null) {
-        slow = slow.next;
-        fast = fast.next.next;
+    if (head == null || head.next == null) return; // Base case: lists of length 0 or 1 need no reordering
+    ListNode slow = head, fast = head; // Use fast and slow pointers to find the middle of the list
+    while (fast.next != null && fast.next.next != null) { // Traverse until fast reaches the end
+        slow = slow.next; // slow advances by 1
+        fast = fast.next.next; // fast advances by 2
     }
-    ListNode second = slow.next;
-    slow.next = null;
-    ListNode prev = null;
-    while (second != null) {
-        ListNode next = second.next;
-        second.next = prev;
-        prev = second;
-        second = next;
+    ListNode second = slow.next; // 'second' points to the start of the second half of the list
+    slow.next = null; // Disconnect the first half from the second half to avoid cycles
+    ListNode prev = null; // prev will become the new head of the reversed second half
+    while (second != null) { // Reverse the second half of the list in-place
+        ListNode next = second.next; // Store the next node temporarily
+        second.next = prev; // Reverse the link
+        prev = second; // Move prev forward
+        second = next; // Move second forward
     }
-    ListNode first = head;
-    while (prev != null) {
-        ListNode n1 = first.next, n2 = prev.next;
-        first.next = prev;
-        prev.next = n1;
-        first = n1;
-        prev = n2;
+    ListNode first = head; // first points to the start of the first half
+    while (prev != null) { // Interleave the first half and the reversed second half
+        ListNode n1 = first.next, n2 = prev.next; // Store the next nodes for both halves temporarily
+        first.next = prev; // Link node from the first half to node from the second half
+        prev.next = n1; // Link node from the second half to the next node in the first half
+        first = n1; // Move first pointer to the next node in the first half
+        prev = n2; // Move prev pointer to the next node in the second half
     }
 }
 ```
@@ -855,29 +863,33 @@ Your code will **only** be given the `head` of the original linked list.
 
 ```java
 class Node {
-    int val;
-    Node next, random;
-    Node(int val) { this.val = val; }
+    int val; // Value of the node
+    Node next, random; // next points to the sequential next node; random points to an arbitrary node
+    Node(int val) { this.val = val; } // Constructor to initialize the value
 }
 
 public Node copyRandomList(Node head) {
-    if (head == null) return null;
+    if (head == null) return null; // Base case: empty list returns null
+    // Step 1: Interleave clones directly after their originals (A -> A' -> B -> B')
     for (Node cur = head; cur != null; cur = cur.next.next) {
-        Node copy = new Node(cur.val);
-        copy.next = cur.next;
-        cur.next = copy;
+        Node copy = new Node(cur.val); // Create the cloned node
+        copy.next = cur.next; // Link the clone to the next original node
+        cur.next = copy; // Link the original node to its clone
     }
+    // Step 2: Assign random pointers for the cloned nodes
     for (Node cur = head; cur != null; cur = cur.next.next) {
-        cur.next.random = (cur.random != null) ? cur.random.next : null;
+        // The clone's random pointer is the clone of the original's random pointer
+        cur.next.random = (cur.random != null) ? cur.random.next : null; 
     }
-    Node dummy = new Node(0);
-    Node copyTail = dummy;
+    // Step 3: Unweave the lists back into original and clone lists
+    Node dummy = new Node(0); // Dummy node for the head of the cloned list
+    Node copyTail = dummy; // copyTail builds the cloned list
     for (Node cur = head; cur != null; cur = cur.next) {
-        copyTail.next = cur.next;
-        copyTail = copyTail.next;
-        cur.next = cur.next.next;
+        copyTail.next = cur.next; // Extract the clone node
+        copyTail = copyTail.next; // Move copyTail forward
+        cur.next = cur.next.next; // Restore the original list's next pointer
     }
-    return dummy.next;
+    return dummy.next; // Return the head of the standalone cloned list
 }
 ```
 **Alternative:** Use a `HashMap<Node, Node>` from original to clone in two passes — O(n) space, easier to reason about.
@@ -951,16 +963,24 @@ minStack.getMin(); // return -2
 
 ```java
 class MinStack {
-    private Deque<Integer> stack = new ArrayDeque<>();
-    private Deque<Integer> mins = new ArrayDeque<>();
+    private Deque<Integer> stack = new ArrayDeque<>(); // Main stack to hold elements
+    private Deque<Integer> mins = new ArrayDeque<>(); // Auxiliary stack to hold current minimums
 
     public void push(int val) {
-        stack.push(val);
-        mins.push(mins.isEmpty() ? val : Math.min(val, mins.peek()));
+        stack.push(val); // Always push the new value onto the main stack
+        // Push the minimum of the new value and the current minimum onto the mins stack
+        mins.push(mins.isEmpty() ? val : Math.min(val, mins.peek())); 
     }
-    public void pop() { stack.pop(); mins.pop(); }
-    public int top() { return stack.peek(); }
-    public int getMin() { return mins.peek(); }
+    public void pop() { 
+        stack.pop(); // Remove top element from the main stack
+        mins.pop(); // Simultaneously remove the top of the mins stack to keep them in sync
+    }
+    public int top() { 
+        return stack.peek(); // Return the top element of the main stack without removing it
+    }
+    public int getMin() { 
+        return mins.peek(); // Return the top element of the mins stack, which is the current minimum
+    }
 }
 ```
 
@@ -1032,17 +1052,24 @@ myQueue.empty(); // return false
 
 ```java
 class MyQueue {
-    private Deque<Integer> in = new ArrayDeque<>();
-    private Deque<Integer> out = new ArrayDeque<>();
+    private Deque<Integer> in = new ArrayDeque<>(); // Stack used for enqueueing elements
+    private Deque<Integer> out = new ArrayDeque<>(); // Stack used for dequeueing/peeking elements
 
-    public void push(int x) { in.push(x); }
-    public int pop() { peek(); return out.pop(); }
-    public int peek() {
-        if (out.isEmpty())
-            while (!in.isEmpty()) out.push(in.pop());
-        return out.peek();
+    public void push(int x) { 
+        in.push(x); // Pushing always goes to the 'in' stack (O(1))
     }
-    public boolean empty() { return in.isEmpty() && out.isEmpty(); }
+    public int pop() { 
+        peek(); // Ensure the 'out' stack has the oldest elements ready
+        return out.pop(); // Remove and return the front element of the queue
+    }
+    public int peek() {
+        if (out.isEmpty()) // If 'out' stack is empty, we must transfer elements from 'in' stack
+            while (!in.isEmpty()) out.push(in.pop()); // Transfer reverses order, making the oldest element top of 'out'
+        return out.peek(); // Return the top of 'out' (which is the front of the queue)
+    }
+    public boolean empty() { 
+        return in.isEmpty() && out.isEmpty(); // Queue is empty only if both stacks are empty
+    }
 }
 ```
 
@@ -1114,15 +1141,24 @@ myStack.empty(); // return False
 
 ```java
 class MyStack {
-    private Queue<Integer> q = new LinkedList<>();
+    private Queue<Integer> q = new LinkedList<>(); // Single queue to simulate a stack
 
     public void push(int x) {
-        q.offer(x);
-        for (int i = 1; i < q.size(); i++) q.offer(q.poll());
+        q.offer(x); // Enqueue the new element at the back of the queue
+        // Rotate the queue by removing the front element and adding it to the back
+        // Do this for all elements EXCEPT the one we just added
+        for (int i = 1; i < q.size(); i++) q.offer(q.poll()); 
+        // Now the newly added element 'x' is at the front of the queue, acting like stack's top
     }
-    public int pop() { return q.poll(); }
-    public int top() { return q.peek(); }
-    public boolean empty() { return q.isEmpty(); }
+    public int pop() { 
+        return q.poll(); // Dequeue the front element (which is the top of the simulated stack)
+    }
+    public int top() { 
+        return q.peek(); // Peek at the front element
+    }
+    public boolean empty() { 
+        return q.isEmpty(); // Check if the underlying queue is empty
+    }
 }
 ```
 
@@ -1194,17 +1230,18 @@ Return *an array *`ans`* of length *`nums1.length`* such that *`ans[i]`* is the 
 
 ```java
 public int[] nextGreaterElement(int[] nums1, int[] nums2) {
-    Map<Integer, Integer> nge = new HashMap<>();
-    Deque<Integer> stack = new ArrayDeque<>();
-    for (int x : nums2) {
+    Map<Integer, Integer> nge = new HashMap<>(); // Map to store the next greater element for each value in nums2
+    Deque<Integer> stack = new ArrayDeque<>(); // Stack will store elements in decreasing order
+    for (int x : nums2) { // Iterate through nums2 to find next greater elements
+        // If current element x is greater than the stack's top, it's the next greater element for the stack's top
         while (!stack.isEmpty() && x > stack.peek())
-            nge.put(stack.pop(), x);
-        stack.push(x);
+            nge.put(stack.pop(), x); // Pop the smaller element and map it to x
+        stack.push(x); // Push the current element onto the stack to find its next greater element later
     }
-    int[] res = new int[nums1.length];
-    for (int i = 0; i < nums1.length; i++)
-        res[i] = nge.getOrDefault(nums1[i], -1);
-    return res;
+    int[] res = new int[nums1.length]; // Result array for nums1
+    for (int i = 0; i < nums1.length; i++) // Iterate through nums1
+        res[i] = nge.getOrDefault(nums1[i], -1); // Retrieve the precomputed NGE from the map, default to -1 if not found
+    return res; // Return the final results
 }
 ```
 
@@ -1258,17 +1295,18 @@ Given an array of integers `temperatures` represents the daily temperatures, ret
 
 ```java
 public int[] dailyTemperatures(int[] temps) {
-    int n = temps.length;
-    int[] res = new int[n];
-    Deque<Integer> stack = new ArrayDeque<>();
-    for (int i = 0; i < n; i++) {
+    int n = temps.length; // Length of the temperatures array
+    int[] res = new int[n]; // Result array initialized to 0s by default
+    Deque<Integer> stack = new ArrayDeque<>(); // Stack stores INDICES of temperatures, not the values
+    for (int i = 0; i < n; i++) { // Iterate through the temperatures
+        // While current temp is greater than the temp at the index stored at the top of the stack
         while (!stack.isEmpty() && temps[i] > temps[stack.peek()]) {
-            int j = stack.pop();
-            res[j] = i - j;
+            int j = stack.pop(); // Pop the index of the colder day
+            res[j] = i - j; // Calculate the number of days waited and store it in result at index j
         }
-        stack.push(i);
+        stack.push(i); // Push the current day's index onto the stack
     }
-    return res;
+    return res; // Any remaining indices in the stack implicitly have 0 in the result array
 }
 ```
 
@@ -1320,18 +1358,20 @@ The largest rectangle is shown in the red area, which has an area = 10 units.
 
 ```java
 public int largestRectangleArea(int[] heights) {
-    int n = heights.length, max = 0;
-    Deque<Integer> stack = new ArrayDeque<>();
-    for (int i = 0; i <= n; i++) {
-        int h = (i == n) ? 0 : heights[i];
+    int n = heights.length, max = 0; // Initialize max area to 0
+    Deque<Integer> stack = new ArrayDeque<>(); // Stack to store indices of the histogram bars
+    for (int i = 0; i <= n; i++) { // Iterate up to n to handle the remaining elements in the stack
+        int h = (i == n) ? 0 : heights[i]; // Sentinel height 0 at the end forces all remaining bars to pop
+        // While the current bar is shorter than the bar at the top of the stack
         while (!stack.isEmpty() && h < heights[stack.peek()]) {
-            int height = heights[stack.pop()];
+            int height = heights[stack.pop()]; // The height of the rectangle is determined by the popped bar
+            // Width is the distance between current index i and the new top of the stack
             int width = stack.isEmpty() ? i : i - stack.peek() - 1;
-            max = Math.max(max, height * width);
+            max = Math.max(max, height * width); // Update the maximum area found so far
         }
-        stack.push(i);
+        stack.push(i); // Push the current index onto the stack to continue processing
     }
-    return max;
+    return max; // Return the maximum rectangular area
 }
 ```
 
@@ -1393,20 +1433,22 @@ Given string num representing a non-negative integer `num`, and an integer `k`, 
 
 ```java
 public String removeKdigits(String num, int k) {
-    Deque<Character> stack = new ArrayDeque<>();
-    for (char c : num.toCharArray()) {
+    Deque<Character> stack = new ArrayDeque<>(); // Deque used as a monotonic increasing stack
+    for (char c : num.toCharArray()) { // Iterate over every digit in the string
+        // While we still have digits to remove (k > 0), the stack isn't empty, 
+        // and the top of the stack is greater than the current digit 'c'
         while (k > 0 && !stack.isEmpty() && stack.peek() > c) {
-            stack.pop();
-            k--;
+            stack.pop(); // Remove the larger preceding digit to make the number smaller
+            k--; // Decrement the remaining removal allowance
         }
-        stack.push(c);
+        stack.push(c); // Push the current digit onto the stack
     }
-    while (k-- > 0) stack.pop();
-    StringBuilder sb = new StringBuilder();
-    Iterator<Character> it = stack.descendingIterator();
-    while (it.hasNext()) sb.append(it.next());
-    while (sb.length() > 1 && sb.charAt(0) == '0') sb.deleteCharAt(0);
-    return sb.length() == 0 ? "0" : sb.toString();
+    while (k-- > 0) stack.pop(); // If we still need to remove digits, remove from the end (the largest remaining)
+    StringBuilder sb = new StringBuilder(); // To build the resulting string
+    Iterator<Character> it = stack.descendingIterator(); // Iterate from bottom to top of stack
+    while (it.hasNext()) sb.append(it.next()); // Append digits to string builder
+    while (sb.length() > 1 && sb.charAt(0) == '0') sb.deleteCharAt(0); // Strip any leading zeros
+    return sb.length() == 0 ? "0" : sb.toString(); // Return "0" if empty, else the final string
 }
 ```
 
@@ -1419,14 +1461,15 @@ public String removeKdigits(String num, int k) {
 
 ```java
 class StockSpanner {
-    private Deque<int[]> stack = new ArrayDeque<>(); // [price, span]
+    private Deque<int[]> stack = new ArrayDeque<>(); // Stack stores arrays: [price, span]
 
     public int next(int price) {
-        int span = 1;
+        int span = 1; // Default span is 1 (the current day itself)
+        // While stack isn't empty and the prior day's price is <= today's price
         while (!stack.isEmpty() && stack.peek()[0] <= price)
-            span += stack.pop()[1];
-        stack.push(new int[]{price, span});
-        return span;
+            span += stack.pop()[1]; // Add the prior day's span to today's span and pop it
+        stack.push(new int[]{price, span}); // Push today's price and its accumulated span
+        return span; // Return the accumulated span
     }
 }
 ```
@@ -1492,16 +1535,20 @@ Window position                Max
 
 ```java
 public int[] maxSlidingWindow(int[] nums, int k) {
-    int n = nums.length;
-    int[] res = new int[n - k + 1];
-    Deque<Integer> dq = new ArrayDeque<>(); // indices, values decreasing
-    for (int i = 0; i < n; i++) {
+    int n = nums.length; // Length of input array
+    int[] res = new int[n - k + 1]; // Result array for sliding window maximums
+    Deque<Integer> dq = new ArrayDeque<>(); // Deque to store indices; values remain monotonically decreasing
+    for (int i = 0; i < n; i++) { // Iterate over the array
+        // Remove indices that are out of the current sliding window [i - k + 1, i]
         if (!dq.isEmpty() && dq.peekFirst() <= i - k) dq.pollFirst();
+        // Remove elements from the back if they are smaller than the current element
+        // (they can never be the maximum since the current is larger and comes later)
         while (!dq.isEmpty() && nums[dq.peekLast()] <= nums[i]) dq.pollLast();
-        dq.offerLast(i);
+        dq.offerLast(i); // Add current index to the back of the deque
+        // If we have processed at least k elements, record the maximum at the front
         if (i >= k - 1) res[i - k + 1] = nums[dq.peekFirst()];
     }
-    return res;
+    return res; // Return the array of maximums
 }
 ```
 
@@ -1559,19 +1606,21 @@ A **subarray** is a **contiguous** part of an array.
 
 ```java
 public int shortestSubarray(int[] nums, int k) {
-    int n = nums.length;
-    long[] prefix = new long[n + 1];
-    for (int i = 0; i < n; i++) prefix[i + 1] = prefix[i] + nums[i];
-    int res = n + 1;
-    Deque<Integer> dq = new ArrayDeque<>(); // indices, prefix increasing
-    for (int j = 0; j <= n; j++) {
+    int n = nums.length; // Array length
+    long[] prefix = new long[n + 1]; // Array to store prefix sums, n+1 to handle edge cases
+    for (int i = 0; i < n; i++) prefix[i + 1] = prefix[i] + nums[i]; // Compute prefix sums
+    int res = n + 1; // Initialize shortest length to an impossibly large value
+    Deque<Integer> dq = new ArrayDeque<>(); // Deque to store indices, keeping prefix sums monotonically increasing
+    for (int j = 0; j <= n; j++) { // Iterate through the prefix sums
+        // If the difference between current prefix and front of deque is >= k, we found a valid subarray
         while (!dq.isEmpty() && prefix[j] - prefix[dq.peekFirst()] >= k)
-            res = Math.min(res, j - dq.pollFirst());
+            res = Math.min(res, j - dq.pollFirst()); // Update shortest length and remove front (can't form a shorter valid subarray later)
+        // Maintain monotonicity: remove indices from the back if their prefix sum is >= current prefix sum
         while (!dq.isEmpty() && prefix[dq.peekLast()] >= prefix[j])
-            dq.pollLast();
-        dq.offerLast(j);
+            dq.pollLast(); // A larger/equal prefix sum earlier is worse than a smaller/equal one later
+        dq.offerLast(j); // Add current index to the deque
     }
-    return res <= n ? res : -1;
+    return res <= n ? res : -1; // Return the shortest length, or -1 if no valid subarray was found
 }
 ```
 
@@ -1637,19 +1686,20 @@ Given an array of `intervals` where `intervals[i] = [start<sub>i</sub>, end<sub>
 
 ```java
 public int[][] merge(int[][] intervals) {
+    // Sort intervals by their start times to process them chronologically
     Arrays.sort(intervals, (a, b) -> Integer.compare(a[0], b[0]));
-    List<int[]> res = new ArrayList<>();
-    int[] cur = intervals[0];
-    for (int i = 1; i < intervals.length; i++) {
-        if (intervals[i][0] <= cur[1]) {
-            cur[1] = Math.max(cur[1], intervals[i][1]);
-        } else {
-            res.add(cur);
-            cur = intervals[i];
+    List<int[]> res = new ArrayList<>(); // Result list to hold merged intervals
+    int[] cur = intervals[0]; // Start with the first interval as the current working interval
+    for (int i = 1; i < intervals.length; i++) { // Iterate through the rest of the intervals
+        if (intervals[i][0] <= cur[1]) { // If the next interval overlaps with the current one
+            cur[1] = Math.max(cur[1], intervals[i][1]); // Extend the end time of the current interval
+        } else { // No overlap found
+            res.add(cur); // The current merged interval is finalized, add it to results
+            cur = intervals[i]; // Start a new current interval
         }
     }
-    res.add(cur);
-    return res.toArray(new int[0][]);
+    res.add(cur); // Add the final working interval after the loop finishes
+    return res.toArray(new int[0][]); // Convert list of arrays to 2D array and return
 }
 ```
 
@@ -1714,17 +1764,20 @@ Return `intervals`* after the insertion*.
 
 ```java
 public int[][] insert(int[][] intervals, int[] newInterval) {
-    List<int[]> res = new ArrayList<>();
-    int i = 0, n = intervals.length;
+    List<int[]> res = new ArrayList<>(); // List to store the final intervals
+    int i = 0, n = intervals.length; // Pointer i and length of array
+    // Phase 1: Add all intervals that end entirely before the new interval starts
     while (i < n && intervals[i][1] < newInterval[0]) res.add(intervals[i++]);
+    // Phase 2: Merge all overlapping intervals into the new interval
     while (i < n && intervals[i][0] <= newInterval[1]) {
-        newInterval[0] = Math.min(newInterval[0], intervals[i][0]);
-        newInterval[1] = Math.max(newInterval[1], intervals[i][1]);
-        i++;
+        newInterval[0] = Math.min(newInterval[0], intervals[i][0]); // Extend the start boundary if needed
+        newInterval[1] = Math.max(newInterval[1], intervals[i][1]); // Extend the end boundary if needed
+        i++; // Move to the next interval
     }
-    res.add(newInterval);
+    res.add(newInterval); // Add the newly merged interval
+    // Phase 3: Add all remaining intervals that start after the new interval ends
     while (i < n) res.add(intervals[i++]);
-    return res.toArray(new int[0][]);
+    return res.toArray(new int[0][]); // Convert list to 2D array and return
 }
 ```
 
@@ -1788,13 +1841,14 @@ Given an array of intervals `intervals` where `intervals[i] = [start<sub>i</sub>
 
 ```java
 public int eraseOverlapIntervals(int[][] intervals) {
+    // Sort intervals by their end times to greedily leave the most space for remaining intervals
     Arrays.sort(intervals, (a, b) -> Integer.compare(a[1], b[1]));
-    int removed = 0, end = Integer.MIN_VALUE;
-    for (int[] in : intervals) {
-        if (in[0] >= end) end = in[1];
-        else removed++;
+    int removed = 0, end = Integer.MIN_VALUE; // Initialize removed counter, and end marker
+    for (int[] in : intervals) { // Iterate through the sorted intervals
+        if (in[0] >= end) end = in[1]; // If it doesn't overlap with the previous, keep it and update the end
+        else removed++; // Otherwise, it overlaps so we must remove it
     }
-    return removed;
+    return removed; // Return the total number of removed intervals
 }
 ```
 
@@ -1807,13 +1861,16 @@ public int eraseOverlapIntervals(int[][] intervals) {
 
 ```java
 public int minMeetingRooms(int[][] intervals) {
+    // Sort the meetings by their start times
     Arrays.sort(intervals, (a, b) -> Integer.compare(a[0], b[0]));
+    // Min-heap to keep track of the end times of ongoing meetings
     PriorityQueue<Integer> heap = new PriorityQueue<>();
-    for (int[] in : intervals) {
-        if (!heap.isEmpty() && heap.peek() <= in[0]) heap.poll();
-        heap.offer(in[1]);
+    for (int[] in : intervals) { // Iterate over all meetings
+        // If the earliest ending meeting finishes before or exactly when the current one starts
+        if (!heap.isEmpty() && heap.peek() <= in[0]) heap.poll(); // Free up that meeting room
+        heap.offer(in[1]); // Allocate a room for the current meeting by adding its end time
     }
-    return heap.size();
+    return heap.size(); // The size of the heap is the max simultaneous rooms needed
 }
 ```
 **Alternative:** Sweep line — sort all start (+1) and end (-1) events, track a running counter and its maximum. Same complexity, O(n) extra.
@@ -1877,15 +1934,16 @@ The **intersection** of two closed intervals is a set of real numbers that are e
 
 ```java
 public int[][] intervalIntersection(int[][] A, int[][] B) {
-    List<int[]> res = new ArrayList<>();
-    int i = 0, j = 0;
-    while (i < A.length && j < B.length) {
-        int lo = Math.max(A[i][0], B[j][0]);
-        int hi = Math.min(A[i][1], B[j][1]);
-        if (lo <= hi) res.add(new int[]{lo, hi});
+    List<int[]> res = new ArrayList<>(); // Result list for intersecting intervals
+    int i = 0, j = 0; // Pointers for iterating through arrays A and B
+    while (i < A.length && j < B.length) { // Loop while both arrays have intervals left
+        int lo = Math.max(A[i][0], B[j][0]); // Intersection start is the later of the two starts
+        int hi = Math.min(A[i][1], B[j][1]); // Intersection end is the earlier of the two ends
+        if (lo <= hi) res.add(new int[]{lo, hi}); // If valid intersection, add it to results
+        // Move the pointer for the interval that ends earlier, as it cannot intersect with anything else
         if (A[i][1] < B[j][1]) i++;
         else j++;
     }
-    return res.toArray(new int[0][]);
+    return res.toArray(new int[0][]); // Convert result list to 2D array
 }
 ```

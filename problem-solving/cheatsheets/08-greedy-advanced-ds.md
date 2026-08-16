@@ -65,14 +65,14 @@ Return `true`* if you can reach the last index, or *`false`* otherwise*.
 
 ```java
 class Solution {
-    public boolean canJump(int[] nums) {
-        int farthest = 0;
-        for (int i = 0; i < nums.length; i++) {
-            if (i > farthest) return false;
-            farthest = Math.max(farthest, i + nums[i]);
-            if (farthest >= nums.length - 1) return true;
+    public boolean canJump(int[] nums) { // Returns true if we can reach the last index
+        int farthest = 0; // Tracks the maximum reachable index so far
+        for (int i = 0; i < nums.length; i++) { // Iterate through each position in the array
+            if (i > farthest) return false; // If the current index is beyond our maximum reach, we can't move forward
+            farthest = Math.max(farthest, i + nums[i]); // Update the maximum reach using the current position's jump length
+            if (farthest >= nums.length - 1) return true; // Early exit: if we can already reach the end, return true
         }
-        return true;
+        return true; // If we finish the loop without failing, we reached the end (e.g. 1 element array)
     }
 }
 ```
@@ -132,16 +132,16 @@ Return *the minimum number of jumps to reach index *`n - 1`. The test cases are 
 
 ```java
 class Solution {
-    public int jump(int[] nums) {
-        int jumps = 0, curEnd = 0, farthest = 0;
-        for (int i = 0; i < nums.length - 1; i++) {
-            farthest = Math.max(farthest, i + nums[i]);
-            if (i == curEnd) {
-                jumps++;
-                curEnd = farthest;
+    public int jump(int[] nums) { // Returns the minimum number of jumps to reach the last index
+        int jumps = 0, curEnd = 0, farthest = 0; // Initialize jump count, current level end, and farthest reach
+        for (int i = 0; i < nums.length - 1; i++) { // Loop up to the second-to-last element (no need to jump from the last)
+            farthest = Math.max(farthest, i + nums[i]); // Update the farthest reachable index from the current position
+            if (i == curEnd) { // When we reach the boundary of the current jump level
+                jumps++; // We must make another jump to proceed
+                curEnd = farthest; // Set the end of the new jump level to the farthest reach we found
             }
         }
-        return jumps;
+        return jumps; // Return the total number of jumps taken
     }
 }
 ```
@@ -213,18 +213,18 @@ Therefore, you can't travel around the circuit once no matter where you start.
 
 ```java
 class Solution {
-    public int canCompleteCircuit(int[] gas, int[] cost) {
-        int total = 0, tank = 0, start = 0;
-        for (int i = 0; i < gas.length; i++) {
-            int diff = gas[i] - cost[i];
-            total += diff;
-            tank += diff;
-            if (tank < 0) {
-                start = i + 1;
-                tank = 0;
+    public int canCompleteCircuit(int[] gas, int[] cost) { // Returns the starting station index or -1 if impossible
+        int total = 0, tank = 0, start = 0; // Track total gas balance, current tank balance, and prospective start
+        for (int i = 0; i < gas.length; i++) { // Iterate through each gas station
+            int diff = gas[i] - cost[i]; // Calculate net gas gain/loss for the current leg of the journey
+            total += diff; // Accumulate total net gas to determine overall feasibility
+            tank += diff; // Accumulate current tank balance
+            if (tank < 0) { // If the tank drops below zero, we can't reach the next station
+                start = i + 1; // Any starting point up to 'i' is invalid, so try starting at 'i + 1'
+                tank = 0; // Reset the current tank balance for the new starting point
             }
         }
-        return total >= 0 ? start : -1;
+        return total >= 0 ? start : -1; // If overall gas is non-negative, the recorded start is valid; else, impossible
     }
 }
 ```
@@ -286,19 +286,19 @@ The third child gets 1 candy because it satisfies the above two conditions.
 
 ```java
 class Solution {
-    public int candy(int[] ratings) {
-        int n = ratings.length;
-        int[] candies = new int[n];
-        java.util.Arrays.fill(candies, 1);
-        for (int i = 1; i < n; i++)
-            if (ratings[i] > ratings[i - 1])
-                candies[i] = candies[i - 1] + 1;
-        for (int i = n - 2; i >= 0; i--)
-            if (ratings[i] > ratings[i + 1])
-                candies[i] = Math.max(candies[i], candies[i + 1] + 1);
-        int total = 0;
-        for (int c : candies) total += c;
-        return total;
+    public int candy(int[] ratings) { // Returns the minimum total candies needed
+        int n = ratings.length; // Number of children
+        int[] candies = new int[n]; // Array to store the candy count for each child
+        java.util.Arrays.fill(candies, 1); // Give every child 1 candy initially
+        for (int i = 1; i < n; i++) // Left-to-right pass
+            if (ratings[i] > ratings[i - 1]) // If current child has a higher rating than the left neighbor
+                candies[i] = candies[i - 1] + 1; // Give them one more candy than the left neighbor
+        for (int i = n - 2; i >= 0; i--) // Right-to-left pass
+            if (ratings[i] > ratings[i + 1]) // If current child has a higher rating than the right neighbor
+                candies[i] = Math.max(candies[i], candies[i + 1] + 1); // Ensure they also have more candies than the right neighbor
+        int total = 0; // Accumulator for total candies
+        for (int c : candies) total += c; // Sum up all candies
+        return total; // Return the final minimum sum
     }
 }
 ```
@@ -355,20 +355,20 @@ A partition like "ababcbacadefegde", "hijhklij" is incorrect, because it splits 
 
 ```java
 class Solution {
-    public java.util.List<Integer> partitionLabels(String s) {
-        int[] last = new int[26];
-        for (int i = 0; i < s.length(); i++)
-            last[s.charAt(i) - 'a'] = i;
-        java.util.List<Integer> res = new java.util.ArrayList<>();
-        int start = 0, end = 0;
-        for (int i = 0; i < s.length(); i++) {
-            end = Math.max(end, last[s.charAt(i) - 'a']);
-            if (i == end) {
-                res.add(end - start + 1);
-                start = i + 1;
+    public java.util.List<Integer> partitionLabels(String s) { // Returns lengths of partition segments
+        int[] last = new int[26]; // Array to store the last occurrence index of each character
+        for (int i = 0; i < s.length(); i++) // Iterate through the string to populate the 'last' array
+            last[s.charAt(i) - 'a'] = i; // Record the last seen index for the current character
+        java.util.List<Integer> res = new java.util.ArrayList<>(); // List to store partition lengths
+        int start = 0, end = 0; // Variables to track the boundaries of the current partition
+        for (int i = 0; i < s.length(); i++) { // Iterate through the string to find partition cuts
+            end = Math.max(end, last[s.charAt(i) - 'a']); // Extend the current partition's end if necessary
+            if (i == end) { // If we've reached the end of the current partition
+                res.add(end - start + 1); // Add the partition's length to the result
+                start = i + 1; // Start a new partition from the next character
             }
         }
-        return res;
+        return res; // Return the list of partition lengths
     }
 }
 ```
@@ -433,16 +433,17 @@ Given an array of intervals `intervals` where `intervals[i] = [start<sub>i</sub>
 
 ```java
 class Solution {
-    public int eraseOverlapIntervals(int[][] intervals) {
-        java.util.Arrays.sort(intervals, (a, b) -> Integer.compare(a[1], b[1]));
-        int kept = 0, end = Integer.MIN_VALUE;
-        for (int[] iv : intervals) {
-            if (iv[0] >= end) {
-                kept++;
-                end = iv[1];
+    public int eraseOverlapIntervals(int[][] intervals) { // Returns min intervals to remove to avoid overlaps
+        // Sort intervals by their end times in ascending order
+        java.util.Arrays.sort(intervals, (a, b) -> Integer.compare(a[1], b[1])); 
+        int kept = 0, end = Integer.MIN_VALUE; // Track number of intervals kept and the end time of the last kept interval
+        for (int[] iv : intervals) { // Iterate through each interval
+            if (iv[0] >= end) { // If the current interval starts at or after the last kept interval ends
+                kept++; // Keep this interval
+                end = iv[1]; // Update the end time to this interval's end
             }
         }
-        return intervals.length - kept;
+        return intervals.length - kept; // Removed intervals = total intervals - kept intervals
     }
 }
 ```
@@ -513,17 +514,18 @@ Given the array `points`, return *the **minimum** number of arrows that must be 
 
 ```java
 class Solution {
-    public int findMinArrowShots(int[][] points) {
+    public int findMinArrowShots(int[][] points) { // Returns minimum arrows needed to burst all balloons
+        // Sort balloons by their end coordinate to greedily shoot at the earliest ending balloon
         java.util.Arrays.sort(points, (a, b) -> Integer.compare(a[1], b[1]));
-        int arrows = 1;
-        long arrowPos = points[0][1];
-        for (int[] p : points) {
-            if (p[0] > arrowPos) {
-                arrows++;
-                arrowPos = p[1];
+        int arrows = 1; // At least one arrow is needed (assuming non-empty input)
+        long arrowPos = points[0][1]; // Place the first arrow at the end of the first balloon
+        for (int[] p : points) { // Iterate over the remaining balloons
+            if (p[0] > arrowPos) { // If the current balloon starts after the current arrow position
+                arrows++; // We need a new arrow
+                arrowPos = p[1]; // Place the new arrow at the end of the current balloon
             }
         }
-        return arrows;
+        return arrows; // Return total number of arrows used
     }
 }
 ```
@@ -586,15 +588,15 @@ You need to output 2.
 
 ```java
 class Solution {
-    public int findContentChildren(int[] g, int[] s) {
-        java.util.Arrays.sort(g);
-        java.util.Arrays.sort(s);
-        int child = 0, cookie = 0;
-        while (child < g.length && cookie < s.length) {
-            if (s[cookie] >= g[child]) child++;
-            cookie++;
+    public int findContentChildren(int[] g, int[] s) { // Returns max number of content children
+        java.util.Arrays.sort(g); // Sort children's greed factors in ascending order
+        java.util.Arrays.sort(s); // Sort cookie sizes in ascending order
+        int child = 0, cookie = 0; // Initialize pointers for children and cookies
+        while (child < g.length && cookie < s.length) { // Loop until we run out of children or cookies
+            if (s[cookie] >= g[child]) child++; // If the current cookie is large enough, satisfy the current child and move to the next child
+            cookie++; // Always move to the next cookie, whether it was used or skipped
         }
-        return child;
+        return child; // The 'child' pointer represents the number of satisfied children
     }
 }
 ```
@@ -657,12 +659,13 @@ Hence [[5,0],[7,0],[5,2],[6,1],[4,4],[7,1]] is the reconstructed queue.
 
 ```java
 class Solution {
-    public int[][] reconstructQueue(int[][] people) {
+    public int[][] reconstructQueue(int[][] people) { // Reconstructs queue based on heights and k-values
+        // Sort people: descending by height, and ascending by k-value if heights are equal
         java.util.Arrays.sort(people, (a, b) ->
             a[0] != b[0] ? b[0] - a[0] : a[1] - b[1]);
-        java.util.List<int[]> list = new java.util.LinkedList<>();
-        for (int[] p : people) list.add(p[1], p);
-        return list.toArray(new int[people.length][]);
+        java.util.List<int[]> list = new java.util.LinkedList<>(); // LinkedList for efficient insertions
+        for (int[] p : people) list.add(p[1], p); // Insert each person at the index specified by their k-value
+        return list.toArray(new int[people.length][]); // Convert the list back to a 2D array and return
     }
 }
 ```
@@ -676,15 +679,17 @@ class Solution {
 
 ```java
 class Solution {
-    public int leastInterval(char[] tasks, int n) {
-        int[] freq = new int[26];
-        for (char t : tasks) freq[t - 'A']++;
-        int maxCount = 0;
-        for (int f : freq) maxCount = Math.max(maxCount, f);
-        int numMax = 0;
-        for (int f : freq) if (f == maxCount) numMax++;
-        int frames = (maxCount - 1) * (n + 1) + numMax;
-        return Math.max(tasks.length, frames);
+    public int leastInterval(char[] tasks, int n) { // Returns minimum time to finish all tasks with cooldown 'n'
+        int[] freq = new int[26]; // Array to count frequencies of each task (A-Z)
+        for (char t : tasks) freq[t - 'A']++; // Count each task's occurrence
+        int maxCount = 0; // Find the maximum frequency among all tasks
+        for (int f : freq) maxCount = Math.max(maxCount, f); // Update max frequency
+        int numMax = 0; // Count how many distinct tasks have this maximum frequency
+        for (int f : freq) if (f == maxCount) numMax++; // Increment count for each task matching maxCount
+        // Calculate the required length based on gaps between the most frequent tasks
+        int frames = (maxCount - 1) * (n + 1) + numMax; 
+        // The total time is the maximum of the actual number of tasks and the calculated frames with idle times
+        return Math.max(tasks.length, frames); 
     }
 }
 ```
@@ -704,79 +709,79 @@ class Solution {
 ```java
 // Range Sum segment tree (point update, range query)
 class SegTreeSum {
-    int[] tree;
-    int n;
+    int[] tree; // Array to represent the segment tree
+    int n; // Size of the original array
 
-    SegTreeSum(int[] a) {
-        n = a.length;
-        tree = new int[4 * n];
-        if (n > 0) build(a, 1, 0, n - 1);
+    SegTreeSum(int[] a) { // Constructor
+        n = a.length; // Store the original array length
+        tree = new int[4 * n]; // Allocate memory for the tree (4*n is a safe upper bound)
+        if (n > 0) build(a, 1, 0, n - 1); // Build the tree if array is not empty
     }
 
-    private void build(int[] a, int node, int l, int r) {
-        if (l == r) { tree[node] = a[l]; return; }
-        int mid = (l + r) >>> 1;
-        build(a, node * 2, l, mid);
-        build(a, node * 2 + 1, mid + 1, r);
-        tree[node] = tree[node * 2] + tree[node * 2 + 1];
+    private void build(int[] a, int node, int l, int r) { // Recursively build the tree
+        if (l == r) { tree[node] = a[l]; return; } // Base case: leaf node stores the array element
+        int mid = (l + r) >>> 1; // Calculate the midpoint safely
+        build(a, node * 2, l, mid); // Build the left child
+        build(a, node * 2 + 1, mid + 1, r); // Build the right child
+        tree[node] = tree[node * 2] + tree[node * 2 + 1]; // Current node stores the sum of its children
     }
 
     // set index i to val
-    void update(int i, int val) { update(1, 0, n - 1, i, val); }
-    private void update(int node, int l, int r, int i, int val) {
-        if (l == r) { tree[node] = val; return; }
-        int mid = (l + r) >>> 1;
-        if (i <= mid) update(node * 2, l, mid, i, val);
-        else update(node * 2 + 1, mid + 1, r, i, val);
-        tree[node] = tree[node * 2] + tree[node * 2 + 1];
+    void update(int i, int val) { update(1, 0, n - 1, i, val); } // Public wrapper for point update
+    private void update(int node, int l, int r, int i, int val) { // Recursive point update
+        if (l == r) { tree[node] = val; return; } // Base case: reached the target leaf, update it
+        int mid = (l + r) >>> 1; // Calculate the midpoint
+        if (i <= mid) update(node * 2, l, mid, i, val); // Target is in the left half
+        else update(node * 2 + 1, mid + 1, r, i, val); // Target is in the right half
+        tree[node] = tree[node * 2] + tree[node * 2 + 1]; // Recompute current node's sum after child update
     }
 
     // sum over [ql, qr]
-    int query(int ql, int qr) { return query(1, 0, n - 1, ql, qr); }
-    private int query(int node, int l, int r, int ql, int qr) {
-        if (qr < l || r < ql) return 0;            // disjoint -> identity
-        if (ql <= l && r <= qr) return tree[node];  // fully covered
-        int mid = (l + r) >>> 1;
-        return query(node * 2, l, mid, ql, qr)
-             + query(node * 2 + 1, mid + 1, r, ql, qr);
+    int query(int ql, int qr) { return query(1, 0, n - 1, ql, qr); } // Public wrapper for range query
+    private int query(int node, int l, int r, int ql, int qr) { // Recursive range query
+        if (qr < l || r < ql) return 0;            // Disjoint range -> return identity value for sum (0)
+        if (ql <= l && r <= qr) return tree[node];  // Fully covered range -> return precomputed sum
+        int mid = (l + r) >>> 1; // Calculate the midpoint
+        return query(node * 2, l, mid, ql, qr) // Query left child
+             + query(node * 2 + 1, mid + 1, r, ql, qr); // Query right child and sum the results
     }
 }
 
 // Range Min variant: change identity to +INF and combine to Math.min
 class SegTreeMin {
-    int[] tree;
-    int n;
+    int[] tree; // Array to represent the segment tree
+    int n; // Size of the original array
 
-    SegTreeMin(int[] a) {
-        n = a.length;
-        tree = new int[4 * n];
-        if (n > 0) build(a, 1, 0, n - 1);
+    SegTreeMin(int[] a) { // Constructor
+        n = a.length; // Store the original array length
+        tree = new int[4 * n]; // Allocate memory for the tree
+        if (n > 0) build(a, 1, 0, n - 1); // Build the tree if array is not empty
     }
 
-    private void build(int[] a, int node, int l, int r) {
-        if (l == r) { tree[node] = a[l]; return; }
-        int mid = (l + r) >>> 1;
-        build(a, node * 2, l, mid);
-        build(a, node * 2 + 1, mid + 1, r);
-        tree[node] = Math.min(tree[node * 2], tree[node * 2 + 1]);
+    private void build(int[] a, int node, int l, int r) { // Recursively build the tree
+        if (l == r) { tree[node] = a[l]; return; } // Base case: leaf node stores the array element
+        int mid = (l + r) >>> 1; // Calculate the midpoint
+        build(a, node * 2, l, mid); // Build the left child
+        build(a, node * 2 + 1, mid + 1, r); // Build the right child
+        tree[node] = Math.min(tree[node * 2], tree[node * 2 + 1]); // Current node stores the min of its children
     }
 
-    void update(int i, int val) { update(1, 0, n - 1, i, val); }
-    private void update(int node, int l, int r, int i, int val) {
-        if (l == r) { tree[node] = val; return; }
-        int mid = (l + r) >>> 1;
-        if (i <= mid) update(node * 2, l, mid, i, val);
-        else update(node * 2 + 1, mid + 1, r, i, val);
-        tree[node] = Math.min(tree[node * 2], tree[node * 2 + 1]);
+    void update(int i, int val) { update(1, 0, n - 1, i, val); } // Public wrapper for point update
+    private void update(int node, int l, int r, int i, int val) { // Recursive point update
+        if (l == r) { tree[node] = val; return; } // Base case: reached the target leaf, update it
+        int mid = (l + r) >>> 1; // Calculate the midpoint
+        if (i <= mid) update(node * 2, l, mid, i, val); // Target is in the left half
+        else update(node * 2 + 1, mid + 1, r, i, val); // Target is in the right half
+        tree[node] = Math.min(tree[node * 2], tree[node * 2 + 1]); // Recompute current node's min after child update
     }
 
-    int query(int ql, int qr) { return query(1, 0, n - 1, ql, qr); }
-    private int query(int node, int l, int r, int ql, int qr) {
-        if (qr < l || r < ql) return Integer.MAX_VALUE; // identity for min
-        if (ql <= l && r <= qr) return tree[node];
-        int mid = (l + r) >>> 1;
-        return Math.min(query(node * 2, l, mid, ql, qr),
-                        query(node * 2 + 1, mid + 1, r, ql, qr));
+    int query(int ql, int qr) { return query(1, 0, n - 1, ql, qr); } // Public wrapper for range query
+    private int query(int node, int l, int r, int ql, int qr) { // Recursive range query
+        if (qr < l || r < ql) return Integer.MAX_VALUE; // Disjoint range -> return identity value for min (+INF)
+        if (ql <= l && r <= qr) return tree[node]; // Fully covered range -> return precomputed min
+        int mid = (l + r) >>> 1; // Calculate the midpoint
+        return Math.min(query(node * 2, l, mid, ql, qr), // Query left child
+                        query(node * 2 + 1, mid + 1, r, ql, qr)); // Query right child and find the min
     }
 }
 ```
@@ -790,58 +795,58 @@ class SegTreeMin {
 
 ```java
 class LazySegTree {
-    long[] tree, lazy;
-    int n;
+    long[] tree, lazy; // Arrays for the segment tree values and lazy updates
+    int n; // Size of the original array
 
-    LazySegTree(int[] a) {
-        n = a.length;
-        tree = new long[4 * n];
-        lazy = new long[4 * n];
-        if (n > 0) build(a, 1, 0, n - 1);
+    LazySegTree(int[] a) { // Constructor
+        n = a.length; // Store the original array length
+        tree = new long[4 * n]; // Allocate memory for the tree
+        lazy = new long[4 * n]; // Allocate memory for lazy values
+        if (n > 0) build(a, 1, 0, n - 1); // Build the tree if array is not empty
     }
 
-    private void build(int[] a, int node, int l, int r) {
-        if (l == r) { tree[node] = a[l]; return; }
-        int mid = (l + r) >>> 1;
-        build(a, node * 2, l, mid);
-        build(a, node * 2 + 1, mid + 1, r);
-        tree[node] = tree[node * 2] + tree[node * 2 + 1];
+    private void build(int[] a, int node, int l, int r) { // Recursively build the tree
+        if (l == r) { tree[node] = a[l]; return; } // Base case: leaf node stores the array element
+        int mid = (l + r) >>> 1; // Calculate the midpoint safely
+        build(a, node * 2, l, mid); // Build the left child
+        build(a, node * 2 + 1, mid + 1, r); // Build the right child
+        tree[node] = tree[node * 2] + tree[node * 2 + 1]; // Current node stores the sum of its children
     }
 
     // apply pending delta of node to its children (sum semantics)
-    private void push(int node, int l, int r) {
-        if (lazy[node] == 0) return;
-        int mid = (l + r) >>> 1;
-        apply(node * 2, l, mid, lazy[node]);
-        apply(node * 2 + 1, mid + 1, r, lazy[node]);
-        lazy[node] = 0;
+    private void push(int node, int l, int r) { // Propagate lazy value downwards
+        if (lazy[node] == 0) return; // If no pending update, do nothing
+        int mid = (l + r) >>> 1; // Calculate the midpoint
+        apply(node * 2, l, mid, lazy[node]); // Apply the update to the left child
+        apply(node * 2 + 1, mid + 1, r, lazy[node]); // Apply the update to the right child
+        lazy[node] = 0; // Clear the pending update for the current node
     }
 
-    private void apply(int node, int l, int r, long delta) {
-        tree[node] += delta * (r - l + 1);
-        lazy[node] += delta;
+    private void apply(int node, int l, int r, long delta) { // Helper to apply an update to a node
+        tree[node] += delta * (r - l + 1); // Add delta * number of elements in the range to the node's sum
+        lazy[node] += delta; // Accumulate the pending delta for its children
     }
 
     // add delta to every element in [ql, qr]
-    void update(int ql, int qr, long delta) { update(1, 0, n - 1, ql, qr, delta); }
-    private void update(int node, int l, int r, int ql, int qr, long delta) {
-        if (qr < l || r < ql) return;
-        if (ql <= l && r <= qr) { apply(node, l, r, delta); return; }
-        push(node, l, r);
-        int mid = (l + r) >>> 1;
-        update(node * 2, l, mid, ql, qr, delta);
-        update(node * 2 + 1, mid + 1, r, ql, qr, delta);
-        tree[node] = tree[node * 2] + tree[node * 2 + 1];
+    void update(int ql, int qr, long delta) { update(1, 0, n - 1, ql, qr, delta); } // Public wrapper for range update
+    private void update(int node, int l, int r, int ql, int qr, long delta) { // Recursive range update
+        if (qr < l || r < ql) return; // Disjoint range -> do nothing
+        if (ql <= l && r <= qr) { apply(node, l, r, delta); return; } // Fully covered -> apply update lazily
+        push(node, l, r); // Propagate existing lazy values before going deeper
+        int mid = (l + r) >>> 1; // Calculate the midpoint
+        update(node * 2, l, mid, ql, qr, delta); // Update left child
+        update(node * 2 + 1, mid + 1, r, ql, qr, delta); // Update right child
+        tree[node] = tree[node * 2] + tree[node * 2 + 1]; // Recompute current node's sum after child updates
     }
 
-    long query(int ql, int qr) { return query(1, 0, n - 1, ql, qr); }
-    private long query(int node, int l, int r, int ql, int qr) {
-        if (qr < l || r < ql) return 0;
-        if (ql <= l && r <= qr) return tree[node];
-        push(node, l, r);
-        int mid = (l + r) >>> 1;
-        return query(node * 2, l, mid, ql, qr)
-             + query(node * 2 + 1, mid + 1, r, ql, qr);
+    long query(int ql, int qr) { return query(1, 0, n - 1, ql, qr); } // Public wrapper for range query
+    private long query(int node, int l, int r, int ql, int qr) { // Recursive range query
+        if (qr < l || r < ql) return 0; // Disjoint range -> return identity value for sum (0)
+        if (ql <= l && r <= qr) return tree[node]; // Fully covered -> return precomputed sum
+        push(node, l, r); // Propagate existing lazy values before going deeper
+        int mid = (l + r) >>> 1; // Calculate the midpoint
+        return query(node * 2, l, mid, ql, qr) // Query left child
+             + query(node * 2 + 1, mid + 1, r, ql, qr); // Query right child and sum the results
     }
 }
 ```
@@ -855,31 +860,31 @@ class LazySegTree {
 
 ```java
 class Fenwick {
-    int[] bit;
-    int n;
+    int[] bit; // Array representing the Binary Indexed Tree
+    int n; // Size of the original array
 
-    Fenwick(int size) {
-        n = size;
-        bit = new int[n + 1]; // 1-indexed
+    Fenwick(int size) { // Constructor
+        n = size; // Store the maximum size
+        bit = new int[n + 1]; // 1-indexed array for the BIT
     }
 
     // add delta at 0-based index i
     void update(int i, int delta) {
-        for (int x = i + 1; x <= n; x += x & (-x))
-            bit[x] += delta;
+        for (int x = i + 1; x <= n; x += x & (-x)) // Loop: add least significant set bit to x to traverse up the tree
+            bit[x] += delta; // Add the delta to the current node
     }
 
     // sum of [0..i] (0-based inclusive)
     int prefixSum(int i) {
-        int sum = 0;
-        for (int x = i + 1; x > 0; x -= x & (-x))
-            sum += bit[x];
-        return sum;
+        int sum = 0; // Accumulator for the prefix sum
+        for (int x = i + 1; x > 0; x -= x & (-x)) // Loop: subtract least significant set bit to x to traverse down the tree
+            sum += bit[x]; // Accumulate the sum from the current node
+        return sum; // Return the total prefix sum
     }
 
     // sum of [l..r] (0-based inclusive)
     int rangeSum(int l, int r) {
-        return prefixSum(r) - (l > 0 ? prefixSum(l - 1) : 0);
+        return prefixSum(r) - (l > 0 ? prefixSum(l - 1) : 0); // Total sum up to r, minus the sum just before l
     }
 }
 ```
@@ -893,36 +898,36 @@ class Fenwick {
 
 ```java
 class NumArray {
-    int[] nums;
-    int[] bit;
-    int n;
+    int[] nums; // Original array to keep track of current values
+    int[] bit; // Binary Indexed Tree array
+    int n; // Size of the array
 
     public NumArray(int[] nums) {
-        this.nums = nums.clone();
-        n = nums.length;
-        bit = new int[n + 1];
-        for (int i = 0; i < n; i++) add(i, nums[i]);
+        this.nums = nums.clone(); // Store a copy of the initial array
+        n = nums.length; // Set the size
+        bit = new int[n + 1]; // Initialize the 1-indexed BIT
+        for (int i = 0; i < n; i++) add(i, nums[i]); // Populate the BIT with the initial values
     }
 
-    private void add(int i, int delta) {
-        for (int x = i + 1; x <= n; x += x & (-x))
-            bit[x] += delta;
+    private void add(int i, int delta) { // Helper to add delta to the BIT
+        for (int x = i + 1; x <= n; x += x & (-x)) // Traverse up the BIT
+            bit[x] += delta; // Apply the delta
     }
 
-    private int prefix(int i) {
-        int s = 0;
-        for (int x = i + 1; x > 0; x -= x & (-x))
-            s += bit[x];
-        return s;
+    private int prefix(int i) { // Helper to get prefix sum up to index i
+        int s = 0; // Accumulator
+        for (int x = i + 1; x > 0; x -= x & (-x)) // Traverse down the BIT
+            s += bit[x]; // Accumulate
+        return s; // Return prefix sum
     }
 
-    public void update(int index, int val) {
-        add(index, val - nums[index]);
-        nums[index] = val;
+    public void update(int index, int val) { // Updates the value at 'index'
+        add(index, val - nums[index]); // Add the difference between the new and old value to the BIT
+        nums[index] = val; // Update the original array to reflect the new value
     }
 
-    public int sumRange(int left, int right) {
-        return prefix(right) - (left > 0 ? prefix(left - 1) : 0);
+    public int sumRange(int left, int right) { // Returns the sum of elements in the range [left, right]
+        return prefix(right) - (left > 0 ? prefix(left - 1) : 0); // Calculate range sum using prefix sums
     }
 }
 ```
@@ -937,26 +942,26 @@ class NumArray {
 ```java
 class Solution {
     public java.util.List<Integer> countSmaller(int[] nums) {
-        int n = nums.length;
-        int[] sorted = nums.clone();
-        java.util.Arrays.sort(sorted);
+        int n = nums.length; // Size of the array
+        int[] sorted = nums.clone(); // Clone to sort and find ranks
+        java.util.Arrays.sort(sorted); // Sort the cloned array
         // rank map: value -> 1-based compressed rank (dedup)
-        java.util.TreeMap<Integer, Integer> rank = new java.util.TreeMap<>();
-        int r = 1;
-        for (int v : sorted) if (!rank.containsKey(v)) rank.put(v, r++);
+        java.util.TreeMap<Integer, Integer> rank = new java.util.TreeMap<>(); // TreeMap to store value-to-rank mapping
+        int r = 1; // 1-based rank counter
+        for (int v : sorted) if (!rank.containsKey(v)) rank.put(v, r++); // Assign an increasing rank to each unique value
 
-        int m = rank.size();
-        int[] bit = new int[m + 1];
-        Integer[] res = new Integer[n];
-        for (int i = n - 1; i >= 0; i--) {
-            int idx = rank.get(nums[i]);     // 1-based rank
+        int m = rank.size(); // Total number of unique ranks
+        int[] bit = new int[m + 1]; // Initialize the BIT with size based on the number of ranks
+        Integer[] res = new Integer[n]; // Array to store the result
+        for (int i = n - 1; i >= 0; i--) { // Traverse the array from right to left
+            int idx = rank.get(nums[i]);     // 1-based rank for the current number
             // count of ranks in [1, idx-1] already inserted
-            int count = 0;
-            for (int x = idx - 1; x > 0; x -= x & (-x)) count += bit[x];
-            res[i] = count;
-            for (int x = idx; x <= m; x += x & (-x)) bit[x]++;
+            int count = 0; // Accumulator for smaller elements seen so far
+            for (int x = idx - 1; x > 0; x -= x & (-x)) count += bit[x]; // Query the BIT for elements with rank strictly less than 'idx'
+            res[i] = count; // Store the count in the result array
+            for (int x = idx; x <= m; x += x & (-x)) bit[x]++; // Update the BIT by inserting the current element's rank
         }
-        return java.util.Arrays.asList(res);
+        return java.util.Arrays.asList(res); // Convert the result array to a list and return
     }
 }
 ```
@@ -971,34 +976,34 @@ class Solution {
 
 ```java
 class Solution {
-    public int reversePairs(int[] nums) {
-        int n = nums.length;
+    public int reversePairs(int[] nums) { // Returns the number of reverse pairs
+        int n = nums.length; // Size of the array
         // collect all coordinates: nums[i] and 2*nums[i]
-        long[] coords = new long[2 * n];
-        for (int i = 0; i < n; i++) {
-            coords[2 * i] = nums[i];
-            coords[2 * i + 1] = 2L * nums[i];
+        long[] coords = new long[2 * n]; // Array to store all necessary values for coordinate compression
+        for (int i = 0; i < n; i++) { // Populate the coordinates array
+            coords[2 * i] = nums[i]; // Store original value
+            coords[2 * i + 1] = 2L * nums[i]; // Store doubled value (using long to avoid overflow)
         }
-        long[] sorted = coords.clone();
-        java.util.Arrays.sort(sorted);
+        long[] sorted = coords.clone(); // Clone for sorting
+        java.util.Arrays.sort(sorted); // Sort to determine ranks
         // dedup into rank map
-        java.util.TreeMap<Long, Integer> rank = new java.util.TreeMap<>();
-        int r = 1;
-        for (long v : sorted) if (!rank.containsKey(v)) rank.put(v, r++);
-        int m = rank.size();
+        java.util.TreeMap<Long, Integer> rank = new java.util.TreeMap<>(); // Map coordinate value to 1-based rank
+        int r = 1; // 1-based rank
+        for (long v : sorted) if (!rank.containsKey(v)) rank.put(v, r++); // Assign increasing ranks to unique coordinates
+        int m = rank.size(); // Total number of unique ranks
 
-        int[] bit = new int[m + 1];
-        int count = 0, inserted = 0;
-        for (int j = 0; j < n; j++) {
-            int t = rank.get(2L * nums[j]);          // rank of 2*nums[j]
-            int leMeq = 0;                            // inserted with rank <= t
-            for (int x = t; x > 0; x -= x & (-x)) leMeq += bit[x];
-            count += inserted - leMeq;                // those strictly greater
-            int idx = rank.get((long) nums[j]);
-            for (int x = idx; x <= m; x += x & (-x)) bit[x]++;
-            inserted++;
+        int[] bit = new int[m + 1]; // Initialize the BIT
+        int count = 0, inserted = 0; // Track reverse pairs and number of elements processed
+        for (int j = 0; j < n; j++) { // Loop from left to right over the input
+            int t = rank.get(2L * nums[j]);          // get the rank of 2*nums[j]
+            int leMeq = 0;                            // count of already processed elements with rank <= t
+            for (int x = t; x > 0; x -= x & (-x)) leMeq += bit[x]; // query the BIT for the prefix sum up to rank 't'
+            count += inserted - leMeq;                // those strictly greater than 2*nums[j] constitute reverse pairs
+            int idx = rank.get((long) nums[j]); // get the rank of the current element itself
+            for (int x = idx; x <= m; x += x & (-x)) bit[x]++; // insert the current element into the BIT
+            inserted++; // Increment total inserted elements
         }
-        return count;
+        return count; // Return total reverse pairs found
     }
 }
 ```
@@ -1013,43 +1018,43 @@ class Solution {
 
 ```java
 class DSU {
-    int[] parent, rank, size;
-    int components;
+    int[] parent, rank, size; // Arrays for parent pointers, tree heights (rank), and component sizes
+    int components; // Number of distinct sets
 
-    DSU(int n) {
-        parent = new int[n];
-        rank = new int[n];
-        size = new int[n];
-        components = n;
-        for (int i = 0; i < n; i++) {
-            parent[i] = i;
-            size[i] = 1;
+    DSU(int n) { // Constructor initializes 'n' isolated elements
+        parent = new int[n]; // Allocate parent array
+        rank = new int[n]; // Allocate rank array
+        size = new int[n]; // Allocate size array
+        components = n; // Initially, every element is its own component
+        for (int i = 0; i < n; i++) { // For each element
+            parent[i] = i; // Make it its own parent (root)
+            size[i] = 1; // Initial size of its component is 1
         }
     }
 
-    int find(int x) {
-        while (parent[x] != x) {
-            parent[x] = parent[parent[x]]; // path compression (halving)
-            x = parent[x];
+    int find(int x) { // Finds the representative/root of 'x' with path compression
+        while (parent[x] != x) { // Traverse up the tree until the node is its own parent
+            parent[x] = parent[parent[x]]; // Path compression: make the node point to its grandparent to halve the path length
+            x = parent[x]; // Move up to the grandparent
         }
-        return x;
+        return x; // Return the root
     }
 
     // returns false if already in same set
-    boolean union(int a, int b) {
-        int ra = find(a), rb = find(b);
-        if (ra == rb) return false;
+    boolean union(int a, int b) { // Merges the sets containing 'a' and 'b'
+        int ra = find(a), rb = find(b); // Find the roots of both sets
+        if (ra == rb) return false; // If they share the same root, they are already in the same set
         // union by rank, tie-break by attaching rb under ra
-        if (rank[ra] < rank[rb]) { int t = ra; ra = rb; rb = t; }
-        parent[rb] = ra;
-        size[ra] += size[rb];
-        if (rank[ra] == rank[rb]) rank[ra]++;
-        components--;
-        return true;
+        if (rank[ra] < rank[rb]) { int t = ra; ra = rb; rb = t; } // Ensure 'ra' is the root with the higher or equal rank
+        parent[rb] = ra; // Attach 'rb's tree under 'ra'
+        size[ra] += size[rb]; // Update the size of the combined component
+        if (rank[ra] == rank[rb]) rank[ra]++; // If the trees had the same rank, the new tree's rank increases by 1
+        components--; // Decrease the number of disjoint sets
+        return true; // Successfully merged the sets
     }
 
-    boolean connected(int a, int b) { return find(a) == find(b); }
-    int componentSize(int x) { return size[find(x)]; }
+    boolean connected(int a, int b) { return find(a) == find(b); } // Check if two elements belong to the same set
+    int componentSize(int x) { return size[find(x)]; } // Return the size of the set containing 'x'
 }
 ```
 
@@ -1066,59 +1071,59 @@ class DSU {
 
 ```java
 class LRUCache {
-    private static class Node {
-        int key, val;
-        Node prev, next;
-        Node(int k, int v) { key = k; val = v; }
+    private static class Node { // Doubly linked list node
+        int key, val; // Store both key and value
+        Node prev, next; // Pointers to adjacent nodes
+        Node(int k, int v) { key = k; val = v; } // Constructor
     }
 
-    private final int capacity;
-    private final java.util.Map<Integer, Node> map = new java.util.HashMap<>();
-    private final Node head = new Node(0, 0); // MRU side
-    private final Node tail = new Node(0, 0); // LRU side
+    private final int capacity; // Maximum items the cache can hold
+    private final java.util.Map<Integer, Node> map = new java.util.HashMap<>(); // Fast lookup from key to node
+    private final Node head = new Node(0, 0); // MRU side (sentinel node to avoid null checks)
+    private final Node tail = new Node(0, 0); // LRU side (sentinel node to avoid null checks)
 
-    public LRUCache(int capacity) {
-        this.capacity = capacity;
-        head.next = tail;
-        tail.prev = head;
+    public LRUCache(int capacity) { // Constructor initializes cache
+        this.capacity = capacity; // Set capacity
+        head.next = tail; // Connect head to tail initially
+        tail.prev = head; // Connect tail to head initially
     }
 
-    private void remove(Node n) {
-        n.prev.next = n.next;
-        n.next.prev = n.prev;
+    private void remove(Node n) { // Removes a node from the linked list
+        n.prev.next = n.next; // Bypass the node from the previous node
+        n.next.prev = n.prev; // Bypass the node from the next node
     }
 
-    private void addFront(Node n) {
-        n.next = head.next;
-        n.prev = head;
-        head.next.prev = n;
-        head.next = n;
+    private void addFront(Node n) { // Adds a node right after the head (MRU position)
+        n.next = head.next; // New node points to the current first node
+        n.prev = head; // New node points back to head
+        head.next.prev = n; // Current first node points back to new node
+        head.next = n; // Head points to new node
     }
 
-    public int get(int key) {
-        Node n = map.get(key);
-        if (n == null) return -1;
-        remove(n);
-        addFront(n);
-        return n.val;
+    public int get(int key) { // Retrieves a value by key
+        Node n = map.get(key); // Look up the node in O(1)
+        if (n == null) return -1; // If not found, return -1
+        remove(n); // Remove from current position
+        addFront(n); // Move to the front to mark as most recently used
+        return n.val; // Return the requested value
     }
 
-    public void put(int key, int value) {
-        Node n = map.get(key);
-        if (n != null) {
-            n.val = value;
-            remove(n);
-            addFront(n);
-            return;
+    public void put(int key, int value) { // Inserts or updates a key-value pair
+        Node n = map.get(key); // Check if key already exists
+        if (n != null) { // If it exists
+            n.val = value; // Update its value
+            remove(n); // Remove from current position
+            addFront(n); // Move to the front as MRU
+            return; // Done
         }
-        if (map.size() == capacity) {
-            Node lru = tail.prev;
-            remove(lru);
-            map.remove(lru.key);
+        if (map.size() == capacity) { // If cache is at full capacity
+            Node lru = tail.prev; // Identify the least recently used node (just before tail)
+            remove(lru); // Remove it from the list
+            map.remove(lru.key); // Remove it from the map
         }
-        Node node = new Node(key, value);
-        map.put(key, node);
-        addFront(node);
+        Node node = new Node(key, value); // Create the new node
+        map.put(key, node); // Add to the map for fast lookup
+        addFront(node); // Add to the front as MRU
     }
 }
 ```
@@ -1132,51 +1137,51 @@ class LRUCache {
 
 ```java
 class LFUCache {
-    private final int capacity;
-    private int minFreq = 0;
-    private final java.util.Map<Integer, Integer> keyToVal = new java.util.HashMap<>();
-    private final java.util.Map<Integer, Integer> keyToFreq = new java.util.HashMap<>();
+    private final int capacity; // Maximum capacity
+    private int minFreq = 0; // Tracks the minimum frequency currently in the cache
+    private final java.util.Map<Integer, Integer> keyToVal = new java.util.HashMap<>(); // Map key to value
+    private final java.util.Map<Integer, Integer> keyToFreq = new java.util.HashMap<>(); // Map key to its access frequency
     private final java.util.Map<Integer, java.util.LinkedHashSet<Integer>> freqToKeys =
-        new java.util.HashMap<>();
+        new java.util.HashMap<>(); // Map frequency to a set of keys (maintains LRU order for ties)
 
-    public LFUCache(int capacity) { this.capacity = capacity; }
+    public LFUCache(int capacity) { this.capacity = capacity; } // Constructor
 
-    public int get(int key) {
-        if (!keyToVal.containsKey(key)) return -1;
-        touch(key);
-        return keyToVal.get(key);
+    public int get(int key) { // Retrieve a value
+        if (!keyToVal.containsKey(key)) return -1; // Not found
+        touch(key); // Update the frequency of the key since it was accessed
+        return keyToVal.get(key); // Return the value
     }
 
-    private void touch(int key) {
-        int f = keyToFreq.get(key);
-        keyToFreq.put(key, f + 1);
-        freqToKeys.get(f).remove(key);
-        if (freqToKeys.get(f).isEmpty()) {
-            freqToKeys.remove(f);
-            if (minFreq == f) minFreq++;
+    private void touch(int key) { // Helper to increment a key's frequency
+        int f = keyToFreq.get(key); // Get current frequency
+        keyToFreq.put(key, f + 1); // Increment frequency
+        freqToKeys.get(f).remove(key); // Remove key from its current frequency bucket
+        if (freqToKeys.get(f).isEmpty()) { // If that bucket is now empty
+            freqToKeys.remove(f); // Remove the empty bucket
+            if (minFreq == f) minFreq++; // If it was the min frequency, the new min is f + 1
         }
-        freqToKeys.computeIfAbsent(f + 1, k -> new java.util.LinkedHashSet<>()).add(key);
+        freqToKeys.computeIfAbsent(f + 1, k -> new java.util.LinkedHashSet<>()).add(key); // Add key to the f + 1 bucket
     }
 
-    public void put(int key, int value) {
-        if (capacity == 0) return;
-        if (keyToVal.containsKey(key)) {
-            keyToVal.put(key, value);
-            touch(key);
-            return;
+    public void put(int key, int value) { // Insert or update
+        if (capacity == 0) return; // Edge case: zero capacity
+        if (keyToVal.containsKey(key)) { // If key already exists
+            keyToVal.put(key, value); // Update value
+            touch(key); // Update frequency
+            return; // Done
         }
-        if (keyToVal.size() >= capacity) {
-            java.util.LinkedHashSet<Integer> minBucket = freqToKeys.get(minFreq);
-            int evict = minBucket.iterator().next(); // oldest in lowest freq
-            minBucket.remove(evict);
-            if (minBucket.isEmpty()) freqToKeys.remove(minFreq);
-            keyToVal.remove(evict);
-            keyToFreq.remove(evict);
+        if (keyToVal.size() >= capacity) { // If cache is full
+            java.util.LinkedHashSet<Integer> minBucket = freqToKeys.get(minFreq); // Get the bucket for the lowest frequency
+            int evict = minBucket.iterator().next(); // LinkedHashSet preserves insertion order, so first is oldest (LRU)
+            minBucket.remove(evict); // Remove from the bucket
+            if (minBucket.isEmpty()) freqToKeys.remove(minFreq); // Clean up if empty
+            keyToVal.remove(evict); // Remove from values map
+            keyToFreq.remove(evict); // Remove from frequencies map
         }
-        keyToVal.put(key, value);
-        keyToFreq.put(key, 1);
-        freqToKeys.computeIfAbsent(1, k -> new java.util.LinkedHashSet<>()).add(key);
-        minFreq = 1;
+        keyToVal.put(key, value); // Add new key-value
+        keyToFreq.put(key, 1); // Set initial frequency to 1
+        freqToKeys.computeIfAbsent(1, k -> new java.util.LinkedHashSet<>()).add(key); // Add to frequency 1 bucket
+        minFreq = 1; // Since we added a new element, the minimum frequency in the cache is 1
     }
 }
 ```
@@ -1190,31 +1195,31 @@ class LFUCache {
 
 ```java
 class RandomizedSet {
-    private final java.util.List<Integer> list = new java.util.ArrayList<>();
-    private final java.util.Map<Integer, Integer> idx = new java.util.HashMap<>();
-    private final java.util.Random rnd = new java.util.Random();
+    private final java.util.List<Integer> list = new java.util.ArrayList<>(); // Stores values to allow O(1) random access
+    private final java.util.Map<Integer, Integer> idx = new java.util.HashMap<>(); // Maps value to its index in 'list' for O(1) lookups
+    private final java.util.Random rnd = new java.util.Random(); // Random number generator
 
-    public boolean insert(int val) {
-        if (idx.containsKey(val)) return false;
-        idx.put(val, list.size());
-        list.add(val);
-        return true;
+    public boolean insert(int val) { // Insert a value
+        if (idx.containsKey(val)) return false; // If already present, return false
+        idx.put(val, list.size()); // Map the new value to the end of the list
+        list.add(val); // Append it to the list
+        return true; // Return true for successful insertion
     }
 
-    public boolean remove(int val) {
-        Integer i = idx.get(val);
-        if (i == null) return false;
-        int last = list.size() - 1;
-        int lastVal = list.get(last);
-        list.set(i, lastVal);
-        idx.put(lastVal, i);
-        list.remove(last);
-        idx.remove(val);
-        return true;
+    public boolean remove(int val) { // Remove a value
+        Integer i = idx.get(val); // Look up its index
+        if (i == null) return false; // Not present, return false
+        int last = list.size() - 1; // Index of the last element in the list
+        int lastVal = list.get(last); // The actual last element
+        list.set(i, lastVal); // Move the last element into the position of the element being removed
+        idx.put(lastVal, i); // Update the map to reflect the last element's new index
+        list.remove(last); // Remove the duplicate entry at the end of the list
+        idx.remove(val); // Remove the original element from the map
+        return true; // Successfully removed
     }
 
-    public int getRandom() {
-        return list.get(rnd.nextInt(list.size()));
+    public int getRandom() { // Get a random element
+        return list.get(rnd.nextInt(list.size())); // Pick a random index and return its value
     }
 }
 ```
@@ -1228,35 +1233,35 @@ class RandomizedSet {
 
 ```java
 class TimeMap {
-    private static class Entry {
+    private static class Entry { // Wrapper class for a timestamp and a value
         int time; String val;
         Entry(int t, String v) { time = t; val = v; }
     }
 
-    private final java.util.Map<String, java.util.List<Entry>> map = new java.util.HashMap<>();
+    private final java.util.Map<String, java.util.List<Entry>> map = new java.util.HashMap<>(); // Map key to a list of its time entries
 
-    public TimeMap() {}
+    public TimeMap() {} // Default constructor
 
-    public void set(String key, String value, int timestamp) {
-        map.computeIfAbsent(key, k -> new java.util.ArrayList<>())
-           .add(new Entry(timestamp, value));
+    public void set(String key, String value, int timestamp) { // Insert a value for a key at a specific timestamp
+        map.computeIfAbsent(key, k -> new java.util.ArrayList<>()) // Get or create the list of entries for this key
+           .add(new Entry(timestamp, value)); // Append the new entry (since timestamps are strictly increasing, list stays sorted)
     }
 
-    public String get(String key, int timestamp) {
-        java.util.List<Entry> list = map.get(key);
-        if (list == null) return "";
-        int lo = 0, hi = list.size() - 1;
-        String res = "";
-        while (lo <= hi) {
-            int mid = (lo + hi) >>> 1;
-            if (list.get(mid).time <= timestamp) {
-                res = list.get(mid).val;   // candidate floor
-                lo = mid + 1;
-            } else {
-                hi = mid - 1;
+    public String get(String key, int timestamp) { // Retrieve a value
+        java.util.List<Entry> list = map.get(key); // Look up the list of entries for the given key
+        if (list == null) return ""; // Key not found
+        int lo = 0, hi = list.size() - 1; // Binary search bounds
+        String res = ""; // Result, defaults to empty string if no valid time is found
+        while (lo <= hi) { // Standard binary search for the floor of 'timestamp'
+            int mid = (lo + hi) >>> 1; // Find midpoint safely
+            if (list.get(mid).time <= timestamp) { // If this entry is valid (time <= target)
+                res = list.get(mid).val;   // It is a candidate floor, record it
+                lo = mid + 1; // Continue searching to the right for a larger valid time
+            } else { // If the entry's time is greater than the target
+                hi = mid - 1; // Search the left half
             }
         }
-        return res;
+        return res; // Return the best candidate found
     }
 }
 ```
@@ -1270,47 +1275,47 @@ class TimeMap {
 
 ```java
 class Twitter {
-    private int time = 0;
+    private int time = 0; // Global sequence to order tweets chronologically across all users
     private final java.util.Map<Integer, java.util.List<int[]>> tweets =
         new java.util.HashMap<>(); // user -> list of {time, tweetId}
     private final java.util.Map<Integer, java.util.Set<Integer>> follows =
         new java.util.HashMap<>(); // user -> followees
 
-    public Twitter() {}
+    public Twitter() {} // Default constructor
 
-    public void postTweet(int userId, int tweetId) {
-        tweets.computeIfAbsent(userId, k -> new java.util.ArrayList<>())
-              .add(new int[]{time++, tweetId});
+    public void postTweet(int userId, int tweetId) { // Post a new tweet
+        tweets.computeIfAbsent(userId, k -> new java.util.ArrayList<>()) // Ensure user's tweet list exists
+              .add(new int[]{time++, tweetId}); // Append the tweet with an incremented global timestamp
     }
 
-    public java.util.List<Integer> getNewsFeed(int userId) {
-        // max-heap by timestamp
+    public java.util.List<Integer> getNewsFeed(int userId) { // Retrieve recent tweets
+        // max-heap by timestamp to merge the most recent tweets
         java.util.PriorityQueue<int[]> pq =
-            new java.util.PriorityQueue<>((a, b) -> b[0] - a[0]);
-        java.util.Set<Integer> users = new java.util.HashSet<>();
-        users.add(userId);
-        users.addAll(follows.getOrDefault(userId, java.util.Collections.emptySet()));
-        for (int u : users) {
-            java.util.List<int[]> ts = tweets.get(u);
-            if (ts == null) continue;
-            // only the latest few per user matter; push them all (or last 10)
-            for (int i = ts.size() - 1; i >= 0 && i >= ts.size() - 10; i--)
-                pq.offer(ts.get(i));
+            new java.util.PriorityQueue<>((a, b) -> b[0] - a[0]); 
+        java.util.Set<Integer> users = new java.util.HashSet<>(); // Set of users whose tweets we care about
+        users.add(userId); // The user implicitly follows themselves
+        users.addAll(follows.getOrDefault(userId, java.util.Collections.emptySet())); // Add everyone they explicitly follow
+        for (int u : users) { // Iterate over all relevant users
+            java.util.List<int[]> ts = tweets.get(u); // Get their tweets
+            if (ts == null) continue; // Skip if they have no tweets
+            // only the latest few per user matter; push them all (or at most the last 10)
+            for (int i = ts.size() - 1; i >= 0 && i >= ts.size() - 10; i--) // Push recent ones to the heap
+                pq.offer(ts.get(i)); 
         }
-        java.util.List<Integer> res = new java.util.ArrayList<>();
-        while (!pq.isEmpty() && res.size() < 10)
-            res.add(pq.poll()[1]);
-        return res;
+        java.util.List<Integer> res = new java.util.ArrayList<>(); // List to store the final feed
+        while (!pq.isEmpty() && res.size() < 10) // Extract up to 10 most recent tweets overall
+            res.add(pq.poll()[1]); // Add the tweetId from the max heap
+        return res; // Return the news feed
     }
 
-    public void follow(int followerId, int followeeId) {
-        if (followerId == followeeId) return;
-        follows.computeIfAbsent(followerId, k -> new java.util.HashSet<>()).add(followeeId);
+    public void follow(int followerId, int followeeId) { // One user follows another
+        if (followerId == followeeId) return; // Cannot explicitly follow yourself
+        follows.computeIfAbsent(followerId, k -> new java.util.HashSet<>()).add(followeeId); // Add to follow set
     }
 
-    public void unfollow(int followerId, int followeeId) {
-        java.util.Set<Integer> set = follows.get(followerId);
-        if (set != null) set.remove(followeeId);
+    public void unfollow(int followerId, int followeeId) { // One user unfollows another
+        java.util.Set<Integer> set = follows.get(followerId); // Retrieve follower's set
+        if (set != null) set.remove(followeeId); // Remove followee if present
     }
 }
 ```

@@ -10,12 +10,12 @@ A pattern-first cheatsheet for the core array techniques: two pointers, sliding 
 
 **Template:**
 ```java
-int lo = 0, hi = arr.length - 1;
-while (lo < hi) {
-    int sum = arr[lo] + arr[hi];
-    if (sum == target) { /* found */ break; }
-    else if (sum < target) lo++;   // need bigger
-    else hi--;                      // need smaller
+int lo = 0, hi = arr.length - 1; // Start pointers at the absolute left and right ends of the array
+while (lo < hi) { // Continue searching as long as the pointers haven't crossed or met
+    int sum = arr[lo] + arr[hi]; // Calculate the sum of the current pair of elements
+    if (sum == target) { /* found */ break; } // If the target sum is found, exit the loop
+    else if (sum < target) lo++;   // If sum is too small, move left pointer right to increase sum
+    else hi--;                      // If sum is too large, move right pointer left to decrease sum
 }
 ```
 
@@ -88,14 +88,14 @@ Your solution must use only constant extra space.
 
 ```java
 public int[] twoSum(int[] numbers, int target) {
-    int lo = 0, hi = numbers.length - 1;
-    while (lo < hi) {
-        int sum = numbers[lo] + numbers[hi];
-        if (sum == target) return new int[]{lo + 1, hi + 1}; // 1-indexed
-        else if (sum < target) lo++;
-        else hi--;
+    int lo = 0, hi = numbers.length - 1; // Initialize pointers at both ends of the sorted array
+    while (lo < hi) { // Loop until the two pointers meet
+        int sum = numbers[lo] + numbers[hi]; // Calculate the sum of the values at the current pointers
+        if (sum == target) return new int[]{lo + 1, hi + 1}; // Return 1-indexed positions if target sum is found
+        else if (sum < target) lo++; // If the sum is less than target, move 'lo' right to increase the sum
+        else hi--; // If the sum is greater than target, move 'hi' left to decrease the sum
     }
-    return new int[]{-1, -1};
+    return new int[]{-1, -1}; // Return a default invalid pair if no valid two sum is found
 }
 ```
 
@@ -163,24 +163,24 @@ Notice that the order of the output and the order of the triplets does not matte
 
 ```java
 public List<List<Integer>> threeSum(int[] nums) {
-    Arrays.sort(nums);
-    List<List<Integer>> res = new ArrayList<>();
-    for (int i = 0; i < nums.length - 2; i++) {
-        if (nums[i] > 0) break;
-        if (i > 0 && nums[i] == nums[i - 1]) continue; // skip dup pivots
-        int lo = i + 1, hi = nums.length - 1;
-        while (lo < hi) {
-            int sum = nums[i] + nums[lo] + nums[hi];
-            if (sum == 0) {
-                res.add(Arrays.asList(nums[i], nums[lo], nums[hi]));
-                while (lo < hi && nums[lo] == nums[lo + 1]) lo++;
-                while (lo < hi && nums[hi] == nums[hi - 1]) hi--;
-                lo++; hi--;
-            } else if (sum < 0) lo++;
-            else hi--;
+    Arrays.sort(nums); // Sort the array to easily manage duplicates and use two pointers
+    List<List<Integer>> res = new ArrayList<>(); // Initialize the result list to hold all unique triplets
+    for (int i = 0; i < nums.length - 2; i++) { // Iterate through the array, leaving room for at least 2 more elements
+        if (nums[i] > 0) break; // If the current number is positive, sum can't be zero since array is sorted
+        if (i > 0 && nums[i] == nums[i - 1]) continue; // Skip duplicate values for the pivot to avoid duplicate triplets
+        int lo = i + 1, hi = nums.length - 1; // Set two pointers: one just after pivot, one at the end
+        while (lo < hi) { // Search for a valid pair in the remaining array
+            int sum = nums[i] + nums[lo] + nums[hi]; // Calculate the current triplet sum
+            if (sum == 0) { // If the sum is zero, we found a valid triplet
+                res.add(Arrays.asList(nums[i], nums[lo], nums[hi])); // Add the triplet to the result list
+                while (lo < hi && nums[lo] == nums[lo + 1]) lo++; // Skip any duplicate elements for the left pointer
+                while (lo < hi && nums[hi] == nums[hi - 1]) hi--; // Skip any duplicate elements for the right pointer
+                lo++; hi--; // Move both pointers inward after processing the current valid triplet
+            } else if (sum < 0) lo++; // If sum is negative, we need a larger value, so move left pointer right
+            else hi--; // If sum is positive, we need a smaller value, so move right pointer left
         }
     }
-    return res;
+    return res; // Return the final list of triplets
 }
 ```
 
@@ -239,14 +239,14 @@ Return *the maximum amount of water a container can store*.
 
 ```java
 public int maxArea(int[] height) {
-    int lo = 0, hi = height.length - 1, best = 0;
-    while (lo < hi) {
-        int area = Math.min(height[lo], height[hi]) * (hi - lo);
-        best = Math.max(best, area);
-        if (height[lo] < height[hi]) lo++;
-        else hi--;
+    int lo = 0, hi = height.length - 1, best = 0; // Initialize pointers at ends, and max area tracker
+    while (lo < hi) { // Loop until the two pointers meet
+        int area = Math.min(height[lo], height[hi]) * (hi - lo); // Calculate area using the shorter wall and width
+        best = Math.max(best, area); // Update the maximum area found so far
+        if (height[lo] < height[hi]) lo++; // Move the pointer corresponding to the shorter wall inwards to seek a taller wall
+        else hi--; // If right wall is shorter or equal, move right pointer inwards
     }
-    return best;
+    return best; // Return the maximum water container area
 }
 ```
 
@@ -299,20 +299,20 @@ Given `n` non-negative integers representing an elevation map where the width of
 
 ```java
 public int trap(int[] height) {
-    int lo = 0, hi = height.length - 1;
-    int leftMax = 0, rightMax = 0, water = 0;
-    while (lo < hi) {
-        if (height[lo] < height[hi]) {
-            leftMax = Math.max(leftMax, height[lo]);
-            water += leftMax - height[lo];
-            lo++;
-        } else {
-            rightMax = Math.max(rightMax, height[hi]);
-            water += rightMax - height[hi];
-            hi--;
+    int lo = 0, hi = height.length - 1; // Initialize two pointers at the ends of the elevation map
+    int leftMax = 0, rightMax = 0, water = 0; // Track max heights from left and right, and total trapped water
+    while (lo < hi) { // Loop until the pointers meet
+        if (height[lo] < height[hi]) { // The left wall is the bottleneck limiting the trapped water here
+            leftMax = Math.max(leftMax, height[lo]); // Update the maximum wall height seen from the left
+            water += leftMax - height[lo]; // Add water trapped above the current left bar
+            lo++; // Move the left pointer inwards
+        } else { // The right wall is the bottleneck
+            rightMax = Math.max(rightMax, height[hi]); // Update the maximum wall height seen from the right
+            water += rightMax - height[hi]; // Add water trapped above the current right bar
+            hi--; // Move the right pointer inwards
         }
     }
-    return water;
+    return water; // Return the total trapped rain water
 }
 ```
 
@@ -320,20 +320,20 @@ public int trap(int[] height) {
 
 ```java
 public int trapStack(int[] height) {
-    Deque<Integer> stack = new ArrayDeque<>();
-    int water = 0;
-    for (int i = 0; i < height.length; i++) {
-        while (!stack.isEmpty() && height[i] > height[stack.peek()]) {
-            int bottom = stack.pop();
-            if (stack.isEmpty()) break;
-            int left = stack.peek();
-            int width = i - left - 1;
-            int bounded = Math.min(height[left], height[i]) - height[bottom];
-            water += width * bounded;
+    Deque<Integer> stack = new ArrayDeque<>(); // Stack stores indices of bars in strictly decreasing height order
+    int water = 0; // Initialize total trapped water
+    for (int i = 0; i < height.length; i++) { // Iterate through each bar in the elevation map
+        while (!stack.isEmpty() && height[i] > height[stack.peek()]) { // Process when current bar is taller than the bar at stack top
+            int bottom = stack.pop(); // The top of the stack is the lowest point (the 'bottom' of the trap)
+            if (stack.isEmpty()) break; // If no left boundary exists, water cannot be trapped, so break
+            int left = stack.peek(); // The new top of the stack acts as the left boundary
+            int width = i - left - 1; // Calculate the width of the trapped water region
+            int bounded = Math.min(height[left], height[i]) - height[bottom]; // Calculate the effective height of trapped water
+            water += width * bounded; // Add the volume of trapped water for this section
         }
-        stack.push(i);
+        stack.push(i); // Push the current index onto the stack
     }
-    return water;
+    return water; // Return the total trapped rain water
 }
 ```
 
@@ -397,15 +397,15 @@ Since an empty string reads the same forward and backward, it is a palindrome.
 
 ```java
 public boolean isPalindrome(String s) {
-    int lo = 0, hi = s.length() - 1;
-    while (lo < hi) {
-        while (lo < hi && !Character.isLetterOrDigit(s.charAt(lo))) lo++;
-        while (lo < hi && !Character.isLetterOrDigit(s.charAt(hi))) hi--;
-        if (Character.toLowerCase(s.charAt(lo)) != Character.toLowerCase(s.charAt(hi)))
-            return false;
-        lo++; hi--;
+    int lo = 0, hi = s.length() - 1; // Start pointers at the beginning and end of the string
+    while (lo < hi) { // Loop until the pointers meet or cross
+        while (lo < hi && !Character.isLetterOrDigit(s.charAt(lo))) lo++; // Skip non-alphanumeric characters from the left
+        while (lo < hi && !Character.isLetterOrDigit(s.charAt(hi))) hi--; // Skip non-alphanumeric characters from the right
+        if (Character.toLowerCase(s.charAt(lo)) != Character.toLowerCase(s.charAt(hi))) // Compare characters case-insensitively
+            return false; // If there is a mismatch, it's not a palindrome
+        lo++; hi--; // Move both pointers inwards after a successful match
     }
-    return true;
+    return true; // If all matched successfully, it is a valid palindrome
 }
 ```
 
@@ -419,18 +419,18 @@ public boolean isPalindrome(String s) {
 
 ```java
 public void sortColors(int[] nums) {
-    int low = 0, mid = 0, high = nums.length - 1;
-    while (mid <= high) {
-        if (nums[mid] == 0) {
-            swap(nums, low++, mid++);
-        } else if (nums[mid] == 1) {
-            mid++;
-        } else { // == 2
-            swap(nums, mid, high--);
+    int low = 0, mid = 0, high = nums.length - 1; // low tracks 0s, mid scans, high tracks 2s
+    while (mid <= high) { // Scan elements until mid crosses high
+        if (nums[mid] == 0) { // If the current element is 0
+            swap(nums, low++, mid++); // Swap it to the low region and advance both pointers
+        } else if (nums[mid] == 1) { // If the current element is 1
+            mid++; // It's in the correct middle region, just advance the mid pointer
+        } else { // If the current element is 2
+            swap(nums, mid, high--); // Swap it to the high region, but do NOT advance mid because the swapped-in value needs to be checked
         }
     }
 }
-private void swap(int[] a, int i, int j) { int t = a[i]; a[i] = a[j]; a[j] = t; }
+private void swap(int[] a, int i, int j) { int t = a[i]; a[i] = a[j]; a[j] = t; } // Helper method to swap two elements in the array
 ```
 
 ---
@@ -441,13 +441,13 @@ private void swap(int[] a, int i, int j) { int t = a[i]; a[i] = a[j]; a[j] = t; 
 
 **Template:**
 ```java
-int write = 0;
-for (int read = 0; read < arr.length; read++) {
-    if (keep(arr[read])) {
-        arr[write++] = arr[read];
+int write = 0; // Pointer tracking the index where the next valid element should be written
+for (int read = 0; read < arr.length; read++) { // Pointer scanning through all elements of the array
+    if (keep(arr[read])) { // Check if the current scanned element meets the condition to be kept
+        arr[write++] = arr[read]; // Write the kept element to the write index, then increment write pointer
     }
 }
-// arr[0..write) is the result
+// arr[0..write) is the result // The valid elements are now compacted in the prefix of the array
 ```
 
 ### Remove Duplicates from Sorted Array
@@ -525,14 +525,14 @@ It does not matter what you leave beyond the returned k (hence they are undersco
 
 ```java
 public int removeDuplicates(int[] nums) {
-    if (nums.length == 0) return 0;
-    int write = 0;
-    for (int read = 1; read < nums.length; read++) {
-        if (nums[read] != nums[write]) {
-            nums[++write] = nums[read];
+    if (nums.length == 0) return 0; // If the array is empty, the new length is 0
+    int write = 0; // Pointer tracking the position of the last unique element written
+    for (int read = 1; read < nums.length; read++) { // Scan the array starting from the second element
+        if (nums[read] != nums[write]) { // If a new unique element is found
+            nums[++write] = nums[read]; // Increment write pointer and place the unique element there
         }
     }
-    return write + 1;
+    return write + 1; // Return the number of unique elements (length of the valid prefix)
 }
 ```
 
@@ -584,11 +584,11 @@ Given an integer array `nums`, move all `0`'s to the end of it while maintaining
 
 ```java
 public void moveZeroes(int[] nums) {
-    int write = 0;
-    for (int read = 0; read < nums.length; read++) {
-        if (nums[read] != 0) {
-            int t = nums[write]; nums[write] = nums[read]; nums[read] = t;
-            write++;
+    int write = 0; // Pointer tracking where the next non-zero element should be placed
+    for (int read = 0; read < nums.length; read++) { // Scan through all elements of the array
+        if (nums[read] != 0) { // Check if the current element is non-zero
+            int t = nums[write]; nums[write] = nums[read]; nums[read] = t; // Swap the non-zero element with the element at the 'write' pointer
+            write++; // Advance the write pointer to the next available position
         }
     }
 }
@@ -602,13 +602,13 @@ public void moveZeroes(int[] nums) {
 
 **Template:**
 ```java
-int windowSum = 0;
-for (int i = 0; i < arr.length; i++) {
-    windowSum += arr[i];               // include arr[i]
-    if (i >= k - 1) {
+int windowSum = 0; // Initialize a variable to track the sum (or other statistic) of the current window
+for (int i = 0; i < arr.length; i++) { // Iterate through the array elements
+    windowSum += arr[i];               // include arr[i] // Add the new element entering the window
+    if (i >= k - 1) { // Once the window size reaches 'k' (at index k-1)
         // window is arr[i-k+1 .. i]
-        result = combine(result, windowSum);
-        windowSum -= arr[i - k + 1];   // evict left edge
+        result = combine(result, windowSum); // Process the valid window state (e.g., update max sum)
+        windowSum -= arr[i - k + 1];   // evict left edge // Remove the element that is falling out of the window for the next iteration
     }
 }
 ```
@@ -623,14 +623,14 @@ for (int i = 0; i < arr.length; i++) {
 
 ```java
 public int maxSumSubarray(int[] nums, int k) {
-    int windowSum = 0;
-    for (int i = 0; i < k; i++) windowSum += nums[i];
-    int best = windowSum;
-    for (int i = k; i < nums.length; i++) {
-        windowSum += nums[i] - nums[i - k];
-        best = Math.max(best, windowSum);
+    int windowSum = 0; // Variable to store the sum of the current sliding window
+    for (int i = 0; i < k; i++) windowSum += nums[i]; // Precompute the sum for the very first window of size k
+    int best = windowSum; // Initialize the best sum to the sum of the first window
+    for (int i = k; i < nums.length; i++) { // Slide the window one element at a time starting from index k
+        windowSum += nums[i] - nums[i - k]; // Add the new right element and subtract the old left element to get the new window sum
+        best = Math.max(best, windowSum); // Update the maximum sum found so far
     }
-    return best;
+    return best; // Return the maximum subarray sum of size k
 }
 ```
 
@@ -642,16 +642,16 @@ public int maxSumSubarray(int[] nums, int k) {
 
 **Template:**
 ```java
-int left = 0;
-Map<Character,Integer> count = new HashMap<>();
-for (int right = 0; right < s.length(); right++) {
-    char c = s.charAt(right);
-    count.merge(c, 1, Integer::sum);       // include right
-    while (windowInvalid(count)) {         // shrink until valid
-        char d = s.charAt(left++);
-        count.merge(d, -1, Integer::sum);
+int left = 0; // Initialize the left pointer of the window
+Map<Character,Integer> count = new HashMap<>(); // Data structure to keep track of state within the current window
+for (int right = 0; right < s.length(); right++) { // Expand the window by moving the right pointer
+    char c = s.charAt(right); // Get the current character entering the window
+    count.merge(c, 1, Integer::sum);       // include right // Update the state with the new character
+    while (windowInvalid(count)) {         // shrink until valid // If the window violates the constraint, shrink from the left
+        char d = s.charAt(left++); // Get the character falling out of the window and increment left pointer
+        count.merge(d, -1, Integer::sum); // Update the state by removing the left character
     }
-    best = Math.max(best, right - left + 1);
+    best = Math.max(best, right - left + 1); // Record the size of the valid window (or other metric)
 }
 ```
 
@@ -713,17 +713,17 @@ Notice that the answer must be a substring, "pwke" is a subsequence and not a su
 
 ```java
 public int lengthOfLongestSubstring(String s) {
-    Map<Character, Integer> lastSeen = new HashMap<>();
-    int left = 0, best = 0;
-    for (int right = 0; right < s.length(); right++) {
-        char c = s.charAt(right);
-        if (lastSeen.containsKey(c) && lastSeen.get(c) >= left) {
-            left = lastSeen.get(c) + 1;
+    Map<Character, Integer> lastSeen = new HashMap<>(); // Map to store the most recent index of each character
+    int left = 0, best = 0; // Initialize left boundary of the window and the best length tracker
+    for (int right = 0; right < s.length(); right++) { // Iterate to expand the window to the right
+        char c = s.charAt(right); // The character entering the window
+        if (lastSeen.containsKey(c) && lastSeen.get(c) >= left) { // If the character is already in the current valid window
+            left = lastSeen.get(c) + 1; // Move the left boundary past the previous occurrence of this character to remove the duplicate
         }
-        lastSeen.put(c, right);
-        best = Math.max(best, right - left + 1);
+        lastSeen.put(c, right); // Update the last seen index for the current character
+        best = Math.max(best, right - left + 1); // Update the maximum length found so far with the current valid window length
     }
-    return best;
+    return best; // Return the length of the longest substring without repeating characters
 }
 ```
 
@@ -795,23 +795,23 @@ Since the largest window of s only has one 'a', return empty string.
 
 ```java
 public String minWindow(String s, String t) {
-    if (s.length() < t.length()) return "";
-    int[] need = new int[128];
-    for (char c : t.toCharArray()) need[c]++;
-    int required = t.length();           // total chars still needed
-    int left = 0, bestLen = Integer.MAX_VALUE, bestStart = 0;
-    for (int right = 0; right < s.length(); right++) {
-        if (need[s.charAt(right)]-- > 0) required--;
-        while (required == 0) {          // valid window
-            if (right - left + 1 < bestLen) {
-                bestLen = right - left + 1;
-                bestStart = left;
+    if (s.length() < t.length()) return ""; // If the search string is shorter than the target, no valid window is possible
+    int[] need = new int[128]; // Array to count the required occurrences of each character in t
+    for (char c : t.toCharArray()) need[c]++; // Populate the requirements from string t
+    int required = t.length();           // total chars still needed // Track the total number of characters from t we still need to match
+    int left = 0, bestLen = Integer.MAX_VALUE, bestStart = 0; // Initialize window boundaries and best result trackers
+    for (int right = 0; right < s.length(); right++) { // Expand the window to the right
+        if (need[s.charAt(right)]-- > 0) required--; // If the current char is needed, decrement total required count, then update requirement
+        while (required == 0) {          // valid window // While all required characters are present in the window
+            if (right - left + 1 < bestLen) { // If the current window is smaller than the best found so far
+                bestLen = right - left + 1; // Update the best length
+                bestStart = left; // Update the starting index of the best window
             }
-            if (need[s.charAt(left)]++ == 0) required++;
-            left++;
+            if (need[s.charAt(left)]++ == 0) required++; // Before moving left pointer, if the leaving char was exactly fulfilling a need, increment required count
+            left++; // Shrink the window from the left to seek a smaller valid window
         }
     }
-    return bestLen == Integer.MAX_VALUE ? "" : s.substring(bestStart, bestStart + bestLen);
+    return bestLen == Integer.MAX_VALUE ? "" : s.substring(bestStart, bestStart + bestLen); // Return the best window substring or empty string if none found
 }
 ```
 
@@ -867,18 +867,18 @@ There may exists other ways to achieve this answer too.
 
 ```java
 public int characterReplacement(String s, int k) {
-    int[] freq = new int[26];
-    int left = 0, maxFreq = 0, best = 0;
-    for (int right = 0; right < s.length(); right++) {
-        freq[s.charAt(right) - 'A']++;
-        maxFreq = Math.max(maxFreq, freq[s.charAt(right) - 'A']);
-        while ((right - left + 1) - maxFreq > k) {
-            freq[s.charAt(left) - 'A']--;
-            left++;
+    int[] freq = new int[26]; // Frequency array to count occurrences of each uppercase English letter in the window
+    int left = 0, maxFreq = 0, best = 0; // Initialize left boundary, max frequency of a single char in window, and best length
+    for (int right = 0; right < s.length(); right++) { // Expand the window to the right
+        freq[s.charAt(right) - 'A']++; // Increment the frequency of the incoming character
+        maxFreq = Math.max(maxFreq, freq[s.charAt(right) - 'A']); // Update the maximum frequency of any single character in the window
+        while ((right - left + 1) - maxFreq > k) { // If the number of characters to replace (window size - maxFreq) exceeds k
+            freq[s.charAt(left) - 'A']--; // The window is invalid, so remove the leftmost character's frequency
+            left++; // Shrink the window from the left
         }
-        best = Math.max(best, right - left + 1);
+        best = Math.max(best, right - left + 1); // Update the maximum valid window length found so far
     }
-    return best;
+    return best; // Return the length of the longest valid substring
 }
 ```
 
@@ -942,15 +942,15 @@ Given an array of positive integers `nums` and a positive integer `target`, retu
 
 ```java
 public int minSubArrayLen(int target, int[] nums) {
-    int left = 0, sum = 0, best = Integer.MAX_VALUE;
-    for (int right = 0; right < nums.length; right++) {
-        sum += nums[right];
-        while (sum >= target) {
-            best = Math.min(best, right - left + 1);
-            sum -= nums[left++];
+    int left = 0, sum = 0, best = Integer.MAX_VALUE; // Initialize left boundary, current window sum, and best length to a large value
+    for (int right = 0; right < nums.length; right++) { // Expand the window to the right
+        sum += nums[right]; // Add the new element to the current window sum
+        while (sum >= target) { // While the current window sum satisfies the condition
+            best = Math.min(best, right - left + 1); // Update the minimum length found so far
+            sum -= nums[left++]; // Subtract the leftmost element from the sum and shrink the window from the left to find smaller valid windows
         }
     }
-    return best == Integer.MAX_VALUE ? 0 : best;
+    return best == Integer.MAX_VALUE ? 0 : best; // Return the minimum length, or 0 if no valid subarray was found
 }
 ```
 
@@ -1023,17 +1023,17 @@ If we had started at the first tree, we would only pick from trees [1,2].
 
 ```java
 public int totalFruit(int[] fruits) {
-    Map<Integer, Integer> count = new HashMap<>();
-    int left = 0, best = 0;
-    for (int right = 0; right < fruits.length; right++) {
-        count.merge(fruits[right], 1, Integer::sum);
-        while (count.size() > 2) {
-            int f = fruits[left++];
-            if (count.merge(f, -1, Integer::sum) == 0) count.remove(f);
+    Map<Integer, Integer> count = new HashMap<>(); // Map to track the count of each fruit type in the current window
+    int left = 0, best = 0; // Initialize left boundary and the maximum number of fruits collected
+    for (int right = 0; right < fruits.length; right++) { // Expand the window to the right
+        count.merge(fruits[right], 1, Integer::sum); // Add the newly picked fruit to the basket (update frequency)
+        while (count.size() > 2) { // If we have more than 2 types of fruits, the window is invalid
+            int f = fruits[left++]; // Get the fruit type at the left boundary and move the left pointer
+            if (count.merge(f, -1, Integer::sum) == 0) count.remove(f); // Decrement its count, and remove it from the map if count reaches 0
         }
-        best = Math.max(best, right - left + 1);
+        best = Math.max(best, right - left + 1); // Update the maximum number of fruits collected so far for a valid window
     }
-    return best;
+    return best; // Return the maximum fruits that can be collected
 }
 ```
 
@@ -1046,17 +1046,17 @@ public int totalFruit(int[] fruits) {
 **Template:**
 ```java
 // 1D immutable range sum
-int[] prefix = new int[n + 1];           // prefix[i] = sum of arr[0..i-1]
-for (int i = 0; i < n; i++) prefix[i + 1] = prefix[i] + arr[i];
-int rangeSum = prefix[r + 1] - prefix[l]; // sum of arr[l..r]
+int[] prefix = new int[n + 1];           // prefix[i] = sum of arr[0..i-1] // Array to store cumulative sums, with an extra 0 at the start
+for (int i = 0; i < n; i++) prefix[i + 1] = prefix[i] + arr[i]; // Compute prefix sums by adding the current element to the previous sum
+int rangeSum = prefix[r + 1] - prefix[l]; // sum of arr[l..r] // Retrieve the sum of any subarray in O(1) time using subtraction
 
 // "subarray summing to k" via map of prefix-sum frequencies
-Map<Integer,Integer> seen = new HashMap<>();
-seen.put(0, 1);
-int running = 0;
-for (int x : arr) {
-    running += x;
-    // running - k was a previous prefix => a subarray sums to k
+Map<Integer,Integer> seen = new HashMap<>(); // Map to store the frequencies of prefix sums seen so far
+seen.put(0, 1); // Seed the map with a prefix sum of 0 occurring once (to handle subarrays starting at index 0)
+int running = 0; // Variable to keep track of the running prefix sum
+for (int x : arr) { // Iterate through the array
+    running += x; // Update the running sum with the current element
+    // running - k was a previous prefix => a subarray sums to k // If (running - k) exists in the map, a valid subarray ends here
 }
 ```
 
@@ -1107,15 +1107,15 @@ A subarray is a contiguous **non-empty** sequence of elements within an array.
 
 ```java
 public int subarraySum(int[] nums, int k) {
-    Map<Integer, Integer> seen = new HashMap<>();
-    seen.put(0, 1);
-    int running = 0, count = 0;
-    for (int x : nums) {
-        running += x;
-        count += seen.getOrDefault(running - k, 0);
-        seen.merge(running, 1, Integer::sum);
+    Map<Integer, Integer> seen = new HashMap<>(); // Map to store prefix sums and their frequencies
+    seen.put(0, 1); // Seed map with sum=0 frequency=1 to handle subarrays starting at the beginning
+    int running = 0, count = 0; // Initialize running prefix sum and total valid subarrays count
+    for (int x : nums) { // Iterate through the array elements
+        running += x; // Add the current element to the running prefix sum
+        count += seen.getOrDefault(running - k, 0); // If (running - k) was seen, add its frequency to the valid subarrays count
+        seen.merge(running, 1, Integer::sum); // Add the current running sum to the map or increment its frequency
     }
-    return count;
+    return count; // Return the total number of subarrays that sum to k
 }
 ```
 
@@ -1172,16 +1172,16 @@ You must write an algorithm that runs in `O(n)` time and without using the divis
 
 ```java
 public int[] productExceptSelf(int[] nums) {
-    int n = nums.length;
-    int[] res = new int[n];
-    res[0] = 1;
-    for (int i = 1; i < n; i++) res[i] = res[i - 1] * nums[i - 1]; // prefix
-    int suffix = 1;
-    for (int i = n - 1; i >= 0; i--) {
-        res[i] *= suffix;
-        suffix *= nums[i];
+    int n = nums.length; // Get the length of the input array
+    int[] res = new int[n]; // Array to hold the final result
+    res[0] = 1; // The prefix product for the first element has nothing to its left, so start with 1
+    for (int i = 1; i < n; i++) res[i] = res[i - 1] * nums[i - 1]; // prefix // Fill res with the product of all elements to the left of i
+    int suffix = 1; // Initialize the running suffix product starting from the rightmost element
+    for (int i = n - 1; i >= 0; i--) { // Traverse the array backwards
+        res[i] *= suffix; // Multiply the prefix product already in res[i] by the running suffix product
+        suffix *= nums[i]; // Update the running suffix product to include the current element
     }
-    return res;
+    return res; // Return the final array of products
 }
 ```
 
@@ -1258,14 +1258,14 @@ Right sum = nums[1] + nums[2] = 1 + -1 = 0
 
 ```java
 public int pivotIndex(int[] nums) {
-    int total = 0;
-    for (int x : nums) total += x;
-    int leftSum = 0;
-    for (int i = 0; i < nums.length; i++) {
-        if (leftSum == total - leftSum - nums[i]) return i;
-        leftSum += nums[i];
+    int total = 0; // Variable to store the total sum of all elements in the array
+    for (int x : nums) total += x; // Compute the total sum
+    int leftSum = 0; // Variable to track the sum of elements strictly to the left of the current index
+    for (int i = 0; i < nums.length; i++) { // Iterate through the array to find the pivot
+        if (leftSum == total - leftSum - nums[i]) return i; // If left sum equals right sum (total - left - current), return current index
+        leftSum += nums[i]; // Add the current element to leftSum for the next iteration
     }
-    return -1;
+    return -1; // If no pivot index is found, return -1
 }
 ```
 
@@ -1342,19 +1342,19 @@ A **good subarray** is a subarray where:
 
 ```java
 public boolean checkSubarraySum(int[] nums, int k) {
-    Map<Integer, Integer> firstIndex = new HashMap<>();
-    firstIndex.put(0, -1);
-    int running = 0;
-    for (int i = 0; i < nums.length; i++) {
-        running += nums[i];
-        int rem = k == 0 ? running : running % k;
-        if (firstIndex.containsKey(rem)) {
-            if (i - firstIndex.get(rem) >= 2) return true;
+    Map<Integer, Integer> firstIndex = new HashMap<>(); // Map to store the earliest index we saw a specific remainder
+    firstIndex.put(0, -1); // Seed map with remainder 0 at index -1 to handle valid subarrays starting from index 0
+    int running = 0; // Variable to track the running prefix sum
+    for (int i = 0; i < nums.length; i++) { // Iterate through the array
+        running += nums[i]; // Update running sum
+        int rem = k == 0 ? running : running % k; // Compute modulo (handling k=0 edge case if applicable)
+        if (firstIndex.containsKey(rem)) { // If we've seen this remainder before
+            if (i - firstIndex.get(rem) >= 2) return true; // Ensure the subarray length is at least 2 before returning true
         } else {
-            firstIndex.put(rem, i);
+            firstIndex.put(rem, i); // If this is a new remainder, store its first occurrence index
         }
     }
-    return false;
+    return false; // Return false if no valid subarray is found
 }
 ```
 
@@ -1418,13 +1418,13 @@ numArray.sumRange(0, 5); // return (-2) + 0 + 3 + (-5) + 2 + (-1) = -3
 
 ```java
 class NumArray {
-    private final int[] prefix;
-    public NumArray(int[] nums) {
-        prefix = new int[nums.length + 1];
-        for (int i = 0; i < nums.length; i++) prefix[i + 1] = prefix[i] + nums[i];
+    private final int[] prefix; // Array to store prefix sums permanently for the object
+    public NumArray(int[] nums) { // Constructor to initialize the prefix sum array
+        prefix = new int[nums.length + 1]; // Size is n+1 to make 0-indexed range sums easier
+        for (int i = 0; i < nums.length; i++) prefix[i + 1] = prefix[i] + nums[i]; // Precompute prefix sum where prefix[i+1] is sum of first i elements
     }
-    public int sumRange(int left, int right) {
-        return prefix[right + 1] - prefix[left];
+    public int sumRange(int left, int right) { // Method to query the sum of a range
+        return prefix[right + 1] - prefix[left]; // Return the range sum in O(1) time using subtraction
     }
 }
 ```
@@ -1439,18 +1439,18 @@ class NumArray {
 
 ```java
 public int[] applyRangeUpdates(int n, int[][] updates) {
-    int[] diff = new int[n + 1];
-    for (int[] u : updates) {           // u = {l, r, val}
-        diff[u[0]] += u[2];
-        diff[u[1] + 1] -= u[2];
+    int[] diff = new int[n + 1]; // Difference array to store boundary updates, size n+1 to handle out-of-bounds right edge gracefully
+    for (int[] u : updates) {           // u = {l, r, val} // Process each range update query
+        diff[u[0]] += u[2]; // Add value to the starting boundary
+        diff[u[1] + 1] -= u[2]; // Subtract value just past the ending boundary
     }
-    int[] res = new int[n];
-    int running = 0;
-    for (int i = 0; i < n; i++) {
-        running += diff[i];
-        res[i] = running;
+    int[] res = new int[n]; // Result array to hold the fully updated values
+    int running = 0; // Variable to accumulate the differences
+    for (int i = 0; i < n; i++) { // Sweep through the difference array to reconstruct the final values
+        running += diff[i]; // Update the running sum with the current difference
+        res[i] = running; // Assign the reconstructed value to the result array
     }
-    return res;
+    return res; // Return the completely updated array
 }
 ```
 
@@ -1462,10 +1462,10 @@ public int[] applyRangeUpdates(int n, int[][] updates) {
 
 **Template:**
 ```java
-int curr = arr[0], best = arr[0];
-for (int i = 1; i < arr.length; i++) {
-    curr = Math.max(arr[i], curr + arr[i]); // extend or restart
-    best = Math.max(best, curr);
+int curr = arr[0], best = arr[0]; // Initialize current running optimal and global best with the first element
+for (int i = 1; i < arr.length; i++) { // Iterate through the array starting from the second element
+    curr = Math.max(arr[i], curr + arr[i]); // extend or restart // Decide to either start a new subarray here or extend the previous one
+    best = Math.max(best, curr); // Update the global best if the current running optimal is better
 }
 ```
 
@@ -1530,12 +1530,12 @@ Given an integer array `nums`, find the <span data-keyword="subarray-nonempty">s
 
 ```java
 public int maxSubArray(int[] nums) {
-    int curr = nums[0], best = nums[0];
-    for (int i = 1; i < nums.length; i++) {
-        curr = Math.max(nums[i], curr + nums[i]);
-        best = Math.max(best, curr);
+    int curr = nums[0], best = nums[0]; // Initialize current running max and overall best max using the first element
+    for (int i = 1; i < nums.length; i++) { // Traverse the array starting from index 1
+        curr = Math.max(nums[i], curr + nums[i]); // If adding the current element to previous sum is worse than the element itself, restart the sum from here
+        best = Math.max(best, curr); // Keep track of the maximum sum seen across all positions
     }
-    return best;
+    return best; // Return the overall maximum subarray sum
 }
 ```
 
@@ -1592,16 +1592,16 @@ The test cases are generated so that the answer will fit in a **32-bit** integer
 
 ```java
 public int maxProduct(int[] nums) {
-    int maxEnding = nums[0], minEnding = nums[0], best = nums[0];
-    for (int i = 1; i < nums.length; i++) {
-        if (nums[i] < 0) {
-            int t = maxEnding; maxEnding = minEnding; minEnding = t;
+    int maxEnding = nums[0], minEnding = nums[0], best = nums[0]; // Track running max product, running min product (for negatives), and global best
+    for (int i = 1; i < nums.length; i++) { // Iterate through the array starting from the second element
+        if (nums[i] < 0) { // If the current element is negative, min and max products swap roles
+            int t = maxEnding; maxEnding = minEnding; minEnding = t; // Swap maxEnding and minEnding
         }
-        maxEnding = Math.max(nums[i], maxEnding * nums[i]);
-        minEnding = Math.min(nums[i], minEnding * nums[i]);
-        best = Math.max(best, maxEnding);
+        maxEnding = Math.max(nums[i], maxEnding * nums[i]); // Update the maximum product ending at the current index
+        minEnding = Math.min(nums[i], minEnding * nums[i]); // Update the minimum product ending at the current index
+        best = Math.max(best, maxEnding); // Update the overall best product
     }
-    return best;
+    return best; // Return the maximum product contiguous subarray
 }
 ```
 
@@ -1613,16 +1613,16 @@ public int maxProduct(int[] nums) {
 
 **Template:**
 ```java
-int i = 0;
-while (i < nums.length) {
-    int home = nums[i] - 1;            // target index for nums[i] (1..n)
-    if (nums[i] > 0 && nums[i] <= nums.length && nums[i] != nums[home]) {
-        int t = nums[i]; nums[i] = nums[home]; nums[home] = t; // swap home
+int i = 0; // Start at the first element
+while (i < nums.length) { // Loop until the entire array has been processed
+    int home = nums[i] - 1;            // target index for nums[i] (1..n) // Determine where the current value SHOULD be placed
+    if (nums[i] > 0 && nums[i] <= nums.length && nums[i] != nums[home]) { // Check if the value is in range and not already at its correct home
+        int t = nums[i]; nums[i] = nums[home]; nums[home] = t; // swap home // Swap the value to its rightful home index
     } else {
-        i++;
+        i++; // Move to the next element if the current one is out of bounds, or already in its correct place
     }
 }
-// now scan: any index where nums[i] != i+1 is anomalous
+// now scan: any index where nums[i] != i+1 is anomalous // After sorting, a linear pass can find missing/duplicate items
 ```
 
 ### Missing Number
@@ -1717,16 +1717,16 @@ Given an array `nums` containing `n` distinct numbers in the range `[0, n]`, ret
 
 ```java
 public int missingNumber(int[] nums) {
-    int n = nums.length, i = 0;
-    while (i < n) {
-        if (nums[i] < n && nums[i] != i) {
-            int t = nums[i]; nums[i] = nums[nums[i]]; nums[t] = t;
+    int n = nums.length, i = 0; // Length of array is n, target range is [0, n]
+    while (i < n) { // Traverse the array for cyclic sort
+        if (nums[i] < n && nums[i] != i) { // If value is in bounds and not at its correct home index
+            int t = nums[i]; nums[i] = nums[nums[i]]; nums[t] = t; // Swap the value to its correct home index (nums[i] should be at index nums[i])
         } else {
-            i++;
+            i++; // Move to the next index if current is correctly placed or is the value 'n'
         }
     }
-    for (int j = 0; j < n; j++) if (nums[j] != j) return j;
-    return n;
+    for (int j = 0; j < n; j++) if (nums[j] != j) return j; // Scan the array, first mismatched index is the missing number
+    return n; // If all indices match their values, the missing number must be 'n'
 }
 ```
 
@@ -1734,9 +1734,9 @@ public int missingNumber(int[] nums) {
 
 ```java
 public int missingNumberXor(int[] nums) {
-    int x = nums.length;
-    for (int i = 0; i < nums.length; i++) x ^= i ^ nums[i];
-    return x;
+    int x = nums.length; // Start with 'n' because the loop XORs indices 0 to n-1
+    for (int i = 0; i < nums.length; i++) x ^= i ^ nums[i]; // XOR running result with index and value. Pairs cancel out.
+    return x; // The only uncancelled value remaining is the missing number
 }
 ```
 
@@ -1797,20 +1797,20 @@ You must write an algorithm that runs in `O(n)` time and uses only *constant* au
 
 ```java
 public List<Integer> findDuplicates(int[] nums) {
-    int i = 0;
-    while (i < nums.length) {
-        int home = nums[i] - 1;
-        if (nums[i] != nums[home]) {
-            int t = nums[i]; nums[i] = nums[home]; nums[home] = t;
+    int i = 0; // Start at the first element
+    while (i < nums.length) { // Cyclic sort the array
+        int home = nums[i] - 1; // Calculate the target home index for the current value (1-indexed array mapped to 0-indexed)
+        if (nums[i] != nums[home]) { // If the current value is not already at its target home
+            int t = nums[i]; nums[i] = nums[home]; nums[home] = t; // Swap it to its home
         } else {
-            i++;
+            i++; // Otherwise, advance to the next element
         }
     }
-    List<Integer> res = new ArrayList<>();
-    for (int j = 0; j < nums.length; j++) {
-        if (nums[j] != j + 1) res.add(nums[j]);
+    List<Integer> res = new ArrayList<>(); // Prepare the result list
+    for (int j = 0; j < nums.length; j++) { // Scan through the array
+        if (nums[j] != j + 1) res.add(nums[j]); // If an element is not at its correct 1-indexed home, it's a duplicate
     }
-    return res;
+    return res; // Return the list of duplicates found
 }
 ```
 
@@ -1818,13 +1818,13 @@ public List<Integer> findDuplicates(int[] nums) {
 
 ```java
 public List<Integer> findDuplicatesSign(int[] nums) {
-    List<Integer> res = new ArrayList<>();
-    for (int x : nums) {
-        int idx = Math.abs(x) - 1;
-        if (nums[idx] < 0) res.add(idx + 1);
-        else nums[idx] = -nums[idx];
+    List<Integer> res = new ArrayList<>(); // Result list for duplicate numbers
+    for (int x : nums) { // Iterate through each element in the array
+        int idx = Math.abs(x) - 1; // Map the absolute value to a 0-based index
+        if (nums[idx] < 0) res.add(idx + 1); // If the value at this mapped index is already negative, we've seen this number before
+        else nums[idx] = -nums[idx]; // Otherwise, mark this number as seen by negating the value at its mapped index
     }
-    return res;
+    return res; // Return the duplicates
 }
 ```
 
@@ -1887,17 +1887,17 @@ You must implement an algorithm that runs in `O(n)` time and uses `O(1)` auxilia
 
 ```java
 public int firstMissingPositive(int[] nums) {
-    int n = nums.length, i = 0;
-    while (i < n) {
-        int home = nums[i] - 1;
-        if (nums[i] > 0 && nums[i] <= n && nums[i] != nums[home]) {
-            int t = nums[i]; nums[i] = nums[home]; nums[home] = t;
+    int n = nums.length, i = 0; // Get length and initialize index
+    while (i < n) { // Cyclic sort to place positive integers at their natural indices
+        int home = nums[i] - 1; // Target index for value v is v-1
+        if (nums[i] > 0 && nums[i] <= n && nums[i] != nums[home]) { // Only care about values in [1, n] that aren't home
+            int t = nums[i]; nums[i] = nums[home]; nums[home] = t; // Swap the current value to its rightful place
         } else {
-            i++;
+            i++; // Skip out-of-bounds numbers, duplicates, or correctly placed numbers
         }
     }
-    for (int j = 0; j < n; j++) if (nums[j] != j + 1) return j + 1;
-    return n + 1;
+    for (int j = 0; j < n; j++) if (nums[j] != j + 1) return j + 1; // Scan for the first index j that does not contain j+1
+    return n + 1; // If all 1 to n are present, the first missing positive is n+1
 }
 ```
 
@@ -1970,17 +1970,17 @@ You must solve the problem **without** modifying the array `nums` and using only
 
 ```java
 public int findDuplicate(int[] nums) {
-    int slow = nums[0], fast = nums[0];
-    do {
-        slow = nums[slow];
-        fast = nums[nums[fast]];
-    } while (slow != fast);
-    slow = nums[0];
-    while (slow != fast) {
-        slow = nums[slow];
-        fast = nums[fast];
+    int slow = nums[0], fast = nums[0]; // Initialize slow and fast pointers for cycle detection
+    do { // Phase 1: Finding the intersection point in the cycle
+        slow = nums[slow]; // Move slow pointer one step
+        fast = nums[nums[fast]]; // Move fast pointer two steps
+    } while (slow != fast); // Loop until they meet
+    slow = nums[0]; // Phase 2: Find the entrance to the cycle (the duplicate number)
+    while (slow != fast) { // Move both pointers one step at a time
+        slow = nums[slow]; // Move slow pointer
+        fast = nums[fast]; // Move fast pointer
     }
-    return slow;
+    return slow; // The meeting point is the start of the cycle, which is the duplicate number
 }
 ```
 

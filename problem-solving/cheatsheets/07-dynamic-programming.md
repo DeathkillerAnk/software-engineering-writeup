@@ -77,13 +77,27 @@ Each time you can either climb `1` or `2` steps. In how many distinct ways can y
 
 ```java
 public int climbStairs(int n) {
+    // Base case: if n is 1 or 2, the number of ways is simply n
+    // Since 1 step -> 1 way, 2 steps -> 2 ways (1+1, 2)
     if (n <= 2) return n;
-    int prev2 = 1, prev1 = 2; // ways to reach step 1 and step 2
+    
+    // We only need the last two results to compute the current one
+    // prev2 holds the ways to reach (i-2), prev1 holds the ways to reach (i-1)
+    int prev2 = 1, prev1 = 2; // Initialized for ways to reach step 1 and step 2
+    
+    // Iterate from step 3 up to the target step n
     for (int i = 3; i <= n; i++) {
+        // The current ways is the sum of ways from 1 step back and 2 steps back
         int cur = prev1 + prev2;
+        
+        // Shift our rolling window forward for the next iteration
+        // What was prev1 is now prev2
         prev2 = prev1;
+        // The newly computed cur becomes our new prev1
         prev1 = cur;
     }
+    
+    // After reaching step n, prev1 holds the answer
     return prev1;
 }
 ```
@@ -91,11 +105,19 @@ public int climbStairs(int n) {
 **Alternative (top-down memo):**
 ```java
 public int climbStairs(int n) {
+    // Initialize a memoization array of size n+1 to cache results for 0 to n
     return go(n, new int[n + 1]);
 }
+
 private int go(int n, int[] memo) {
+    // Base cases: if n <= 2, we can return n (except for 0, which is 1 way to stay)
     if (n <= 2) return n == 0 ? 1 : n;
+    
+    // If the value is non-zero in our memo array, it means we've already computed it
     if (memo[n] != 0) return memo[n];
+    
+    // Compute recursively: ways to reach n-1 plus ways to reach n-2
+    // Save the computed result in memo[n] before returning it to avoid redundant work
     return memo[n] = go(n - 1, memo) + go(n - 2, memo);
 }
 ```
@@ -151,12 +173,22 @@ Total amount you can rob = 2 + 9 + 1 = 12.
 
 ```java
 public int rob(int[] nums) {
-    int prev2 = 0, prev1 = 0; // best up to i-2 and i-1
+    // prev2 tracks the max loot from houses up to i-2
+    // prev1 tracks the max loot from houses up to i-1
+    int prev2 = 0, prev1 = 0;
+    
+    // Iterate through the value of each house
     for (int num : nums) {
+        // Decide whether to rob the current house
+        // We either skip it (keep prev1) or rob it (prev2 + current house value)
         int cur = Math.max(prev1, prev2 + num);
-        prev2 = prev1;
-        prev1 = cur;
+        
+        // Shift our DP window forward by one house
+        prev2 = prev1; // prev1 becomes the new prev2
+        prev1 = cur;   // our new max becomes the new prev1
     }
+    
+    // The final answer is stored in prev1 after processing all houses
     return prev1;
 }
 ```
@@ -221,16 +253,30 @@ Total amount you can rob = 1 + 3 = 4.
 ```java
 public int rob(int[] nums) {
     int n = nums.length;
+    // Edge case: if there's only one house, we just rob it
     if (n == 1) return nums[0];
+    
+    // Since houses are in a circle, we can't rob both the first and last houses
+    // We split into two linear problems: rob 0 to n-2, or rob 1 to n-1
+    // The overall max is the maximum of these two scenarios
     return Math.max(robLine(nums, 0, n - 2), robLine(nums, 1, n - 1));
 }
+
+// Helper method to solve the linear version of House Robber
 private int robLine(int[] nums, int lo, int hi) {
+    // prev2 stores max money from i-2, prev1 stores max money from i-1
     int prev2 = 0, prev1 = 0;
+    
+    // Iterate from our given starting index 'lo' up to 'hi'
     for (int i = lo; i <= hi; i++) {
+        // We either skip this house (take prev1), or rob it (take prev2 + nums[i])
         int cur = Math.max(prev1, prev2 + nums[i]);
+        
+        // Update variables for the next iteration
         prev2 = prev1;
         prev1 = cur;
     }
+    // Return the max money for this linear stretch
     return prev1;
 }
 ```
@@ -323,16 +369,31 @@ The test cases are generated so that the answer fits in a **32-bit** integer.
 
 ```java
 public int numDecodings(String s) {
+    // If the string starts with '0', it cannot be decoded at all
     if (s.charAt(0) == '0') return 0;
-    int prev2 = 1, prev1 = 1; // dp[0], dp[1]
+    
+    // prev2 represents dp[i-2], prev1 represents dp[i-1]
+    // Both are 1 initially: dp[0]=1 (empty string), dp[1]=1 (first valid character)
+    int prev2 = 1, prev1 = 1; 
+    
+    // Iterate starting from the second character (index 2 in 1-based logic)
     for (int i = 2; i <= s.length(); i++) {
-        int cur = 0;
-        if (s.charAt(i - 1) != '0') cur += prev1;        // single digit
+        int cur = 0; // Will hold the number of ways to decode prefix of length i
+        
+        // If the current digit is not '0', it can be decoded as a single letter
+        if (s.charAt(i - 1) != '0') cur += prev1;        
+        
+        // Form a two-digit number from the previous and current characters
         int two = (s.charAt(i - 2) - '0') * 10 + (s.charAt(i - 1) - '0');
-        if (two >= 10 && two <= 26) cur += prev2;         // two digits
+        
+        // If the two-digit number is between 10 and 26, it's a valid letter
+        if (two >= 10 && two <= 26) cur += prev2;         
+        
+        // Shift pointers for the next iteration
         prev2 = prev1;
         prev1 = cur;
     }
+    // Return the result for the full string length
     return prev1;
 }
 ```
@@ -397,12 +458,21 @@ The total cost is 6.
 
 ```java
 public int minCostClimbingStairs(int[] cost) {
+    // prev2 is the min cost to reach i-2, prev1 is the min cost to reach i-1
+    // We can start at step 0 or 1 for free, so both are 0 initially
     int prev2 = 0, prev1 = 0;
+    
+    // We loop up to cost.length because the "top" is the step *after* the last index
     for (int i = 2; i <= cost.length; i++) {
+        // To reach i, we either come from i-1 and pay cost[i-1], 
+        // or come from i-2 and pay cost[i-2]. We take the minimum.
         int cur = Math.min(prev1 + cost[i - 1], prev2 + cost[i - 2]);
+        
+        // Shift the DP state window forward
         prev2 = prev1;
         prev1 = cur;
     }
+    // The final result is the cost to reach the top, stored in prev1
     return prev1;
 }
 ```
@@ -423,12 +493,21 @@ Each item may be taken **at most once**. The state tracks which items are consid
 
 ```java
 public int knapsack(int[] wt, int[] val, int W) {
+    // DP array to store the maximum value for each capacity up to W
     int[] dp = new int[W + 1];
+    
+    // Loop over each item
     for (int i = 0; i < wt.length; i++) {
-        for (int w = W; w >= wt[i]; w--) {        // backward => each item once
+        // Iterate capacity backwards from W down to the item's weight.
+        // We go backwards to ensure we only use the current item i at most once.
+        // If we went forwards, we might add it to a state that already included it.
+        for (int w = W; w >= wt[i]; w--) {        
+            // We either skip the item (dp[w]) or take it (val[i] + dp[w - wt[i]])
             dp[w] = Math.max(dp[w], val[i] + dp[w - wt[i]]);
         }
     }
+    
+    // The max value for capacity W is our answer
     return dp[W];
 }
 ```
@@ -437,14 +516,23 @@ public int knapsack(int[] wt, int[] val, int W) {
 ```java
 public int knapsack2D(int[] wt, int[] val, int W) {
     int n = wt.length;
+    // 2D DP array: dp[i][w] is max value using first i items within capacity w
     int[][] dp = new int[n + 1][W + 1];
+    
+    // Iterate through each item (1-indexed for DP state)
     for (int i = 1; i <= n; i++) {
+        // Iterate through all possible capacities
         for (int w = 0; w <= W; w++) {
-            dp[i][w] = dp[i - 1][w];                          // skip item i
+            // Default choice: do not include the current item i
+            dp[i][w] = dp[i - 1][w];                          
+            
+            // If the current item's weight is less than or equal to current capacity
             if (w >= wt[i - 1])
+                // We choose the max of skipping it OR including it
                 dp[i][w] = Math.max(dp[i][w], val[i - 1] + dp[i - 1][w - wt[i - 1]]);
         }
     }
+    // Return max value achievable with all n items and full capacity W
     return dp[n][W];
 }
 ```
@@ -497,16 +585,30 @@ Given an integer array `nums`, return `true` *if you can partition the array int
 ```java
 public boolean canPartition(int[] nums) {
     int total = 0;
+    // Calculate the total sum of the array
     for (int n : nums) total += n;
+    
+    // If the sum is odd, it's impossible to split it into two equal integer halves
     if (total % 2 != 0) return false;
+    
+    // We want to find a subset that sums exactly to half of the total
     int target = total / 2;
+    // dp[s] will be true if a subset with sum s is possible
     boolean[] dp = new boolean[target + 1];
-    dp[0] = true;
+    dp[0] = true; // A sum of 0 is always possible with an empty subset
+    
+    // Iterate through each number in the array
     for (int num : nums) {
+        // Iterate backwards from target down to num (0/1 Knapsack optimization)
+        // Backwards ensures we only use each number once
         for (int s = target; s >= num; s--) {
+            // We can reach sum s if we could already reach it without this num,
+            // OR if we could reach (s - num) before adding this num
             dp[s] = dp[s] || dp[s - num];
         }
     }
+    
+    // Return whether the exact target sum is achievable
     return dp[target];
 }
 ```
@@ -573,16 +675,29 @@ Return the number of different **expressions** that you can build, which evaluat
 ```java
 public int findTargetSumWays(int[] nums, int target) {
     int total = 0;
+    // Calculate the sum of all elements
     for (int n : nums) total += n;
+    
+    // The target must be achievable:
+    // 1. absolute value of target cannot exceed total sum
+    // 2. (total + target) must be even (required mathematically for subset partitioning)
     if (Math.abs(target) > total || (total + target) % 2 != 0) return 0;
+    
+    // We've reduced the problem to finding subsets that sum to exactly this value
     int subset = (total + target) / 2;
+    // dp[s] will store the number of ways to reach sum s
     int[] dp = new int[subset + 1];
-    dp[0] = 1;
+    dp[0] = 1; // 1 way to reach sum 0 (empty subset)
+    
+    // Process each number
     for (int num : nums) {
+        // Iterate backwards to process each number at most once (0/1 knapsack)
         for (int s = subset; s >= num; s--) {
+            // Add the ways to reach (s - num) to the ways to reach s
             dp[s] += dp[s - num];
         }
     }
+    // Return the number of combinations that reach our target subset sum
     return dp[subset];
 }
 ```
@@ -648,19 +763,31 @@ we can combine 1 and 1 to get 0, so the array converts to [1], then that's the o
 ```java
 public int lastStoneWeightII(int[] stones) {
     int total = 0;
+    // Sum up all the stones' weights
     for (int s : stones) total += s;
+    
+    // The goal is to partition stones into two subsets whose sums are as close as possible
     int half = total / 2;
+    // dp[s] represents whether a subset sum of s is reachable
     boolean[] dp = new boolean[half + 1];
-    dp[0] = true;
+    dp[0] = true; // Sum of 0 is trivially reachable
+    
+    // For every stone, we update the reachable sums
     for (int stone : stones) {
+        // Traverse backwards to only use each stone once
         for (int s = half; s >= stone; s--) {
+            // We can form sum s if we could form s before, or if we could form s - stone
             dp[s] = dp[s] || dp[s - stone];
         }
     }
+    
+    // Find the largest reachable sum <= half
     for (int s = half; s >= 0; s--) {
+        // When we find the maximum possible sum s, the other subset has sum (total - s)
+        // The difference after all smashes is (total - s) - s = total - 2s
         if (dp[s]) return total - 2 * s;
     }
-    return total;
+    return total; // Fallback, shouldn't reach here normally
 }
 ```
 
@@ -680,14 +807,25 @@ Each item may be taken **any number of times**. The space-optimized loop iterate
 
 ```java
 public int coinChange(int[] coins, int amount) {
+    // dp array where dp[a] holds the min coins to reach amount a
     int[] dp = new int[amount + 1];
+    
+    // Fill with a sentinel value slightly larger than max possible coins
     Arrays.fill(dp, amount + 1);
-    dp[0] = 0;
+    dp[0] = 0; // 0 coins needed to reach amount 0
+    
+    // Process each coin type
     for (int coin : coins) {
+        // Iterate forwards because we can reuse the same coin multiple times
+        // This is an unbounded knapsack pattern
         for (int a = coin; a <= amount; a++) {
+            // The min coins is the smaller of what we already found, 
+            // or 1 plus the min coins for the remaining amount (a - coin)
             dp[a] = Math.min(dp[a], dp[a - coin] + 1);
         }
     }
+    
+    // If dp[amount] is still > amount, it means it was unreachable. Return -1
     return dp[amount] > amount ? -1 : dp[amount];
 }
 ```
@@ -702,13 +840,21 @@ public int coinChange(int[] coins, int amount) {
 
 ```java
 public int change(int amount, int[] coins) {
+    // dp[a] will store the total number of combinations to make amount a
     int[] dp = new int[amount + 1];
-    dp[0] = 1;
-    for (int coin : coins) {            // coins outer => combinations, not permutations
+    dp[0] = 1; // Base case: 1 way to make amount 0 (use no coins)
+    
+    // By keeping the coin loop on the outside, we enforce an order on the coins used
+    // This ensures we count combinations (e.g., 1+2), not permutations (1+2 vs 2+1)
+    for (int coin : coins) {            
+        // Iterate forwards since we can use each coin multiple times
         for (int a = coin; a <= amount; a++) {
+            // Add the combinations that form (a - coin)
             dp[a] += dp[a - coin];
         }
     }
+    
+    // The last element stores the answer for the full amount
     return dp[amount];
 }
 ```
@@ -778,13 +924,21 @@ Note that different sequences are counted as different combinations.
 
 ```java
 public int combinationSum4(int[] nums, int target) {
+    // dp[t] stores the number of valid sequences that sum up to t
     int[] dp = new int[target + 1];
-    dp[0] = 1;
-    for (int t = 1; t <= target; t++) {     // target outer => permutations
+    dp[0] = 1; // 1 way to reach sum 0
+    
+    // The target loop is on the outside. This allows us to try every number 
+    // at each step, effectively counting permutations rather than combinations.
+    for (int t = 1; t <= target; t++) {     
+        // Check every available number
         for (int num : nums) {
+            // If the number fits into our current target t, add its ways
             if (t >= num) dp[t] += dp[t - num];
         }
     }
+    
+    // dp[target] now has total permutations summing to target
     return dp[target];
 }
 ```
@@ -799,13 +953,21 @@ public int combinationSum4(int[] nums, int target) {
 
 ```java
 public int rodCutting(int[] price, int n) {
-    // price[i] = value of a piece of length i+1
+    // price[i] is the value of a piece of length i+1
+    // dp[len] will store the max revenue for a rod of length len
     int[] dp = new int[n + 1];
+    
+    // Calculate max revenue for each length from 1 up to n
     for (int len = 1; len <= n; len++) {
+        // Try making the first cut of every possible size i
         for (int i = 1; i <= len; i++) {
+            // Revenue is the price of the cut piece plus max revenue of the remaining rod
+            // Update dp[len] to keep track of the maximum revenue found
             dp[len] = Math.max(dp[len], price[i - 1] + dp[len - i]);
         }
     }
+    
+    // Return max revenue for rod of length n
     return dp[n];
 }
 ```
@@ -876,12 +1038,23 @@ Given an integer array `nums`, return *the length of the longest **strictly incr
 ```java
 public int lengthOfLIS(int[] nums) {
     int n = nums.length, best = 1;
+    // dp[i] will store the length of the longest increasing subsequence ending at index i
     int[] dp = new int[n];
+    
+    // Each single element is a valid subsequence of length 1
     Arrays.fill(dp, 1);
+    
+    // Iterate through the array starting from the second element
     for (int i = 1; i < n; i++) {
+        // Look back at all previous elements
         for (int j = 0; j < i; j++) {
-            if (nums[j] < nums[i]) dp[i] = Math.max(dp[i], dp[j] + 1);
+            // If the previous element is smaller, we can append nums[i] to its subsequence
+            if (nums[j] < nums[i]) {
+                // Update dp[i] if appending to dp[j] gives a longer subsequence
+                dp[i] = Math.max(dp[i], dp[j] + 1);
+            }
         }
+        // Keep track of the maximum length found so far
         best = Math.max(best, dp[i]);
     }
     return best;
@@ -891,18 +1064,30 @@ public int lengthOfLIS(int[] nums) {
 **Alternative (O(n log n) patience sorting):** Maintain `tails`, where `tails[k]` is the smallest possible tail of an increasing subsequence of length `k+1`. For each number, binary-search the first tail `>= num` and replace it (or append if none). The length of `tails` is the LIS length. `tails` is not a real subsequence, but its size is correct.
 ```java
 public int lengthOfLIS(int[] nums) {
+    // tails array stores the smallest tail of all increasing subsequences of length i+1
     int[] tails = new int[nums.length];
-    int size = 0;
+    int size = 0; // Current maximum length of an increasing subsequence
+    
     for (int num : nums) {
+        // We use binary search to find the insertion point for 'num' in 'tails'
         int lo = 0, hi = size;
-        while (lo < hi) {                 // find first tail >= num
+        while (lo < hi) {                 
             int mid = (lo + hi) >>> 1;
+            // If tails[mid] is smaller, num must go further to the right
             if (tails[mid] < num) lo = mid + 1;
+            // Otherwise, num can replace tails[mid] or something to the left
             else hi = mid;
         }
+        
+        // Replace the element at 'lo' with 'num'. 
+        // This keeps the tails values as small as possible, allowing for easier extensions later.
         tails[lo] = num;
+        
+        // If we appended to the end, the longest subsequence length increases
         if (lo == size) size++;
     }
+    
+    // The size of the tails array tells us the length of the longest increasing subsequence
     return size;
 }
 ```
@@ -971,15 +1156,24 @@ A **common subsequence** of two strings is a subsequence that is common to both 
 ```java
 public int longestCommonSubsequence(String a, String b) {
     int m = a.length(), n = b.length();
+    // dp[i][j] stores the LCS length for a[0..i-1] and b[0..j-1]
     int[][] dp = new int[m + 1][n + 1];
+    
+    // Loop over the first string
     for (int i = 1; i <= m; i++) {
+        // Loop over the second string
         for (int j = 1; j <= n; j++) {
+            // If the characters match, they are part of the LCS
+            // So we add 1 to the LCS of the prefixes without these characters
             if (a.charAt(i - 1) == b.charAt(j - 1))
                 dp[i][j] = dp[i - 1][j - 1] + 1;
+            // If they don't match, the LCS is the max of dropping the current char from a or from b
             else
                 dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
         }
     }
+    
+    // The answer for the full strings is in dp[m][n]
     return dp[m][n];
 }
 ```
@@ -1048,16 +1242,28 @@ exection -> execution (insert 'u')
 ```java
 public int minDistance(String a, String b) {
     int m = a.length(), n = b.length();
+    // dp[i][j] stores the min operations to convert a[0..i-1] to b[0..j-1]
     int[][] dp = new int[m + 1][n + 1];
-    for (int i = 0; i <= m; i++) dp[i][0] = i;   // delete all
-    for (int j = 0; j <= n; j++) dp[0][j] = j;   // insert all
+    
+    // Base cases: converting string 'a' of length i to an empty string requires i deletions
+    for (int i = 0; i <= m; i++) dp[i][0] = i;   
+    // Converting an empty string to string 'b' of length j requires j insertions
+    for (int j = 0; j <= n; j++) dp[0][j] = j;   
+    
     for (int i = 1; i <= m; i++) {
         for (int j = 1; j <= n; j++) {
+            // If the characters are the same, no operation is needed
+            // We just inherit the cost from the prefixes
             if (a.charAt(i - 1) == b.charAt(j - 1))
                 dp[i][j] = dp[i - 1][j - 1];
-            else
+            else {
+                // If they differ, we consider all three operations and take the min cost:
+                // dp[i-1][j-1]: replace character in 'a' to match 'b'
+                // dp[i-1][j]: delete character from 'a'
+                // dp[i][j-1]: insert character into 'a' to match 'b'
                 dp[i][j] = 1 + Math.min(dp[i - 1][j - 1],
                               Math.min(dp[i - 1][j], dp[i][j - 1]));
+            }
         }
     }
     return dp[m][n];
@@ -1123,13 +1329,26 @@ As shown below, there are 5 ways you can generate "bag" from s.
 ```java
 public int numDistinct(String s, String t) {
     int n = t.length();
+    // dp array where dp[j] stores the number of distinct subsequences matching t[0..j-1]
     long[] dp = new long[n + 1];
+    
+    // Base case: an empty string 't' can be matched exactly once by deleting all chars in 's'
     dp[0] = 1;
+    
+    // Iterate over each character in string s
     for (int i = 1; i <= s.length(); i++) {
-        for (int j = n; j >= 1; j--) {        // backward to reuse old dp[j-1]
-            if (s.charAt(i - 1) == t.charAt(j - 1)) dp[j] += dp[j - 1];
+        // Iterate backwards over string t to avoid reusing the same character from s
+        for (int j = n; j >= 1; j--) {        
+            // If the current character in s matches the current character in t
+            // we can either use it to match t[j-1] (adds dp[j-1] ways) 
+            // or choose to ignore it (which is the old value of dp[j])
+            if (s.charAt(i - 1) == t.charAt(j - 1)) {
+                dp[j] += dp[j - 1];
+            }
         }
     }
+    
+    // Return the number of ways to match the entire string t
     return (int) dp[n];
 }
 ```
@@ -1184,16 +1403,27 @@ A **subsequence** is a sequence that can be derived from another sequence by del
 ```java
 public int longestPalindromeSubseq(String s) {
     int n = s.length();
+    // dp[i][j] represents the length of the longest palindromic subsequence in s[i..j]
     int[][] dp = new int[n][n];
+    
+    // Process the intervals from shortest to longest
+    // We iterate i backwards so that dp[i+1] is already computed when we need it
     for (int i = n - 1; i >= 0; i--) {
+        // Every single character is a palindrome of length 1
         dp[i][i] = 1;
+        
+        // Check all substrings starting at i and ending at j
         for (int j = i + 1; j < n; j++) {
+            // If the ends match, they can wrap the longest palindrome of the inner substring
             if (s.charAt(i) == s.charAt(j))
                 dp[i][j] = dp[i + 1][j - 1] + 2;
+            // If they don't match, we take the max of dropping the left char or dropping the right char
             else
                 dp[i][j] = Math.max(dp[i + 1][j], dp[i][j - 1]);
         }
     }
+    
+    // The result for the whole string is stored in dp[0][n-1]
     return dp[0][n - 1];
 }
 ```
@@ -1258,19 +1488,30 @@ coins =  3*1*5    +   3*5*8   +  1*3*8  + 1*8*1 = 167
 ```java
 public int maxCoins(int[] nums) {
     int n = nums.length;
+    // Create a new array 'a' with padded 1s at both ends to handle boundary balloons
     int[] a = new int[n + 2];
     a[0] = a[n + 1] = 1;
     for (int i = 0; i < n; i++) a[i + 1] = nums[i];
+    
+    // dp[i][j] will store the max coins obtained by bursting all balloons strictly between i and j
     int[][] dp = new int[n + 2][n + 2];
-    for (int len = 2; len <= n + 1; len++) {      // distance between i and j
+    
+    // Iterate over interval lengths (len is the distance between i and j)
+    for (int len = 2; len <= n + 1; len++) {      
+        // Iterate over the start index of the interval
         for (int i = 0; i + len <= n + 1; i++) {
-            int j = i + len;
-            for (int k = i + 1; k < j; k++) {      // k = last balloon burst
+            int j = i + len; // End index of the interval
+            
+            // Try making every balloon k (between i and j) the LAST one to be burst
+            for (int k = i + 1; k < j; k++) {      
+                // When k is the last balloon, its adjacent balloons are exactly i and j
+                // We add the coins from bursting k to the best scores from the independent left and right subarrays
                 dp[i][j] = Math.max(dp[i][j],
                     a[i] * a[k] * a[j] + dp[i][k] + dp[k][j]);
             }
         }
     }
+    // The max coins for bursting everything between the padded boundaries 0 and n+1
     return dp[0][n + 1];
 }
 ```
@@ -1285,18 +1526,30 @@ public int maxCoins(int[] nums) {
 
 ```java
 public int matrixChainOrder(int[] p) {
-    int n = p.length - 1;                  // number of matrices
+    int n = p.length - 1;                  // The actual number of matrices
+    // dp[i][j] is the min scalar multiplications needed to multiply matrices i through j
     int[][] dp = new int[n + 1][n + 1];
+    
+    // 'len' is the chain length we are solving for
     for (int len = 2; len <= n; len++) {
+        // Iterate through all possible starting matrices i
         for (int i = 1; i + len - 1 <= n; i++) {
+            // j is the ending matrix for the current chain
             int j = i + len - 1;
-            dp[i][j] = Integer.MAX_VALUE;
+            dp[i][j] = Integer.MAX_VALUE; // Initialize to infinity
+            
+            // k is the split point: we multiply (A_i...A_k) with (A_{k+1}...A_j)
             for (int k = i; k < j; k++) {
+                // Cost = cost of left group + cost of right group + cost to multiply the two resulting matrices
+                // Left group dimensions: p[i-1] x p[k]. Right group: p[k] x p[j]. 
                 int cost = dp[i][k] + dp[k + 1][j] + p[i - 1] * p[k] * p[j];
+                // Keep the minimum cost found
                 dp[i][j] = Math.min(dp[i][j], cost);
             }
         }
     }
+    
+    // Return the optimal cost to multiply all n matrices
     return dp[1][n];
 }
 ```
@@ -1359,20 +1612,36 @@ Return *the **minimum** cuts needed for a palindrome partitioning of* `s`.
 ```java
 public int minCut(String s) {
     int n = s.length();
+    // pal[i][j] will be true if s[i..j] is a palindrome
     boolean[][] pal = new boolean[n][n];
+    
+    // First, precompute all palindromic substrings using Interval DP
     for (int i = n - 1; i >= 0; i--) {
         for (int j = i; j < n; j++) {
+            // It is a palindrome if outer characters match AND the inner substring is a palindrome
+            // (or length is less than 3, so there is no inner substring to worry about)
             if (s.charAt(i) == s.charAt(j) && (j - i < 2 || pal[i + 1][j - 1]))
                 pal[i][j] = true;
         }
     }
+    
+    // cut[i] will store the minimum cuts needed for the prefix s[0..i-1]
     int[] cut = new int[n + 1];
     for (int i = 1; i <= n; i++) {
-        cut[i] = i - 1;                       // worst case: cut every char
+        // Worst case: we need a cut between every single character (i chars -> i-1 cuts)
+        cut[i] = i - 1;                       
+        
+        // Try every possible last palindrome piece s[j..i-1]
         for (int j = 0; j < i; j++) {
-            if (pal[j][i - 1]) cut[i] = Math.min(cut[i], (j == 0 ? 0 : cut[j] + 1));
+            // If the piece s[j..i-1] is a valid palindrome
+            if (pal[j][i - 1]) {
+                // The cuts needed is the cuts for s[0..j-1] + 1 (for this new piece)
+                // If j == 0, the whole prefix is a palindrome, so 0 cuts needed.
+                cut[i] = Math.min(cut[i], (j == 0 ? 0 : cut[j] + 1));
+            }
         }
     }
+    // Return the minimum cuts for the entire string of length n
     return cut[n];
 }
 ```
@@ -1435,13 +1704,24 @@ The test cases are generated so that the answer will be less than or equal to `2
 
 ```java
 public int uniquePaths(int m, int n) {
+    // dp[c] represents the number of ways to reach column c in the current row
     int[] dp = new int[n];
+    
+    // Fill the first row with 1s, since there's only 1 way to reach any cell 
+    // in the first row (by strictly moving right)
     Arrays.fill(dp, 1);
+    
+    // Process each row starting from the second one (row index 1)
     for (int r = 1; r < m; r++) {
+        // Process each column starting from the second one
         for (int c = 1; c < n; c++) {
-            dp[c] += dp[c - 1];               // above + left
+            // The number of ways to reach cell (r, c) is the sum of ways to reach 
+            // the cell directly above it (which is currently stored in dp[c]) 
+            // and the cell to its left (which is dp[c - 1])
+            dp[c] += dp[c - 1];               
         }
     }
+    // After processing all rows, the last element holds the answer for bottom-right
     return dp[n - 1];
 }
 ```
@@ -1508,14 +1788,28 @@ There are two ways to reach the bottom-right corner:
 ```java
 public int uniquePathsWithObstacles(int[][] grid) {
     int n = grid[0].length;
+    // 1D DP array for space optimization; dp[c] stores ways to reach column c
     int[] dp = new int[n];
+    
+    // The starting cell has 1 path if it's not an obstacle, otherwise 0
     dp[0] = grid[0][0] == 1 ? 0 : 1;
+    
+    // Iterate through each row of the grid
     for (int[] row : grid) {
+        // Iterate through each column
         for (int c = 0; c < n; c++) {
-            if (row[c] == 1) dp[c] = 0;       // obstacle: unreachable
-            else if (c > 0) dp[c] += dp[c - 1];
+            if (row[c] == 1) {
+                // If there's an obstacle, we can't be at this cell (0 ways)
+                dp[c] = 0;       
+            } else if (c > 0) {
+                // If it's a valid cell, add the ways from the left cell
+                // The ways from the cell above are already in dp[c]
+                dp[c] += dp[c - 1];
+            }
         }
     }
+    
+    // The last element stores the ways to reach the bottom-right corner
     return dp[n - 1];
 }
 ```
@@ -1574,15 +1868,30 @@ Given a `m x n` `grid` filled with non-negative numbers, find a path from top le
 ```java
 public int minPathSum(int[][] grid) {
     int m = grid.length, n = grid[0].length;
+    // dp array to store the minimum cost to reach each cell in the current row
     int[] dp = new int[n];
+    
+    // Base case: starting cell
     dp[0] = grid[0][0];
-    for (int c = 1; c < n; c++) dp[c] = dp[c - 1] + grid[0][c];
+    
+    // Pre-fill the first row since we can only move right to reach these cells
+    for (int c = 1; c < n; c++) {
+        dp[c] = dp[c - 1] + grid[0][c];
+    }
+    
+    // Process the rest of the rows
     for (int r = 1; r < m; r++) {
+        // For the first column, we can only arrive from above
         dp[0] += grid[r][0];
+        
+        // For the remaining columns
         for (int c = 1; c < n; c++) {
+            // The cost is the cell's own value plus the cheaper of the cell above (dp[c]) or left (dp[c-1])
             dp[c] = grid[r][c] + Math.min(dp[c], dp[c - 1]);
         }
     }
+    
+    // Return the accumulated min cost for the bottom-right cell
     return dp[n - 1];
 }
 ```
@@ -1647,21 +1956,34 @@ Given an `m x n` binary `matrix` filled with `0`'s and `1`'s, *find the largest 
 
 ```java
 public int maximalSquare(char[][] matrix) {
-    int n = matrix[0].length, best = 0;
+    int n = matrix[0].length;
+    int best = 0; // Tracks the maximum side length seen so far
+    
+    // dp array will store the side length of the max square ending at column c in the current row
     int[] dp = new int[n + 1];
+    
     for (char[] row : matrix) {
-        int prev = 0;                          // dp[r-1][c-1]
+        // prev will hold the dp value from the top-left cell (dp[r-1][c-1])
+        int prev = 0;                          
         for (int c = 1; c <= n; c++) {
-            int temp = dp[c];                  // save dp[r-1][c] before overwrite
+            // Store the current value before we overwrite it, so it can be 'prev' for the next column
+            int temp = dp[c];                  
+            
+            // If the current matrix cell is '1', it can potentially form a square
             if (row[c - 1] == '1') {
+                // The side length is 1 plus the minimum of the squares above, left, and top-left
                 dp[c] = 1 + Math.min(prev, Math.min(dp[c], dp[c - 1]));
+                // Update our global max side length
                 best = Math.max(best, dp[c]);
             } else {
+                // If it's '0', the square side length ending here must be 0
                 dp[c] = 0;
             }
+            // Move 'prev' forward for the next cell's top-left reference
             prev = temp;
         }
     }
+    // The final answer is the area, so we square the maximum side length
     return best * best;
 }
 ```
@@ -1728,15 +2050,27 @@ Return *the knight's minimum initial health so that he can rescue the princess*.
 ```java
 public int calculateMinimumHP(int[][] dungeon) {
     int m = dungeon.length, n = dungeon[0].length;
+    // dp array holds the minimum health required to survive from this column to the princess
     int[] dp = new int[n + 1];
+    
+    // Fill with infinity because initially everything is unreachable
     Arrays.fill(dp, Integer.MAX_VALUE);
-    dp[n - 1] = 1;                               // sentinel just past the exit
+    // Sentinel value right past the exit: you need at least 1 HP to stay alive
+    dp[n - 1] = 1;                               
+    
+    // We iterate backwards from the bottom-right corner to the top-left
     for (int r = m - 1; r >= 0; r--) {
         for (int c = n - 1; c >= 0; c--) {
+            // Find the easiest path out of this room (min of going right or down)
+            // Then subtract the dungeon's effect. If negative (demon), it increases HP needed.
+            // If positive (potion), it decreases HP needed.
             int need = Math.min(dp[c], dp[c + 1]) - dungeon[r][c];
+            
+            // HP can never drop below 1. If a potion over-healed us to <= 0 requirement, cap it at 1.
             dp[c] = Math.max(1, need);
         }
     }
+    // Minimum initial health needed at the start cell
     return dp[0];
 }
 ```
@@ -1757,13 +2091,28 @@ State machine DP over days × (holding / not holding) × extra dimensions like r
 
 ```java
 public int maxProfit(int[] prices) {
+    // Initial states:
+    // hold: we own a stock. Starts very negative because we haven't bought yet.
+    // sold: we just sold today. Starts at 0.
+    // rest: we are resting and can buy. Starts at 0.
     int hold = Integer.MIN_VALUE, sold = 0, rest = 0;
+    
+    // Process each day's price
     for (int p : prices) {
+        // Save the previous 'sold' state because 'rest' will need it
         int prevSold = sold;
+        
+        // If we sell today, we must have been 'hold'ing yesterday. We gain price 'p'.
         sold = hold + p;
+        
+        // We either keep holding from yesterday, or we buy today from the 'rest' state.
         hold = Math.max(hold, rest - p);
+        
+        // We can reach 'rest' by either resting again, or coming off cooldown from a previous 'sold'.
         rest = Math.max(rest, prevSold);
     }
+    
+    // Max profit will always be either after just selling, or resting (not holding a stock)
     return Math.max(sold, rest);
 }
 ```
@@ -1779,21 +2128,37 @@ public int maxProfit(int[] prices) {
 ```java
 public int maxProfit(int k, int[] prices) {
     int n = prices.length;
-    if (n == 0 || k == 0) return 0;
-    if (k >= n / 2) {                            // unlimited transactions
+    if (n == 0 || k == 0) return 0; // Quick exit for empty input or 0 transactions
+    
+    // If k is large enough, we can effectively make unlimited transactions
+    // This optimization prevents Memory Limit Exceeded for large k
+    if (k >= n / 2) {                            
         int profit = 0;
+        // Greedy approach: accumulate all upward price movements
         for (int i = 1; i < n; i++)
             if (prices[i] > prices[i - 1]) profit += prices[i] - prices[i - 1];
         return profit;
     }
+    
+    // buy[t] = max profit doing exactly t transactions and currently HOLDING a stock
+    // sell[t] = max profit doing exactly t transactions and NOT holding a stock
     int[] buy = new int[k + 1], sell = new int[k + 1];
-    Arrays.fill(buy, Integer.MIN_VALUE);
+    Arrays.fill(buy, Integer.MIN_VALUE); // Initially holding is impossible
+    
+    // Iterate through prices
     for (int p : prices) {
+        // Update states for each transaction count up to k
         for (int t = 1; t <= k; t++) {
+            // buy[t] is the max of: keeping previous buy state, or buying today 
+            // after having completed (t-1) full sell transactions
             buy[t] = Math.max(buy[t], sell[t - 1] - p);
+            
+            // sell[t] is the max of: keeping previous sell state, or selling today 
+            // the stock we bought in the t-th transaction
             sell[t] = Math.max(sell[t], buy[t] + p);
         }
     }
+    // Max profit after at most k transactions ending without stock
     return sell[k];
 }
 ```
@@ -1808,11 +2173,22 @@ public int maxProfit(int k, int[] prices) {
 
 ```java
 public int maxProfit(int[] prices, int fee) {
+    // cash is max profit when NOT holding a stock
+    // hold is max profit when HOLDING a stock (initialized with buying on day 0)
     int cash = 0, hold = -prices[0];
+    
+    // Iterate from the second day
     for (int i = 1; i < prices.length; i++) {
+        // We update cash to be the max of doing nothing (keeping cash),
+        // or selling our held stock at today's price minus the transaction fee
         cash = Math.max(cash, hold + prices[i] - fee);
+        
+        // We update hold to be the max of doing nothing (keeping hold),
+        // or buying a new stock today, subtracting the price from our cash
         hold = Math.max(hold, cash - prices[i]);
     }
+    
+    // The max profit will always be when we are NOT holding a stock at the end
     return cash;
 }
 ```
@@ -1872,23 +2248,42 @@ Given an integer array `nums` and an integer `k`, return `true` if it is possibl
 ```java
 public boolean canPartitionKSubsets(int[] nums, int k) {
     int total = 0;
+    // Calculate total sum
     for (int x : nums) total += x;
+    
+    // Total sum must be perfectly divisible by k
     if (total % k != 0) return false;
+    
     int target = total / k, n = nums.length;
+    // dp array where index is the bitmask of used elements
+    // The value will be the sum of elements in the *currently forming* bucket, or -1 if unreachable
     int[] dp = new int[1 << n];
     Arrays.fill(dp, -1);
-    dp[0] = 0;                                   // empty: bucket sum 0
+    dp[0] = 0; // Empty mask means bucket sum is 0
+    
+    // Iterate through every possible subset configuration
     for (int mask = 0; mask < (1 << n); mask++) {
+        // Skip unreachable masks
         if (dp[mask] == -1) continue;
+        
+        // Try to append each unused element to the current subset
         for (int i = 0; i < n; i++) {
-            if ((mask & (1 << i)) != 0) continue;        // already used
+            // Check if the i-th element is already used in this mask
+            if ((mask & (1 << i)) != 0) continue;        
+            
+            // If adding this element doesn't exceed the target bucket size
             if (dp[mask] + nums[i] <= target) {
+                // Form the next mask with the i-th bit set
                 int next = mask | (1 << i);
+                
+                // If this state hasn't been reached yet
                 if (dp[next] == -1)
-                    dp[next] = (dp[mask] + nums[i]) % target;   // reset on full bucket
+                    // Update the running sum. If it hits target, modulo resets it to 0 for the next bucket
+                    dp[next] = (dp[mask] + nums[i]) % target;   
             }
         }
     }
+    // If the state representing all elements used (all 1s) ends with a clean 0 bucket sum, it's possible
     return dp[(1 << n) - 1] == 0;
 }
 ```
@@ -1903,23 +2298,44 @@ public boolean canPartitionKSubsets(int[] nums, int k) {
 
 ```java
 public int tsp(int[][] dist) {
-    int n = dist.length, FULL = (1 << n) - 1;
+    int n = dist.length;
+    int FULL = (1 << n) - 1; // Bitmask with all n bits set to 1
+    
+    // dp[mask][i] is the min cost to visit the set of cities in 'mask' ending at city 'i'
     int[][] dp = new int[1 << n][n];
+    
+    // Initialize all distances to 'infinity'
     for (int[] row : dp) Arrays.fill(row, Integer.MAX_VALUE / 2);
-    dp[1][0] = 0;                                 // start at city 0
+    
+    // Start at city 0: mask 1 (binary ...0001) with current city 0
+    dp[1][0] = 0;                                 
+    
+    // Loop through all possible subsets of visited cities
     for (int mask = 1; mask <= FULL; mask++) {
         for (int i = 0; i < n; i++) {
+            // Check if city 'i' is in the current 'mask' and is reachable
             if ((mask & (1 << i)) == 0 || dp[mask][i] >= Integer.MAX_VALUE / 2) continue;
+            
+            // Try to move to any unvisited city 'j'
             for (int j = 0; j < n; j++) {
+                // If 'j' is already visited in 'mask', skip
                 if ((mask & (1 << j)) != 0) continue;
+                
+                // Form new mask that includes city 'j'
                 int next = mask | (1 << j);
+                
+                // Relaxation step: update the path cost to 'next' mask ending at 'j'
                 dp[next][j] = Math.min(dp[next][j], dp[mask][i] + dist[i][j]);
             }
         }
     }
+    
     int best = Integer.MAX_VALUE;
-    for (int i = 0; i < n; i++)
+    // The tour is complete when all cities are visited (FULL mask)
+    // We must return to the start city 0 from the last visited city 'i'
+    for (int i = 0; i < n; i++) {
         best = Math.min(best, dp[FULL][i] + dist[i][0]);
+    }
     return best;
 }
 ```
@@ -1983,15 +2399,27 @@ Given the `root` of the binary tree, return *the maximum amount of money the thi
 
 ```java
 public int rob(TreeNode root) {
+    // DFS returns an array where index 0 is 'rob this node' and index 1 is 'skip this node'
     int[] r = dfs(root);
+    // Return the max of robbing the root vs skipping the root
     return Math.max(r[0], r[1]);
 }
-// returns {robThis, skipThis}
+
+// Post-order traversal helper. Returns {robThis, skipThis}
 private int[] dfs(TreeNode node) {
+    // Base case: null nodes yield 0 money in both scenarios
     if (node == null) return new int[]{0, 0};
+    
+    // Recursively solve for left and right children
     int[] L = dfs(node.left), R = dfs(node.right);
+    
+    // If we rob this node, we CANNOT rob its children. We must use their 'skip' values
     int rob = node.val + L[1] + R[1];
+    
+    // If we skip this node, its children can independently be robbed or skipped.
+    // We take the best possible combination for each child.
     int skip = Math.max(L[0], L[1]) + Math.max(R[0], R[1]);
+    
     return new int[]{rob, skip};
 }
 ```
@@ -2046,18 +2474,37 @@ Return *the minimum number of cameras needed to monitor all nodes of the tree*.
 </details>
 
 ```java
-private int cameras = 0;
+private int cameras = 0; // Global tracker for total cameras deployed
+
 public int minCameraCover(TreeNode root) {
-    if (dfs(root) == 0) cameras++;               // root uncovered -> add camera
+    // If the root is completely uncovered (state 0), we must add a camera at the root
+    if (dfs(root) == 0) cameras++;               
     return cameras;
 }
-// 0 = uncovered, 1 = covered (no camera), 2 = has camera
+
+// Possible states: 
+// 0 = uncovered (needs parent to place a camera)
+// 1 = covered (child or parent has camera, this node does not)
+// 2 = has camera (we placed a camera here)
 private int dfs(TreeNode node) {
-    if (node == null) return 1;                  // null is "covered"
+    // Null nodes don't need coverage, we treat them as "covered" to avoid forcing cameras on leaves
+    if (node == null) return 1;                  
+    
+    // Post-order traversal to process children first
     int l = dfs(node.left), r = dfs(node.right);
-    if (l == 0 || r == 0) { cameras++; return 2; }   // a child needs coverage
-    if (l == 2 || r == 2) return 1;                  // covered by a child's camera
-    return 0;                                        // both children covered, this isn't
+    
+    // If either child is uncovered, this node MUST place a camera to cover it
+    if (l == 0 || r == 0) { 
+        cameras++; 
+        return 2; // Tell parent we have a camera
+    }   
+    
+    // If either child has a camera, this node is covered by it
+    if (l == 2 || r == 2) return 1;                  
+    
+    // If both children are covered (state 1) but neither has a camera,
+    // this node is currently uncovered. Tell parent to cover us.
+    return 0;                                        
 }
 ```
 

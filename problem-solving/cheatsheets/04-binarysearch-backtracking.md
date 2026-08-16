@@ -17,13 +17,13 @@ Returns `n` if no such index. Half-open interval `[lo, hi)`.
 
 ```java
 static int lowerBound(int[] a, int target) {
-    int lo = 0, hi = a.length; // hi is exclusive
-    while (lo < hi) {
-        int mid = lo + (hi - lo) / 2;
-        if (a[mid] < target) lo = mid + 1;
-        else hi = mid;
+    int lo = 0, hi = a.length; // hi is exclusive, representing the first out-of-bounds index
+    while (lo < hi) { // Continue searching while the search space is valid
+        int mid = lo + (hi - lo) / 2; // Calculate mid safely to avoid integer overflow
+        if (a[mid] < target) lo = mid + 1; // Target must be to the right of mid, update lower bound
+        else hi = mid; // Target could be at mid or to the left, update upper bound (exclusive)
     }
-    return lo;
+    return lo; // Returns the first index where a[i] >= target
 }
 ```
 
@@ -36,13 +36,13 @@ Returns `n` if no such index.
 
 ```java
 static int upperBound(int[] a, int target) {
-    int lo = 0, hi = a.length;
-    while (lo < hi) {
-        int mid = lo + (hi - lo) / 2;
-        if (a[mid] <= target) lo = mid + 1;
-        else hi = mid;
+    int lo = 0, hi = a.length; // hi is exclusive, search range [0, n)
+    while (lo < hi) { // Search space is valid as long as lo < hi
+        int mid = lo + (hi - lo) / 2; // Midpoint calculation avoiding overflow
+        if (a[mid] <= target) lo = mid + 1; // We want strictly greater, so if <= target, target is to the right
+        else hi = mid; // a[mid] > target, so mid is a candidate, search left half
     }
-    return lo;
+    return lo; // Returns the first index where a[i] > target
 }
 ```
 
@@ -56,12 +56,12 @@ When the answer is a number in a monotonic range: `feasible(x)` is false for sma
 ```java
 // Find smallest x in [lo, hi] with feasible(x) == true.
 static int searchAnswer(int lo, int hi) {
-    while (lo < hi) {
-        int mid = lo + (hi - lo) / 2;
-        if (feasible(mid)) hi = mid;   // mid works, try smaller
-        else lo = mid + 1;             // mid too small, go bigger
+    while (lo < hi) { // Continue while range is not empty
+        int mid = lo + (hi - lo) / 2; // Safe mid calculation
+        if (feasible(mid)) hi = mid;   // mid works, try to find a smaller feasible value
+        else lo = mid + 1;             // mid is too small, target must be strictly larger
     }
-    return lo; // smallest feasible value
+    return lo; // Smallest feasible value found
 }
 ```
 
@@ -82,14 +82,14 @@ static int searchAnswer(int lo, int hi) {
 ```java
 class Solution {
     public int search(int[] nums, int target) {
-        int lo = 0, hi = nums.length - 1;
-        while (lo <= hi) {
-            int mid = lo + (hi - lo) / 2;
-            if (nums[mid] == target) return mid;
-            else if (nums[mid] < target) lo = mid + 1;
-            else hi = mid - 1;
+        int lo = 0, hi = nums.length - 1; // Inclusive search bounds [lo, hi]
+        while (lo <= hi) { // Loop until the bounds cross each other
+            int mid = lo + (hi - lo) / 2; // Find midpoint safely
+            if (nums[mid] == target) return mid; // Target found exactly at mid
+            else if (nums[mid] < target) lo = mid + 1; // Target is larger, discard left half
+            else hi = mid - 1; // Target is smaller, discard right half
         }
-        return -1;
+        return -1; // Target was not found in the array
     }
 }
 ```
@@ -155,13 +155,13 @@ You must write an algorithm with `O(log n)` runtime complexity.
 ```java
 class Solution {
     public int searchInsert(int[] nums, int target) {
-        int lo = 0, hi = nums.length; // exclusive
-        while (lo < hi) {
-            int mid = lo + (hi - lo) / 2;
-            if (nums[mid] < target) lo = mid + 1;
-            else hi = mid;
+        int lo = 0, hi = nums.length; // exclusive upper bound for possible insertion at the end
+        while (lo < hi) { // Search space [lo, hi)
+            int mid = lo + (hi - lo) / 2; // Avoid overflow calculating mid
+            if (nums[mid] < target) lo = mid + 1; // Target is strictly greater, must be inserted after mid
+            else hi = mid; // Target is <= nums[mid], insertion point is at mid or earlier
         }
-        return lo;
+        return lo; // Represents the exact insertion index
     }
 }
 ```
@@ -177,29 +177,30 @@ class Solution {
 ```java
 class Solution {
     public int[] searchRange(int[] nums, int target) {
-        int first = lowerBound(nums, target);
+        int first = lowerBound(nums, target); // Find the first occurrence (>= target)
+        // If lowerBound returns an index out of bounds, or value is not target, it doesn't exist
         if (first == nums.length || nums[first] != target)
-            return new int[]{-1, -1};
-        int last = upperBound(nums, target) - 1;
-        return new int[]{first, last};
+            return new int[]{-1, -1}; // Target not found
+        int last = upperBound(nums, target) - 1; // Find first element > target, then step back one index
+        return new int[]{first, last}; // Return the inclusive range [first, last]
     }
 
     private int lowerBound(int[] a, int t) {
-        int lo = 0, hi = a.length;
-        while (lo < hi) {
-            int mid = lo + (hi - lo) / 2;
-            if (a[mid] < t) lo = mid + 1; else hi = mid;
+        int lo = 0, hi = a.length; // Half-open interval
+        while (lo < hi) { // Narrow down the search space
+            int mid = lo + (hi - lo) / 2; // Compute mid safely
+            if (a[mid] < t) lo = mid + 1; else hi = mid; // If strictly less, search right. Else, search left (inclusive of mid)
         }
-        return lo;
+        return lo; // Index of first element >= t
     }
 
     private int upperBound(int[] a, int t) {
-        int lo = 0, hi = a.length;
-        while (lo < hi) {
-            int mid = lo + (hi - lo) / 2;
-            if (a[mid] <= t) lo = mid + 1; else hi = mid;
+        int lo = 0, hi = a.length; // Half-open interval
+        while (lo < hi) { // Narrow down search space
+            int mid = lo + (hi - lo) / 2; // Compute mid safely
+            if (a[mid] <= t) lo = mid + 1; else hi = mid; // If <= t, we must look further right for > t. Else look left
         }
-        return lo;
+        return lo; // Index of first element > t
     }
 }
 ```
@@ -268,19 +269,19 @@ You must write an algorithm with `O(log n)` runtime complexity.
 ```java
 class Solution {
     public int search(int[] nums, int target) {
-        int lo = 0, hi = nums.length - 1;
-        while (lo <= hi) {
-            int mid = lo + (hi - lo) / 2;
-            if (nums[mid] == target) return mid;
-            if (nums[lo] <= nums[mid]) {            // left half sorted
-                if (nums[lo] <= target && target < nums[mid]) hi = mid - 1;
-                else lo = mid + 1;
-            } else {                                // right half sorted
-                if (nums[mid] < target && target <= nums[hi]) lo = mid + 1;
-                else hi = mid - 1;
+        int lo = 0, hi = nums.length - 1; // Range encompasses the whole array
+        while (lo <= hi) { // Continue while the search space is valid
+            int mid = lo + (hi - lo) / 2; // Midpoint to avoid overflow
+            if (nums[mid] == target) return mid; // Found the target exactly
+            if (nums[lo] <= nums[mid]) {            // Left half is strictly sorted
+                if (nums[lo] <= target && target < nums[mid]) hi = mid - 1; // Target is in the sorted left half
+                else lo = mid + 1; // Target must be in the right half
+            } else {                                // Right half is strictly sorted
+                if (nums[mid] < target && target <= nums[hi]) lo = mid + 1; // Target is in the sorted right half
+                else hi = mid - 1; // Target must be in the left half
             }
         }
-        return -1;
+        return -1; // Target not found
     }
 }
 ```
@@ -359,13 +360,13 @@ You must write an algorithm that runs in `O(log n) time`.
 ```java
 class Solution {
     public int findMin(int[] nums) {
-        int lo = 0, hi = nums.length - 1;
-        while (lo < hi) {
-            int mid = lo + (hi - lo) / 2;
-            if (nums[mid] > nums[hi]) lo = mid + 1;
-            else hi = mid;
+        int lo = 0, hi = nums.length - 1; // Range [0, n-1]
+        while (lo < hi) { // Terminate when lo == hi, pointing to the minimum
+            int mid = lo + (hi - lo) / 2; // Avoid overflow
+            if (nums[mid] > nums[hi]) lo = mid + 1; // Minimum must be to the right of mid because the right half is unsorted/wrapped
+            else hi = mid; // Right half is sorted, minimum is at mid or to its left
         }
-        return nums[lo];
+        return nums[lo]; // lo and hi converge at the minimum
     }
 }
 ```
@@ -431,16 +432,16 @@ You must write a solution in `O(log(m * n))` time complexity.
 ```java
 class Solution {
     public boolean searchMatrix(int[][] matrix, int target) {
-        int m = matrix.length, n = matrix[0].length;
-        int lo = 0, hi = m * n - 1;
-        while (lo <= hi) {
-            int mid = lo + (hi - lo) / 2;
-            int val = matrix[mid / n][mid % n];
-            if (val == target) return true;
-            else if (val < target) lo = mid + 1;
-            else hi = mid - 1;
+        int m = matrix.length, n = matrix[0].length; // Matrix dimensions
+        int lo = 0, hi = m * n - 1; // Treat the 2D matrix as a 1D array of size m*n
+        while (lo <= hi) { // Standard binary search loop
+            int mid = lo + (hi - lo) / 2; // Find the 1D midpoint
+            int val = matrix[mid / n][mid % n]; // Map 1D mid back to 2D coordinates
+            if (val == target) return true; // Found the target
+            else if (val < target) lo = mid + 1; // Look in the right half
+            else hi = mid - 1; // Look in the left half
         }
-        return false;
+        return false; // Target not found in the matrix
     }
 }
 ```
@@ -507,14 +508,14 @@ Write an efficient algorithm that searches for a value `target` in an `m x n` in
 ```java
 class Solution {
     public boolean searchMatrix(int[][] matrix, int target) {
-        int r = 0, c = matrix[0].length - 1;
-        while (r < matrix.length && c >= 0) {
-            int val = matrix[r][c];
-            if (val == target) return true;
-            else if (val > target) c--;
-            else r++;
+        int r = 0, c = matrix[0].length - 1; // Start from top-right corner
+        while (r < matrix.length && c >= 0) { // Continue as long as we are within matrix bounds
+            int val = matrix[r][c]; // Get current value
+            if (val == target) return true; // Target found
+            else if (val > target) c--; // Current value is too large, eliminate current column (move left)
+            else r++; // Current value is too small, eliminate current row (move down)
         }
-        return false;
+        return false; // Traversed out of bounds without finding target
     }
 }
 ```
@@ -577,28 +578,28 @@ The overall run time complexity should be `O(log (m+n))`.
 ```java
 class Solution {
     public double findMedianSortedArrays(int[] A, int[] B) {
-        if (A.length > B.length) { int[] t = A; A = B; B = t; }
-        int m = A.length, n = B.length, half = (m + n + 1) / 2;
-        int lo = 0, hi = m;
-        while (lo <= hi) {
-            int i = lo + (hi - lo) / 2; // cut in A
-            int j = half - i;           // cut in B
-            int maxLeftA  = (i == 0) ? Integer.MIN_VALUE : A[i - 1];
-            int minRightA = (i == m) ? Integer.MAX_VALUE : A[i];
-            int maxLeftB  = (j == 0) ? Integer.MIN_VALUE : B[j - 1];
-            int minRightB = (j == n) ? Integer.MAX_VALUE : B[j];
-            if (maxLeftA <= minRightB && maxLeftB <= minRightA) {
-                if (((m + n) & 1) == 1)
-                    return Math.max(maxLeftA, maxLeftB);
-                return (Math.max(maxLeftA, maxLeftB)
-                      + Math.min(minRightA, minRightB)) / 2.0;
-            } else if (maxLeftA > minRightB) {
-                hi = i - 1;
-            } else {
-                lo = i + 1;
+        if (A.length > B.length) { int[] t = A; A = B; B = t; } // Ensure A is the smaller array to minimize binary search range
+        int m = A.length, n = B.length, half = (m + n + 1) / 2; // Calculate half length for partitioning
+        int lo = 0, hi = m; // Binary search range on array A
+        while (lo <= hi) { // Binary search for the correct partition
+            int i = lo + (hi - lo) / 2; // Cut in A
+            int j = half - i;           // Cut in B is complementary to maintain equal left and right sizes
+            int maxLeftA  = (i == 0) ? Integer.MIN_VALUE : A[i - 1]; // Max element in left of A
+            int minRightA = (i == m) ? Integer.MAX_VALUE : A[i];     // Min element in right of A
+            int maxLeftB  = (j == 0) ? Integer.MIN_VALUE : B[j - 1]; // Max element in left of B
+            int minRightB = (j == n) ? Integer.MAX_VALUE : B[j];     // Min element in right of B
+            if (maxLeftA <= minRightB && maxLeftB <= minRightA) { // Partition is correct!
+                if (((m + n) & 1) == 1) // Total length is odd
+                    return Math.max(maxLeftA, maxLeftB); // Median is the max of the left partition
+                return (Math.max(maxLeftA, maxLeftB) // Total length is even
+                      + Math.min(minRightA, minRightB)) / 2.0; // Average of max left and min right
+            } else if (maxLeftA > minRightB) { // A's left part is too big
+                hi = i - 1; // Move partition in A to the left
+            } else { // B's left part is too big
+                lo = i + 1; // Move partition in A to the right
             }
         }
-        throw new IllegalArgumentException("Input arrays not sorted");
+        throw new IllegalArgumentException("Input arrays not sorted"); // Given constraints, should not be reached
     }
 }
 ```
@@ -672,20 +673,20 @@ Return *the minimum integer* `k` *such that she can eat all the bananas within* 
 ```java
 class Solution {
     public int minEatingSpeed(int[] piles, int h) {
-        int lo = 1, hi = 0;
-        for (int p : piles) hi = Math.max(hi, p);
-        while (lo < hi) {
-            int mid = lo + (hi - lo) / 2;
-            if (hoursNeeded(piles, mid) <= h) hi = mid;
-            else lo = mid + 1;
+        int lo = 1, hi = 0; // Speeds range from 1 to max(piles)
+        for (int p : piles) hi = Math.max(hi, p); // Find the maximum pile size for the upper bound
+        while (lo < hi) { // Binary search for the optimal speed
+            int mid = lo + (hi - lo) / 2; // Try middle speed
+            if (hoursNeeded(piles, mid) <= h) hi = mid; // Can eat within h hours, try a slower speed
+            else lo = mid + 1; // Cannot eat within h hours, must eat faster
         }
-        return lo;
+        return lo; // Minimum valid eating speed
     }
 
     private long hoursNeeded(int[] piles, int k) {
-        long hours = 0;
-        for (int p : piles) hours += (p + k - 1) / k; // ceil division
-        return hours;
+        long hours = 0; // Track total hours needed with speed k
+        for (int p : piles) hours += (p + k - 1) / k; // ceil division: mathematically equivalent to ceil(p / k)
+        return hours; // Return total hours
     }
 }
 ```
@@ -766,23 +767,23 @@ Note that the cargo must be shipped in the order given, so using a ship of capac
 ```java
 class Solution {
     public int shipWithinDays(int[] weights, int days) {
-        int lo = 0, hi = 0;
-        for (int w : weights) { lo = Math.max(lo, w); hi += w; }
-        while (lo < hi) {
-            int mid = lo + (hi - lo) / 2;
-            if (daysNeeded(weights, mid) <= days) hi = mid;
-            else lo = mid + 1;
+        int lo = 0, hi = 0; // min capacity is max(weights), max capacity is sum(weights)
+        for (int w : weights) { lo = Math.max(lo, w); hi += w; } // Find bounds for binary search
+        while (lo < hi) { // Binary search on capacity
+            int mid = lo + (hi - lo) / 2; // Midpoint capacity
+            if (daysNeeded(weights, mid) <= days) hi = mid; // Capacity is sufficient, try smaller
+            else lo = mid + 1; // Capacity is too small, need larger
         }
-        return lo;
+        return lo; // Smallest capacity to ship within 'days' days
     }
 
     private int daysNeeded(int[] weights, int cap) {
-        int days = 1, load = 0;
-        for (int w : weights) {
-            if (load + w > cap) { days++; load = 0; }
-            load += w;
+        int days = 1, load = 0; // Start with 1 day and 0 initial load
+        for (int w : weights) { // Add each package
+            if (load + w > cap) { days++; load = 0; } // Ship is full, start a new day
+            load += w; // Load package onto the current day's ship
         }
-        return days;
+        return days; // Total days needed for given capacity
     }
 }
 ```
@@ -843,23 +844,23 @@ The best way is to split it into [1,2,3] and [4,5], where the largest sum among 
 ```java
 class Solution {
     public int splitArray(int[] nums, int k) {
-        int lo = 0, hi = 0;
-        for (int x : nums) { lo = Math.max(lo, x); hi += x; }
-        while (lo < hi) {
-            int mid = lo + (hi - lo) / 2;
-            if (partitions(nums, mid) <= k) hi = mid;
-            else lo = mid + 1;
+        int lo = 0, hi = 0; // Minimum possible max-sum is max(nums), maximum is sum(nums)
+        for (int x : nums) { lo = Math.max(lo, x); hi += x; } // Initialize bounds
+        while (lo < hi) { // Binary search for the minimized largest sum
+            int mid = lo + (hi - lo) / 2; // Test a candidate max-sum
+            if (partitions(nums, mid) <= k) hi = mid; // Can split into <= k parts, try a tighter sum
+            else lo = mid + 1; // Need more than k parts, candidate sum is too small
         }
-        return lo;
+        return lo; // The minimized largest sum
     }
 
     private int partitions(int[] nums, int maxSum) {
-        int count = 1, sum = 0;
-        for (int x : nums) {
-            if (sum + x > maxSum) { count++; sum = 0; }
-            sum += x;
+        int count = 1, sum = 0; // Need at least 1 partition
+        for (int x : nums) { // Add numbers to the current partition
+            if (sum + x > maxSum) { count++; sum = 0; } // Exceeds limit, start a new partition
+            sum += x; // Add to current partition
         }
-        return count;
+        return count; // Total partitions needed
     }
 }
 ```
@@ -918,13 +919,13 @@ You must write an algorithm that runs in `O(log n)` time.
 ```java
 class Solution {
     public int findPeakElement(int[] nums) {
-        int lo = 0, hi = nums.length - 1;
-        while (lo < hi) {
-            int mid = lo + (hi - lo) / 2;
-            if (nums[mid] < nums[mid + 1]) lo = mid + 1;
-            else hi = mid;
+        int lo = 0, hi = nums.length - 1; // Range encompasses the whole array
+        while (lo < hi) { // Converge to a single peak element
+            int mid = lo + (hi - lo) / 2; // Find midpoint
+            if (nums[mid] < nums[mid + 1]) lo = mid + 1; // Ascending slope, a peak must exist to the right
+            else hi = mid; // Descending slope (or flat), a peak must exist at mid or to the left
         }
-        return lo;
+        return lo; // Returns the index of any peak
     }
 }
 ```
@@ -942,15 +943,15 @@ class Solution {
 
 ```java
 void backtrack(State state, List<Solution> results) {
-    if (isComplete(state)) {
-        results.add(snapshot(state)); // copy current state
-        return;
+    if (isComplete(state)) { // Base case: the current state is a valid, complete solution
+        results.add(snapshot(state)); // Add a copy of the state to the results to prevent reference mutation
+        return; // Backtrack
     }
-    for (Choice choice : choices(state)) {
-        if (!valid(state, choice)) continue;
-        apply(state, choice);          // make the choice
-        backtrack(state, results);     // recurse
-        undo(state, choice);           // undo the choice
+    for (Choice choice : choices(state)) { // Iterate over all possible choices from the current state
+        if (!valid(state, choice)) continue; // Prune: skip invalid choices
+        apply(state, choice);          // Make the choice (mutate state)
+        backtrack(state, results);     // Recurse deeper with the new state
+        undo(state, choice);           // Undo the choice (backtrack) to explore other branches
     }
 }
 ```
@@ -1006,18 +1007,18 @@ The solution set **must not** contain duplicate subsets. Return the solution in 
 ```java
 class Solution {
     public List<List<Integer>> subsets(int[] nums) {
-        List<List<Integer>> res = new ArrayList<>();
-        backtrack(nums, 0, new ArrayList<>(), res);
-        return res;
+        List<List<Integer>> res = new ArrayList<>(); // To store all subsets
+        backtrack(nums, 0, new ArrayList<>(), res); // Start backtracking from index 0
+        return res; // Return the power set
     }
 
     private void backtrack(int[] nums, int start, List<Integer> path,
                            List<List<Integer>> res) {
-        res.add(new ArrayList<>(path));
-        for (int i = start; i < nums.length; i++) {
-            path.add(nums[i]);
-            backtrack(nums, i + 1, path, res);
-            path.remove(path.size() - 1);
+        res.add(new ArrayList<>(path)); // Every node in the recursion tree is a valid subset
+        for (int i = start; i < nums.length; i++) { // Explore further elements to add
+            path.add(nums[i]); // Include nums[i]
+            backtrack(nums, i + 1, path, res); // Recurse with nums[i] included
+            path.remove(path.size() - 1); // Exclude nums[i] and backtrack
         }
     }
 }
@@ -1034,20 +1035,20 @@ class Solution {
 ```java
 class Solution {
     public List<List<Integer>> subsetsWithDup(int[] nums) {
-        Arrays.sort(nums);
-        List<List<Integer>> res = new ArrayList<>();
-        backtrack(nums, 0, new ArrayList<>(), res);
+        Arrays.sort(nums); // Sort to group duplicates together
+        List<List<Integer>> res = new ArrayList<>(); // To store unique subsets
+        backtrack(nums, 0, new ArrayList<>(), res); // Start backtracking
         return res;
     }
 
     private void backtrack(int[] nums, int start, List<Integer> path,
                            List<List<Integer>> res) {
-        res.add(new ArrayList<>(path));
-        for (int i = start; i < nums.length; i++) {
-            if (i > start && nums[i] == nums[i - 1]) continue;
-            path.add(nums[i]);
-            backtrack(nums, i + 1, path, res);
-            path.remove(path.size() - 1);
+        res.add(new ArrayList<>(path)); // Add current subset
+        for (int i = start; i < nums.length; i++) { // Iterate over remaining choices
+            if (i > start && nums[i] == nums[i - 1]) continue; // Skip duplicates at the same tree depth
+            path.add(nums[i]); // Include the element
+            backtrack(nums, i + 1, path, res); // Recurse for the next elements
+            path.remove(path.size() - 1); // Backtrack
         }
     }
 }
@@ -1107,24 +1108,24 @@ Given an array `nums` of distinct integers, return all the possible <span data-k
 ```java
 class Solution {
     public List<List<Integer>> permute(int[] nums) {
-        List<List<Integer>> res = new ArrayList<>();
-        backtrack(nums, new boolean[nums.length], new ArrayList<>(), res);
+        List<List<Integer>> res = new ArrayList<>(); // To store permutations
+        backtrack(nums, new boolean[nums.length], new ArrayList<>(), res); // used[] tracks chosen elements
         return res;
     }
 
     private void backtrack(int[] nums, boolean[] used, List<Integer> path,
                            List<List<Integer>> res) {
-        if (path.size() == nums.length) {
-            res.add(new ArrayList<>(path));
+        if (path.size() == nums.length) { // Base case: permutation is complete
+            res.add(new ArrayList<>(path)); // Add a copy of the path
             return;
         }
-        for (int i = 0; i < nums.length; i++) {
-            if (used[i]) continue;
-            used[i] = true;
-            path.add(nums[i]);
-            backtrack(nums, used, path, res);
-            path.remove(path.size() - 1);
-            used[i] = false;
+        for (int i = 0; i < nums.length; i++) { // Iterate through all elements for the next position
+            if (used[i]) continue; // Skip if already used in the current permutation
+            used[i] = true; // Mark as used
+            path.add(nums[i]); // Append to the current permutation path
+            backtrack(nums, used, path, res); // Recurse to fill the next position
+            path.remove(path.size() - 1); // Backtrack: remove from path
+            used[i] = false; // Backtrack: mark as unused
         }
     }
 }
@@ -1141,26 +1142,28 @@ class Solution {
 ```java
 class Solution {
     public List<List<Integer>> permuteUnique(int[] nums) {
-        Arrays.sort(nums);
-        List<List<Integer>> res = new ArrayList<>();
-        backtrack(nums, new boolean[nums.length], new ArrayList<>(), res);
+        Arrays.sort(nums); // Sort to bring duplicates together
+        List<List<Integer>> res = new ArrayList<>(); // To store unique permutations
+        backtrack(nums, new boolean[nums.length], new ArrayList<>(), res); // Track used indices
         return res;
     }
 
     private void backtrack(int[] nums, boolean[] used, List<Integer> path,
                            List<List<Integer>> res) {
-        if (path.size() == nums.length) {
-            res.add(new ArrayList<>(path));
+        if (path.size() == nums.length) { // Base case: full permutation built
+            res.add(new ArrayList<>(path)); // Add copy of the result
             return;
         }
-        for (int i = 0; i < nums.length; i++) {
-            if (used[i]) continue;
+        for (int i = 0; i < nums.length; i++) { // Try all elements
+            if (used[i]) continue; // Skip already used elements in this path
+            // Skip duplicates: if the previous identical element wasn't used in this branch,
+            // using the current one would create a duplicate permutation at this position.
             if (i > 0 && nums[i] == nums[i - 1] && !used[i - 1]) continue;
-            used[i] = true;
-            path.add(nums[i]);
-            backtrack(nums, used, path, res);
-            path.remove(path.size() - 1);
-            used[i] = false;
+            used[i] = true; // Choose the element
+            path.add(nums[i]); // Add to permutation
+            backtrack(nums, used, path, res); // Recurse
+            path.remove(path.size() - 1); // Undo choice (backtrack)
+            used[i] = false; // Mark as unused again
         }
     }
 }
@@ -1217,22 +1220,22 @@ Note that combinations are unordered, i.e., [1,2] and [2,1] are considered to be
 ```java
 class Solution {
     public List<List<Integer>> combine(int n, int k) {
-        List<List<Integer>> res = new ArrayList<>();
-        backtrack(n, k, 1, new ArrayList<>(), res);
+        List<List<Integer>> res = new ArrayList<>(); // To store all combinations
+        backtrack(n, k, 1, new ArrayList<>(), res); // Start choosing from number 1
         return res;
     }
 
     private void backtrack(int n, int k, int start, List<Integer> path,
                            List<List<Integer>> res) {
-        if (path.size() == k) {
-            res.add(new ArrayList<>(path));
+        if (path.size() == k) { // Base case: combination of size k is formed
+            res.add(new ArrayList<>(path)); // Add to results
             return;
         }
-        // prune: need (k - path.size()) more numbers
-        for (int i = start; i <= n - (k - path.size()) + 1; i++) {
-            path.add(i);
-            backtrack(n, k, i + 1, path, res);
-            path.remove(path.size() - 1);
+        // prune: need (k - path.size()) more numbers, so if remaining numbers in [i, n] are not enough, stop.
+        for (int i = start; i <= n - (k - path.size()) + 1; i++) { // Iterate valid range to pick the next number
+            path.add(i); // Pick number i
+            backtrack(n, k, i + 1, path, res); // Recurse, next number must be strictly greater (i + 1)
+            path.remove(path.size() - 1); // Backtrack
         }
     }
 }
@@ -1305,20 +1308,20 @@ These are the only two combinations.
 ```java
 class Solution {
     public List<List<Integer>> combinationSum(int[] candidates, int target) {
-        List<List<Integer>> res = new ArrayList<>();
-        Arrays.sort(candidates);
-        backtrack(candidates, target, 0, new ArrayList<>(), res);
+        List<List<Integer>> res = new ArrayList<>(); // To store the combinations
+        Arrays.sort(candidates); // Sort to enable early pruning
+        backtrack(candidates, target, 0, new ArrayList<>(), res); // Start from index 0
         return res;
     }
 
     private void backtrack(int[] c, int remain, int start, List<Integer> path,
                            List<List<Integer>> res) {
-        if (remain == 0) { res.add(new ArrayList<>(path)); return; }
-        for (int i = start; i < c.length; i++) {
-            if (c[i] > remain) break;          // sorted: rest are larger too
-            path.add(c[i]);
-            backtrack(c, remain - c[i], i, path, res); // reuse: stay at i
-            path.remove(path.size() - 1);
+        if (remain == 0) { res.add(new ArrayList<>(path)); return; } // Target reached
+        for (int i = start; i < c.length; i++) { // Try starting from 'start' to allow reuse but avoid permutations
+            if (c[i] > remain) break;          // sorted: rest are larger too, prune branch
+            path.add(c[i]); // Choose the candidate
+            backtrack(c, remain - c[i], i, path, res); // reuse: stay at i (allow picking the same element again)
+            path.remove(path.size() - 1); // Backtrack
         }
     }
 }
@@ -1386,21 +1389,21 @@ Each number in `candidates` may only be used **once** in the combination.
 ```java
 class Solution {
     public List<List<Integer>> combinationSum2(int[] candidates, int target) {
-        List<List<Integer>> res = new ArrayList<>();
-        Arrays.sort(candidates);
-        backtrack(candidates, target, 0, new ArrayList<>(), res);
+        List<List<Integer>> res = new ArrayList<>(); // Store the valid combinations
+        Arrays.sort(candidates); // Sort to group duplicates and enable pruning
+        backtrack(candidates, target, 0, new ArrayList<>(), res); // Start search
         return res;
     }
 
     private void backtrack(int[] c, int remain, int start, List<Integer> path,
                            List<List<Integer>> res) {
-        if (remain == 0) { res.add(new ArrayList<>(path)); return; }
-        for (int i = start; i < c.length; i++) {
-            if (i > start && c[i] == c[i - 1]) continue;
-            if (c[i] > remain) break;
-            path.add(c[i]);
-            backtrack(c, remain - c[i], i + 1, path, res); // no reuse
-            path.remove(path.size() - 1);
+        if (remain == 0) { res.add(new ArrayList<>(path)); return; } // Found a valid combination
+        for (int i = start; i < c.length; i++) { // Iterate through candidates
+            if (i > start && c[i] == c[i - 1]) continue; // Skip duplicates at the same depth to ensure unique combinations
+            if (c[i] > remain) break; // Prune: current candidate is too large, subsequent ones will be larger
+            path.add(c[i]); // Select candidate
+            backtrack(c, remain - c[i], i + 1, path, res); // no reuse: move to i + 1
+            path.remove(path.size() - 1); // Backtrack
         }
     }
 }
@@ -1455,24 +1458,24 @@ A mapping of digits to letters (just like on the telephone buttons) is given bel
 ```java
 class Solution {
     private static final String[] MAP = {
-        "", "", "abc", "def", "ghi", "jkl", "mno", "pqrs", "tuv", "wxyz"
+        "", "", "abc", "def", "ghi", "jkl", "mno", "pqrs", "tuv", "wxyz" // Digit to letters mapping
     };
 
     public List<String> letterCombinations(String digits) {
-        List<String> res = new ArrayList<>();
-        if (digits.isEmpty()) return res;
-        backtrack(digits, 0, new StringBuilder(), res);
+        List<String> res = new ArrayList<>(); // Resulting combinations
+        if (digits.isEmpty()) return res; // Handle edge case
+        backtrack(digits, 0, new StringBuilder(), res); // Start from the 0th digit
         return res;
     }
 
     private void backtrack(String digits, int idx, StringBuilder sb,
                            List<String> res) {
-        if (idx == digits.length()) { res.add(sb.toString()); return; }
-        String letters = MAP[digits.charAt(idx) - '0'];
-        for (char ch : letters.toCharArray()) {
-            sb.append(ch);
-            backtrack(digits, idx + 1, sb, res);
-            sb.deleteCharAt(sb.length() - 1);
+        if (idx == digits.length()) { res.add(sb.toString()); return; } // Reached the end of the digit string
+        String letters = MAP[digits.charAt(idx) - '0']; // Get the letters mapped to the current digit
+        for (char ch : letters.toCharArray()) { // Try all possible letters for this digit
+            sb.append(ch); // Append letter
+            backtrack(digits, idx + 1, sb, res); // Move to the next digit
+            sb.deleteCharAt(sb.length() - 1); // Backtrack
         }
     }
 }
@@ -1520,23 +1523,23 @@ Given `n` pairs of parentheses, write a function to *generate all combinations o
 ```java
 class Solution {
     public List<String> generateParenthesis(int n) {
-        List<String> res = new ArrayList<>();
-        backtrack(n, n, new StringBuilder(), res);
+        List<String> res = new ArrayList<>(); // To store all valid combinations
+        backtrack(n, n, new StringBuilder(), res); // Start with 'n' open and 'n' close parentheses available
         return res;
     }
 
     private void backtrack(int open, int close, StringBuilder sb,
                            List<String> res) {
-        if (open == 0 && close == 0) { res.add(sb.toString()); return; }
-        if (open > 0) {
-            sb.append('(');
-            backtrack(open - 1, close, sb, res);
-            sb.deleteCharAt(sb.length() - 1);
+        if (open == 0 && close == 0) { res.add(sb.toString()); return; } // Base case: all parentheses used
+        if (open > 0) { // Can always add an open parenthesis if we have some left
+            sb.append('('); // Add open parenthesis
+            backtrack(open - 1, close, sb, res); // Recurse with one less open parenthesis available
+            sb.deleteCharAt(sb.length() - 1); // Backtrack
         }
-        if (close > open) {
-            sb.append(')');
-            backtrack(open, close - 1, sb, res);
-            sb.deleteCharAt(sb.length() - 1);
+        if (close > open) { // Can only add a close parenthesis if it has a matching open one already placed
+            sb.append(')'); // Add close parenthesis
+            backtrack(open, close - 1, sb, res); // Recurse with one less close parenthesis available
+            sb.deleteCharAt(sb.length() - 1); // Backtrack
         }
     }
 }
@@ -1586,25 +1589,25 @@ Given a string `s`, partition `s` such that every <span data-keyword="substring-
 ```java
 class Solution {
     public List<List<String>> partition(String s) {
-        List<List<String>> res = new ArrayList<>();
-        backtrack(s, 0, new ArrayList<>(), res);
+        List<List<String>> res = new ArrayList<>(); // To store the partitions
+        backtrack(s, 0, new ArrayList<>(), res); // Start backtracking from index 0
         return res;
     }
 
     private void backtrack(String s, int start, List<String> path,
                            List<List<String>> res) {
-        if (start == s.length()) { res.add(new ArrayList<>(path)); return; }
-        for (int i = start; i < s.length(); i++) {
-            if (!isPalindrome(s, start, i)) continue;
-            path.add(s.substring(start, i + 1));
-            backtrack(s, i + 1, path, res);
-            path.remove(path.size() - 1);
+        if (start == s.length()) { res.add(new ArrayList<>(path)); return; } // Reached the end of the string
+        for (int i = start; i < s.length(); i++) { // Try every possible end index for the current palindrome
+            if (!isPalindrome(s, start, i)) continue; // If the substring is not a palindrome, it's an invalid cut
+            path.add(s.substring(start, i + 1)); // Add the valid palindrome segment
+            backtrack(s, i + 1, path, res); // Recurse on the remaining part of the string
+            path.remove(path.size() - 1); // Backtrack
         }
     }
 
     private boolean isPalindrome(String s, int l, int r) {
-        while (l < r) if (s.charAt(l++) != s.charAt(r--)) return false;
-        return true;
+        while (l < r) if (s.charAt(l++) != s.charAt(r--)) return false; // Check characters from both ends
+        return true; // Characters match, it's a palindrome
     }
 }
 ```
@@ -1680,25 +1683,27 @@ The word can be constructed from letters of sequentially adjacent cells, where a
 ```java
 class Solution {
     public boolean exist(char[][] board, String word) {
-        int m = board.length, n = board[0].length;
-        for (int r = 0; r < m; r++)
-            for (int c = 0; c < n; c++)
-                if (dfs(board, word, 0, r, c)) return true;
-        return false;
+        int m = board.length, n = board[0].length; // Get board dimensions
+        for (int r = 0; r < m; r++) // Iterate through every row
+            for (int c = 0; c < n; c++) // Iterate through every column
+                if (dfs(board, word, 0, r, c)) return true; // Start DFS, return early if found
+        return false; // Word not found anywhere
     }
 
     private boolean dfs(char[][] b, String w, int idx, int r, int c) {
-        if (idx == w.length()) return true;
+        if (idx == w.length()) return true; // Base case: all characters in the word have been matched
+        // Check out of bounds or character mismatch
         if (r < 0 || c < 0 || r >= b.length || c >= b[0].length
-            || b[r][c] != w.charAt(idx)) return false;
-        char tmp = b[r][c];
-        b[r][c] = '#'; // mark visited
+            || b[r][c] != w.charAt(idx)) return false; 
+        char tmp = b[r][c]; // Store original character
+        b[r][c] = '#'; // Mark cell as visited to avoid reusing it in the same path
+        // Explore all 4 adjacent directions (down, up, right, left)
         boolean found = dfs(b, w, idx + 1, r + 1, c)
                      || dfs(b, w, idx + 1, r - 1, c)
                      || dfs(b, w, idx + 1, r, c + 1)
                      || dfs(b, w, idx + 1, r, c - 1);
-        b[r][c] = tmp; // restore
-        return found;
+        b[r][c] = tmp; // Restore the cell's original character (backtrack)
+        return found; // Return if the word was found along any of these paths
     }
 }
 ```
@@ -1753,36 +1758,36 @@ Each solution contains a distinct board configuration of the n-queens' placement
 ```java
 class Solution {
     public List<List<String>> solveNQueens(int n) {
-        List<List<String>> res = new ArrayList<>();
-        int[] queens = new int[n];        // queens[r] = column
-        boolean[] cols = new boolean[n];
-        boolean[] diag = new boolean[2 * n];  // row + col
-        boolean[] anti = new boolean[2 * n];  // row - col + n
-        backtrack(0, n, queens, cols, diag, anti, res);
+        List<List<String>> res = new ArrayList<>(); // To store valid board configurations
+        int[] queens = new int[n];        // queens[r] = column: array maps row to column index of the queen
+        boolean[] cols = new boolean[n]; // Tracks columns that already have a queen
+        boolean[] diag = new boolean[2 * n];  // row + col: tracks one set of diagonals
+        boolean[] anti = new boolean[2 * n];  // row - col + n: tracks the other set of diagonals
+        backtrack(0, n, queens, cols, diag, anti, res); // Start placing queens from row 0
         return res;
     }
 
     private void backtrack(int row, int n, int[] queens, boolean[] cols,
                            boolean[] diag, boolean[] anti,
                            List<List<String>> res) {
-        if (row == n) { res.add(build(queens, n)); return; }
-        for (int col = 0; col < n; col++) {
-            int d = row + col, a = row - col + n;
-            if (cols[col] || diag[d] || anti[a]) continue;
-            queens[row] = col;
-            cols[col] = diag[d] = anti[a] = true;
-            backtrack(row + 1, n, queens, cols, diag, anti, res);
-            cols[col] = diag[d] = anti[a] = false;
+        if (row == n) { res.add(build(queens, n)); return; } // All queens placed successfully
+        for (int col = 0; col < n; col++) { // Try placing a queen in each column of the current row
+            int d = row + col, a = row - col + n; // Calculate diagonal identifiers
+            if (cols[col] || diag[d] || anti[a]) continue; // Check if the position is under attack
+            queens[row] = col; // Place queen
+            cols[col] = diag[d] = anti[a] = true; // Mark column and diagonals as attacked
+            backtrack(row + 1, n, queens, cols, diag, anti, res); // Recurse to the next row
+            cols[col] = diag[d] = anti[a] = false; // Backtrack: remove queen and unmark attacks
         }
     }
 
     private List<String> build(int[] queens, int n) {
-        List<String> board = new ArrayList<>();
-        for (int r = 0; r < n; r++) {
-            char[] line = new char[n];
-            Arrays.fill(line, '.');
-            line[queens[r]] = 'Q';
-            board.add(new String(line));
+        List<String> board = new ArrayList<>(); // Construct string representation of the board
+        for (int r = 0; r < n; r++) { // Iterate rows
+            char[] line = new char[n]; // Create an empty row
+            Arrays.fill(line, '.'); // Fill with empty spaces
+            line[queens[r]] = 'Q'; // Place the queen
+            board.add(new String(line)); // Add row to the board
         }
         return board;
     }
@@ -1847,32 +1852,32 @@ The `'.'` character indicates empty cells.
 ```java
 class Solution {
     public void solveSudoku(char[][] board) {
-        solve(board);
+        solve(board); // Start solving
     }
 
     private boolean solve(char[][] b) {
-        for (int r = 0; r < 9; r++) {
-            for (int c = 0; c < 9; c++) {
-                if (b[r][c] != '.') continue;
-                for (char d = '1'; d <= '9'; d++) {
-                    if (!valid(b, r, c, d)) continue;
-                    b[r][c] = d;
-                    if (solve(b)) return true;
-                    b[r][c] = '.';
+        for (int r = 0; r < 9; r++) { // Iterate rows
+            for (int c = 0; c < 9; c++) { // Iterate columns
+                if (b[r][c] != '.') continue; // Skip already filled cells
+                for (char d = '1'; d <= '9'; d++) { // Try placing digits '1' through '9'
+                    if (!valid(b, r, c, d)) continue; // Skip invalid digits based on Sudoku rules
+                    b[r][c] = d; // Place the digit
+                    if (solve(b)) return true; // Recurse; if it leads to a solution, we are done
+                    b[r][c] = '.'; // Backtrack: the chosen digit didn't work, clear the cell
                 }
-                return false; // no digit fits here
+                return false; // No digit from 1-9 fits here, so the current path is invalid
             }
         }
-        return true; // no empty cell left
+        return true; // No empty cell left, puzzle solved!
     }
 
     private boolean valid(char[][] b, int r, int c, char d) {
-        int br = (r / 3) * 3, bc = (c / 3) * 3;
-        for (int i = 0; i < 9; i++) {
-            if (b[r][i] == d || b[i][c] == d) return false;
-            if (b[br + i / 3][bc + i % 3] == d) return false;
+        int br = (r / 3) * 3, bc = (c / 3) * 3; // Calculate the top-left corner of the 3x3 sub-box
+        for (int i = 0; i < 9; i++) { // Check the row, column, and sub-box
+            if (b[r][i] == d || b[i][c] == d) return false; // Check row and column for duplicate
+            if (b[br + i / 3][bc + i % 3] == d) return false; // Check 3x3 sub-box for duplicate
         }
-        return true;
+        return true; // Digit 'd' is valid in cell (r, c)
     }
 }
 ```
@@ -1936,25 +1941,25 @@ Given a string `s` containing only digits, return *all possible valid IP address
 ```java
 class Solution {
     public List<String> restoreIpAddresses(String s) {
-        List<String> res = new ArrayList<>();
-        backtrack(s, 0, 0, new StringBuilder(), res);
+        List<String> res = new ArrayList<>(); // To store valid IP addresses
+        backtrack(s, 0, 0, new StringBuilder(), res); // Start backtracking
         return res;
     }
 
     private void backtrack(String s, int start, int part, StringBuilder sb,
                            List<String> res) {
-        if (part == 4) {
-            if (start == s.length()) res.add(sb.substring(0, sb.length() - 1));
-            return;
+        if (part == 4) { // An IP must have exactly 4 parts
+            if (start == s.length()) res.add(sb.substring(0, sb.length() - 1)); // Valid if we've used the entire string
+            return; // Backtrack regardless
         }
-        for (int len = 1; len <= 3 && start + len <= s.length(); len++) {
-            String seg = s.substring(start, start + len);
-            if (seg.length() > 1 && seg.charAt(0) == '0') break; // leading zero
-            if (Integer.parseInt(seg) > 255) break;
-            int mark = sb.length();
-            sb.append(seg).append('.');
-            backtrack(s, start + len, part + 1, sb, res);
-            sb.setLength(mark); // undo
+        for (int len = 1; len <= 3 && start + len <= s.length(); len++) { // Try segment lengths of 1, 2, and 3
+            String seg = s.substring(start, start + len); // Extract the segment
+            if (seg.length() > 1 && seg.charAt(0) == '0') break; // Prune: leading zero is invalid, and further lengths will also be invalid
+            if (Integer.parseInt(seg) > 255) break; // Prune: segment value > 255 is invalid, longer lengths will also be > 255
+            int mark = sb.length(); // Save the current StringBuilder length to backtrack cleanly
+            sb.append(seg).append('.'); // Append segment and a dot
+            backtrack(s, start + len, part + 1, sb, res); // Recurse to find the next part
+            sb.setLength(mark); // Undo: backtrack by restoring StringBuilder length
         }
     }
 }

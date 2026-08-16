@@ -5,14 +5,14 @@ Patterns and idiomatic Java for binary trees, BSTs, tries, and heap / priority-q
 ```java
 // Shared node definition used throughout this sheet.
 public class TreeNode {
-    int val;
-    TreeNode left, right;
-    TreeNode() {}
-    TreeNode(int val) { this.val = val; }
-    TreeNode(int val, TreeNode left, TreeNode right) {
-        this.val = val;
-        this.left = left;
-        this.right = right;
+    int val; // Store the node's integer value
+    TreeNode left, right; // References to the left and right child nodes
+    TreeNode() {} // Default constructor for an empty node
+    TreeNode(int val) { this.val = val; } // Constructor to initialize the node with a value
+    TreeNode(int val, TreeNode left, TreeNode right) { // Full constructor
+        this.val = val; // Set the value
+        this.left = left; // Set the left child
+        this.right = right; // Set the right child
     }
 }
 ```
@@ -30,27 +30,27 @@ public class TreeNode {
 
 ```java
 List<Integer> preorder(TreeNode root) {
-    List<Integer> out = new ArrayList<>();
-    pre(root, out);
-    return out;
+    List<Integer> out = new ArrayList<>(); // Initialize a list to hold the traversal result
+    pre(root, out); // Call the helper method to populate the list
+    return out; // Return the populated list
 }
 void pre(TreeNode n, List<Integer> out) {
-    if (n == null) return;
-    out.add(n.val);
-    pre(n.left, out);
-    pre(n.right, out);
+    if (n == null) return; // Base case: if the node is null, stop recursing
+    out.add(n.val); // Preorder: add the current node's value BEFORE visiting children
+    pre(n.left, out); // Recursively traverse the left subtree
+    pre(n.right, out); // Recursively traverse the right subtree
 }
 void in(TreeNode n, List<Integer> out) {
-    if (n == null) return;
-    in(n.left, out);
-    out.add(n.val);
-    in(n.right, out);
+    if (n == null) return; // Base case: if the node is null, stop recursing
+    in(n.left, out); // Inorder: recursively traverse the left subtree first
+    out.add(n.val); // Add the current node's value in the MIDDLE
+    in(n.right, out); // Recursively traverse the right subtree
 }
 void post(TreeNode n, List<Integer> out) {
-    if (n == null) return;
-    post(n.left, out);
-    post(n.right, out);
-    out.add(n.val);
+    if (n == null) return; // Base case: if the node is null, stop recursing
+    post(n.left, out); // Postorder: recursively traverse the left subtree first
+    post(n.right, out); // Recursively traverse the right subtree next
+    out.add(n.val); // Add the current node's value AFTER visiting both children
 }
 ```
 
@@ -63,42 +63,42 @@ void post(TreeNode n, List<Integer> out) {
 
 ```java
 List<Integer> preIter(TreeNode root) {
-    List<Integer> out = new ArrayList<>();
-    if (root == null) return out;
-    Deque<TreeNode> st = new ArrayDeque<>();
-    st.push(root);
-    while (!st.isEmpty()) {
-        TreeNode n = st.pop();
-        out.add(n.val);
-        if (n.right != null) st.push(n.right);
-        if (n.left != null) st.push(n.left);
+    List<Integer> out = new ArrayList<>(); // List to store the preorder traversal
+    if (root == null) return out; // Return empty list if the tree is empty
+    Deque<TreeNode> st = new ArrayDeque<>(); // Stack to simulate recursion
+    st.push(root); // Push the root node to start
+    while (!st.isEmpty()) { // Continue until all nodes are processed
+        TreeNode n = st.pop(); // Pop the top node from the stack
+        out.add(n.val); // Add its value to the output list
+        if (n.right != null) st.push(n.right); // Push right child FIRST so it's processed LAST (LIFO)
+        if (n.left != null) st.push(n.left); // Push left child SECOND so it's processed FIRST
     }
-    return out;
+    return out; // Return the preorder list
 }
 List<Integer> inIter(TreeNode root) {
-    List<Integer> out = new ArrayList<>();
-    Deque<TreeNode> st = new ArrayDeque<>();
-    TreeNode cur = root;
-    while (cur != null || !st.isEmpty()) {
-        while (cur != null) { st.push(cur); cur = cur.left; }
-        cur = st.pop();
-        out.add(cur.val);
-        cur = cur.right;
+    List<Integer> out = new ArrayList<>(); // List to store the inorder traversal
+    Deque<TreeNode> st = new ArrayDeque<>(); // Stack for node traversal
+    TreeNode cur = root; // Start with the root node
+    while (cur != null || !st.isEmpty()) { // Continue if there are nodes to process or visit
+        while (cur != null) { st.push(cur); cur = cur.left; } // Go as far left as possible, pushing nodes
+        cur = st.pop(); // Pop the leftmost unvisited node
+        out.add(cur.val); // Add its value to the output list
+        cur = cur.right; // Move to the right child to process its subtree
     }
-    return out;
+    return out; // Return the inorder list
 }
 List<Integer> postIter(TreeNode root) {
-    LinkedList<Integer> out = new LinkedList<>();
-    if (root == null) return out;
-    Deque<TreeNode> st = new ArrayDeque<>();
-    st.push(root);
-    while (!st.isEmpty()) {
-        TreeNode n = st.pop();
-        out.addFirst(n.val);            // reverse of root-right-left
-        if (n.left != null) st.push(n.left);
-        if (n.right != null) st.push(n.right);
+    LinkedList<Integer> out = new LinkedList<>(); // Use LinkedList for efficient addFirst
+    if (root == null) return out; // Return empty list if the tree is empty
+    Deque<TreeNode> st = new ArrayDeque<>(); // Stack for node traversal
+    st.push(root); // Push the root node to start
+    while (!st.isEmpty()) { // Continue until all nodes are processed
+        TreeNode n = st.pop(); // Pop the top node
+        out.addFirst(n.val); // Add to the FRONT of the list (reverse of root-right-left)
+        if (n.left != null) st.push(n.left); // Push left child first so it's processed later
+        if (n.right != null) st.push(n.right); // Push right child second so it's processed next
     }
-    return out;
+    return out; // Return the postorder list
 }
 ```
 **Alternative:** Morris inorder traversal achieves O(1) space by threading: for each node with a left child, link the inorder-predecessor's right pointer to the current node, then undo the thread on the second visit. No stack/recursion needed.
@@ -112,22 +112,22 @@ List<Integer> postIter(TreeNode root) {
 
 ```java
 List<List<Integer>> levelOrder(TreeNode root) {
-    List<List<Integer>> out = new ArrayList<>();
-    if (root == null) return out;
-    Queue<TreeNode> q = new LinkedList<>();
-    q.offer(root);
-    while (!q.isEmpty()) {
-        int sz = q.size();
-        List<Integer> level = new ArrayList<>();
-        for (int i = 0; i < sz; i++) {
-            TreeNode n = q.poll();
-            level.add(n.val);
-            if (n.left != null) q.offer(n.left);
-            if (n.right != null) q.offer(n.right);
+    List<List<Integer>> out = new ArrayList<>(); // Initialize the result list of levels
+    if (root == null) return out; // Return empty result if the tree is empty
+    Queue<TreeNode> q = new LinkedList<>(); // Queue to manage nodes per level
+    q.offer(root); // Start with the root node
+    while (!q.isEmpty()) { // Process until the queue is empty
+        int sz = q.size(); // Number of nodes at the current level
+        List<Integer> level = new ArrayList<>(); // List to store values for this level
+        for (int i = 0; i < sz; i++) { // Iterate exactly `sz` times for the current level
+            TreeNode n = q.poll(); // Dequeue the next node in the level
+            level.add(n.val); // Add its value to the level list
+            if (n.left != null) q.offer(n.left); // Enqueue left child for the next level
+            if (n.right != null) q.offer(n.right); // Enqueue right child for the next level
         }
-        out.add(level);
+        out.add(level); // Add the completed level list to the output
     }
-    return out;
+    return out; // Return all levels
 }
 ```
 
@@ -140,25 +140,25 @@ List<List<Integer>> levelOrder(TreeNode root) {
 
 ```java
 List<List<Integer>> zigzag(TreeNode root) {
-    List<List<Integer>> out = new ArrayList<>();
-    if (root == null) return out;
-    Queue<TreeNode> q = new LinkedList<>();
-    q.offer(root);
-    boolean ltr = true;
-    while (!q.isEmpty()) {
-        int sz = q.size();
-        LinkedList<Integer> level = new LinkedList<>();
-        for (int i = 0; i < sz; i++) {
-            TreeNode n = q.poll();
-            if (ltr) level.addLast(n.val);
-            else     level.addFirst(n.val);
-            if (n.left != null) q.offer(n.left);
-            if (n.right != null) q.offer(n.right);
+    List<List<Integer>> out = new ArrayList<>(); // Result list of zigzag levels
+    if (root == null) return out; // Base case: empty tree
+    Queue<TreeNode> q = new LinkedList<>(); // Queue for level-order traversal
+    q.offer(root); // Start with the root
+    boolean ltr = true; // Flag to track the direction: left-to-right or right-to-left
+    while (!q.isEmpty()) { // Traverse levels
+        int sz = q.size(); // Nodes in the current level
+        LinkedList<Integer> level = new LinkedList<>(); // Use LinkedList to efficiently add at both ends
+        for (int i = 0; i < sz; i++) { // Process all nodes in the current level
+            TreeNode n = q.poll(); // Dequeue the next node
+            if (ltr) level.addLast(n.val); // If left-to-right, append to the end
+            else     level.addFirst(n.val); // If right-to-left, prepend to the start
+            if (n.left != null) q.offer(n.left); // Enqueue children for the next level
+            if (n.right != null) q.offer(n.right); // Keep normal order in the queue
         }
-        out.add(level);
-        ltr = !ltr;
+        out.add(level); // Add the current level to the result
+        ltr = !ltr; // Toggle the direction for the next level
     }
-    return out;
+    return out; // Return the zigzag traversal
 }
 ```
 
@@ -232,20 +232,20 @@ Given the `root` of a binary tree, imagine yourself standing on the **right side
 
 ```java
 List<Integer> rightSideView(TreeNode root) {
-    List<Integer> out = new ArrayList<>();
-    if (root == null) return out;
-    Queue<TreeNode> q = new LinkedList<>();
-    q.offer(root);
-    while (!q.isEmpty()) {
-        int sz = q.size();
-        for (int i = 0; i < sz; i++) {
-            TreeNode n = q.poll();
-            if (i == sz - 1) out.add(n.val);   // last in level
-            if (n.left != null) q.offer(n.left);
-            if (n.right != null) q.offer(n.right);
+    List<Integer> out = new ArrayList<>(); // List to store the rightmost values
+    if (root == null) return out; // Base case: empty tree
+    Queue<TreeNode> q = new LinkedList<>(); // Queue for level-order traversal
+    q.offer(root); // Enqueue the root node
+    while (!q.isEmpty()) { // Process each level
+        int sz = q.size(); // Get the size of the current level
+        for (int i = 0; i < sz; i++) { // Iterate through the nodes in this level
+            TreeNode n = q.poll(); // Dequeue a node
+            if (i == sz - 1) out.add(n.val); // If it's the last node in the level, add it to output
+            if (n.left != null) q.offer(n.left); // Add left child to the queue
+            if (n.right != null) q.offer(n.right); // Add right child to the queue
         }
     }
-    return out;
+    return out; // Return the right side view
 }
 ```
 **Alternative:** DFS visiting right child first; add `node.val` when `depth == out.size()`.
@@ -263,8 +263,8 @@ List<Integer> rightSideView(TreeNode root) {
 
 ```java
 int maxDepth(TreeNode root) {
-    if (root == null) return 0;
-    return 1 + Math.max(maxDepth(root.left), maxDepth(root.right));
+    if (root == null) return 0; // Base case: if the node is null, its depth is 0
+    return 1 + Math.max(maxDepth(root.left), maxDepth(root.right)); // Add 1 to the max depth of the subtrees
 }
 ```
 
@@ -317,16 +317,16 @@ The **length** of a path between two nodes is represented by the number of edges
 </details>
 
 ```java
-int best = 0;
+int best = 0; // Global variable to track the maximum diameter found
 int diameterOfBinaryTree(TreeNode root) {
-    height(root);
-    return best;
+    height(root); // Call the helper to compute heights and update the diameter
+    return best; // Return the maximum diameter
 }
 int height(TreeNode n) {
-    if (n == null) return 0;
-    int l = height(n.left), r = height(n.right);
-    best = Math.max(best, l + r);
-    return 1 + Math.max(l, r);
+    if (n == null) return 0; // Base case: null node has a height of 0
+    int l = height(n.left), r = height(n.right); // Recursively find the height of left and right subtrees
+    best = Math.max(best, l + r); // Update the global diameter if the path through this node is larger
+    return 1 + Math.max(l, r); // Return the height of the tree rooted at this node
 }
 ```
 
@@ -385,16 +385,16 @@ Given a binary tree, determine if it is <span data-keyword="height-balanced">**h
 
 ```java
 boolean isBalanced(TreeNode root) {
-    return check(root) != -1;
+    return check(root) != -1; // If check returns -1, it's unbalanced; otherwise, it's balanced
 }
 int check(TreeNode n) {
-    if (n == null) return 0;
-    int l = check(n.left);
-    if (l == -1) return -1;
-    int r = check(n.right);
-    if (r == -1) return -1;
-    if (Math.abs(l - r) > 1) return -1;
-    return 1 + Math.max(l, r);
+    if (n == null) return 0; // Base case: an empty tree has height 0
+    int l = check(n.left); // Get the height of the left subtree
+    if (l == -1) return -1; // If the left subtree is unbalanced, propagate the failure
+    int r = check(n.right); // Get the height of the right subtree
+    if (r == -1) return -1; // If the right subtree is unbalanced, propagate the failure
+    if (Math.abs(l - r) > 1) return -1; // If heights differ by more than 1, this node is unbalanced
+    return 1 + Math.max(l, r); // Return the actual height of this node if balanced
 }
 ```
 
@@ -463,10 +463,10 @@ There is no root-to-leaf path with sum = 5.
 
 ```java
 boolean hasPathSum(TreeNode root, int target) {
-    if (root == null) return false;
-    if (root.left == null && root.right == null) return target == root.val;
-    int rem = target - root.val;
-    return hasPathSum(root.left, rem) || hasPathSum(root.right, rem);
+    if (root == null) return false; // Base case: an empty tree can't have a path sum
+    if (root.left == null && root.right == null) return target == root.val; // Leaf node check: does the value match the remaining target?
+    int rem = target - root.val; // Calculate the remaining sum needed for the children
+    return hasPathSum(root.left, rem) || hasPathSum(root.right, rem); // Recurse on both children looking for the remaining sum
 }
 ```
 
@@ -532,20 +532,20 @@ A **root-to-leaf** path is a path starting from the root and ending at any leaf 
 
 ```java
 List<List<Integer>> pathSum(TreeNode root, int target) {
-    List<List<Integer>> out = new ArrayList<>();
-    dfs(root, target, new ArrayList<>(), out);
-    return out;
+    List<List<Integer>> out = new ArrayList<>(); // Result list of paths
+    dfs(root, target, new ArrayList<>(), out); // Call DFS to populate the list
+    return out; // Return the valid paths
 }
 void dfs(TreeNode n, int rem, List<Integer> path, List<List<Integer>> out) {
-    if (n == null) return;
-    path.add(n.val);
-    if (n.left == null && n.right == null && rem == n.val) {
-        out.add(new ArrayList<>(path));
-    } else {
-        dfs(n.left,  rem - n.val, path, out);
-        dfs(n.right, rem - n.val, path, out);
+    if (n == null) return; // Base case: stop at null nodes
+    path.add(n.val); // Add the current node to the path
+    if (n.left == null && n.right == null && rem == n.val) { // If it's a leaf and the target is met
+        out.add(new ArrayList<>(path)); // Add a copy of the path to the result
+    } else { // Otherwise, continue exploring
+        dfs(n.left,  rem - n.val, path, out); // Traverse left subtree with reduced target
+        dfs(n.right, rem - n.val, path, out); // Traverse right subtree with reduced target
     }
-    path.remove(path.size() - 1);   // backtrack
+    path.remove(path.size() - 1); // Backtrack: remove the current node before returning
 }
 ```
 
@@ -599,18 +599,18 @@ The path does not need to start or end at the root or a leaf, but it must go dow
 
 ```java
 int pathSumIII(TreeNode root, int target) {
-    Map<Long, Integer> seen = new HashMap<>();
-    seen.put(0L, 1);
-    return dfs(root, 0L, target, seen);
+    Map<Long, Integer> seen = new HashMap<>(); // Store the prefix sums and their frequencies
+    seen.put(0L, 1); // Base case: a prefix sum of 0 has been seen once
+    return dfs(root, 0L, target, seen); // Start DFS from the root
 }
 int dfs(TreeNode n, long curr, int target, Map<Long, Integer> seen) {
-    if (n == null) return 0;
-    curr += n.val;
-    int res = seen.getOrDefault(curr - target, 0);
-    seen.merge(curr, 1, Integer::sum);
-    res += dfs(n.left, curr, target, seen) + dfs(n.right, curr, target, seen);
-    seen.merge(curr, -1, Integer::sum);   // backtrack
-    return res;
+    if (n == null) return 0; // Base case: empty node contributes 0 paths
+    curr += n.val; // Update the running prefix sum
+    int res = seen.getOrDefault(curr - target, 0); // Check if (curr - target) exists in seen map
+    seen.merge(curr, 1, Integer::sum); // Add current prefix sum to the map
+    res += dfs(n.left, curr, target, seen) + dfs(n.right, curr, target, seen); // Recurse on children
+    seen.merge(curr, -1, Integer::sum); // Backtrack: remove current sum from map before returning
+    return res; // Return total valid paths found from this subtree
 }
 ```
 
@@ -623,11 +623,11 @@ int dfs(TreeNode n, long curr, int target, Map<Long, Integer> seen) {
 
 ```java
 TreeNode lca(TreeNode root, TreeNode p, TreeNode q) {
-    if (root == null || root == p || root == q) return root;
-    TreeNode l = lca(root.left, p, q);
-    TreeNode r = lca(root.right, p, q);
-    if (l != null && r != null) return root;
-    return l != null ? l : r;
+    if (root == null || root == p || root == q) return root; // Base case: found p, q, or reached a leaf
+    TreeNode l = lca(root.left, p, q); // Look for LCA in the left subtree
+    TreeNode r = lca(root.right, p, q); // Look for LCA in the right subtree
+    if (l != null && r != null) return root; // If both subtrees returned a node, the current root is the LCA
+    return l != null ? l : r; // Otherwise, return whichever subtree found a node
 }
 ```
 
@@ -682,17 +682,17 @@ Given the `root` of a binary tree, return *the maximum **path sum** of any **non
 </details>
 
 ```java
-int maxSum = Integer.MIN_VALUE;
+int maxSum = Integer.MIN_VALUE; // Global variable to store the maximum path sum
 int maxPathSum(TreeNode root) {
-    gain(root);
-    return maxSum;
+    gain(root); // Calculate the max gain for the tree
+    return maxSum; // Return the global maximum
 }
 int gain(TreeNode n) {
-    if (n == null) return 0;
-    int l = Math.max(gain(n.left), 0);
-    int r = Math.max(gain(n.right), 0);
-    maxSum = Math.max(maxSum, n.val + l + r);
-    return n.val + Math.max(l, r);
+    if (n == null) return 0; // Base case: null nodes contribute 0
+    int l = Math.max(gain(n.left), 0); // Max gain from left subtree, ignoring negative paths
+    int r = Math.max(gain(n.right), 0); // Max gain from right subtree, ignoring negative paths
+    maxSum = Math.max(maxSum, n.val + l + r); // Update the global max path sum that passes through this node
+    return n.val + Math.max(l, r); // Return the max gain this node can contribute to its parent
 }
 ```
 
@@ -751,11 +751,11 @@ Given the `root` of a binary tree, invert the tree, and return *its root*.
 
 ```java
 TreeNode invertTree(TreeNode root) {
-    if (root == null) return null;
-    TreeNode tmp = root.left;
-    root.left = invertTree(root.right);
-    root.right = invertTree(tmp);
-    return root;
+    if (root == null) return null; // Base case: an empty tree is already inverted
+    TreeNode tmp = root.left; // Temporarily store the left child
+    root.left = invertTree(root.right); // Assign inverted right subtree to the left
+    root.right = invertTree(tmp); // Assign inverted left subtree (from tmp) to the right
+    return root; // Return the modified root
 }
 ```
 
@@ -808,10 +808,11 @@ Given the `root` of a binary tree, *check whether it is a mirror of itself* (i.e
 
 ```java
 boolean isSymmetric(TreeNode root) {
-    return root == null || mirror(root.left, root.right);
+    return root == null || mirror(root.left, root.right); // Empty tree is symmetric; otherwise check if children mirror each other
 }
 boolean mirror(TreeNode a, TreeNode b) {
-    if (a == null || b == null) return a == b;
+    if (a == null || b == null) return a == b; // If either is null, both must be null to be a mirror
+    // Check if current values match, and if outer children match, and inner children match
     return a.val == b.val && mirror(a.left, b.right) && mirror(a.right, b.left);
 }
 ```
@@ -874,7 +875,8 @@ Two binary trees are considered the same if they are structurally identical, and
 
 ```java
 boolean isSameTree(TreeNode p, TreeNode q) {
-    if (p == null || q == null) return p == q;
+    if (p == null || q == null) return p == q; // If either is null, they must both be null to be the same
+    // Check if values match and recurse on both left and right subtrees
     return p.val == q.val && isSameTree(p.left, q.left) && isSameTree(p.right, q.right);
 }
 ```
@@ -888,13 +890,13 @@ boolean isSameTree(TreeNode p, TreeNode q) {
 
 ```java
 int goodNodes(TreeNode root) {
-    return dfs(root, Integer.MIN_VALUE);
+    return dfs(root, Integer.MIN_VALUE); // Start DFS with the minimum possible value as maxSoFar
 }
 int dfs(TreeNode n, int maxSoFar) {
-    if (n == null) return 0;
-    int good = n.val >= maxSoFar ? 1 : 0;
-    int nextMax = Math.max(maxSoFar, n.val);
-    return good + dfs(n.left, nextMax) + dfs(n.right, nextMax);
+    if (n == null) return 0; // Base case: null nodes contribute 0
+    int good = n.val >= maxSoFar ? 1 : 0; // It's a good node if its value is >= the max seen on its path
+    int nextMax = Math.max(maxSoFar, n.val); // Update the maximum value for the child paths
+    return good + dfs(n.left, nextMax) + dfs(n.right, nextMax); // Return current good node count + subtrees
 }
 ```
 
@@ -910,20 +912,20 @@ int dfs(TreeNode n, int maxSoFar) {
 <!-- Problem Statement not automatically found -->
 
 ```java
-int preIdx = 0;
-Map<Integer, Integer> inPos = new HashMap<>();
+int preIdx = 0; // Global index to track the current root in the preorder array
+Map<Integer, Integer> inPos = new HashMap<>(); // Maps value to its index in inorder array for O(1) lookups
 TreeNode buildTree(int[] preorder, int[] inorder) {
-    for (int i = 0; i < inorder.length; i++) inPos.put(inorder[i], i);
-    return build(preorder, 0, inorder.length - 1);
+    for (int i = 0; i < inorder.length; i++) inPos.put(inorder[i], i); // Populate the map
+    return build(preorder, 0, inorder.length - 1); // Start recursive build
 }
 TreeNode build(int[] preorder, int lo, int hi) {
-    if (lo > hi) return null;
-    int rootVal = preorder[preIdx++];
-    TreeNode root = new TreeNode(rootVal);
-    int mid = inPos.get(rootVal);
-    root.left = build(preorder, lo, mid - 1);
-    root.right = build(preorder, mid + 1, hi);
-    return root;
+    if (lo > hi) return null; // Base case: no elements to construct a tree
+    int rootVal = preorder[preIdx++]; // Get the current root value and advance index
+    TreeNode root = new TreeNode(rootVal); // Create the root node
+    int mid = inPos.get(rootVal); // Find the root's position in the inorder array
+    root.left = build(preorder, lo, mid - 1); // Build left subtree from elements left of mid
+    root.right = build(preorder, mid + 1, hi); // Build right subtree from elements right of mid
+    return root; // Return the constructed subtree
 }
 ```
 
@@ -976,27 +978,27 @@ Design an algorithm to serialize and deserialize a binary tree. There is no rest
 
 ```java
 String serialize(TreeNode root) {
-    StringBuilder sb = new StringBuilder();
-    ser(root, sb);
-    return sb.toString();
+    StringBuilder sb = new StringBuilder(); // Use StringBuilder for efficient string concatenation
+    ser(root, sb); // Call the helper to serialize
+    return sb.toString(); // Return the serialized string
 }
 void ser(TreeNode n, StringBuilder sb) {
-    if (n == null) { sb.append("#,"); return; }
-    sb.append(n.val).append(',');
-    ser(n.left, sb);
-    ser(n.right, sb);
+    if (n == null) { sb.append("#,"); return; } // Append '#' for null nodes
+    sb.append(n.val).append(','); // Append node value followed by a delimiter
+    ser(n.left, sb); // Recursively serialize left subtree
+    ser(n.right, sb); // Recursively serialize right subtree
 }
 TreeNode deserialize(String data) {
-    Queue<String> q = new LinkedList<>(Arrays.asList(data.split(",")));
-    return de(q);
+    Queue<String> q = new LinkedList<>(Arrays.asList(data.split(","))); // Split string by comma into a queue
+    return de(q); // Call helper to construct the tree
 }
 TreeNode de(Queue<String> q) {
-    String t = q.poll();
-    if (t.equals("#")) return null;
-    TreeNode n = new TreeNode(Integer.parseInt(t));
-    n.left = de(q);
-    n.right = de(q);
-    return n;
+    String t = q.poll(); // Get the next token
+    if (t.equals("#")) return null; // '#' means this was a null child
+    TreeNode n = new TreeNode(Integer.parseInt(t)); // Parse value and create node
+    n.left = de(q); // Recursively build left subtree
+    n.right = de(q); // Recursively build right subtree
+    return n; // Return the reconstructed node
 }
 ```
 
@@ -1061,16 +1063,16 @@ Given the `root` of a binary tree, flatten the tree into a "linked list":
 
 ```java
 void flatten(TreeNode root) {
-    TreeNode cur = root;
-    while (cur != null) {
-        if (cur.left != null) {
-            TreeNode pre = cur.left;
-            while (pre.right != null) pre = pre.right;
-            pre.right = cur.right;
-            cur.right = cur.left;
-            cur.left = null;
+    TreeNode cur = root; // Start with the root
+    while (cur != null) { // Process until all nodes are flattened
+        if (cur.left != null) { // If there's a left subtree
+            TreeNode pre = cur.left; // Find the rightmost node of the left subtree
+            while (pre.right != null) pre = pre.right; // Keep going right
+            pre.right = cur.right; // Attach the current node's right subtree to the predecessor's right
+            cur.right = cur.left; // Move the entire left subtree to the right
+            cur.left = null; // Clear the left child pointer
         }
-        cur = cur.right;
+        cur = cur.right; // Move to the next node in the flattened right spine
     }
 }
 ```
@@ -1088,11 +1090,12 @@ void flatten(TreeNode root) {
 
 ```java
 boolean isValidBST(TreeNode root) {
-    return valid(root, Long.MIN_VALUE, Long.MAX_VALUE);
+    return valid(root, Long.MIN_VALUE, Long.MAX_VALUE); // Use Long to prevent overflow with Integer.MAX_VALUE/MIN_VALUE
 }
 boolean valid(TreeNode n, long min, long max) {
-    if (n == null) return true;
-    if (n.val <= min || n.val >= max) return false;
+    if (n == null) return true; // Base case: null nodes are valid
+    if (n.val <= min || n.val >= max) return false; // Must strictly be within the bounds (min, max)
+    // Left child must be < n.val, right child must be > n.val
     return valid(n.left, min, n.val) && valid(n.right, n.val, max);
 }
 ```
@@ -1106,10 +1109,10 @@ boolean valid(TreeNode n, long min, long max) {
 
 ```java
 TreeNode insertIntoBST(TreeNode root, int val) {
-    if (root == null) return new TreeNode(val);
-    if (val < root.val) root.left = insertIntoBST(root.left, val);
-    else                root.right = insertIntoBST(root.right, val);
-    return root;
+    if (root == null) return new TreeNode(val); // Found the insertion point, create the new node
+    if (val < root.val) root.left = insertIntoBST(root.left, val); // Recurse left if value is smaller
+    else                root.right = insertIntoBST(root.right, val); // Recurse right if value is larger
+    return root; // Return the unchanged root pointer
 }
 ```
 
@@ -1122,18 +1125,18 @@ TreeNode insertIntoBST(TreeNode root, int val) {
 
 ```java
 TreeNode deleteNode(TreeNode root, int key) {
-    if (root == null) return null;
-    if (key < root.val)      root.left = deleteNode(root.left, key);
-    else if (key > root.val) root.right = deleteNode(root.right, key);
-    else {
-        if (root.left == null) return root.right;
-        if (root.right == null) return root.left;
-        TreeNode succ = root.right;
-        while (succ.left != null) succ = succ.left;
-        root.val = succ.val;
-        root.right = deleteNode(root.right, succ.val);
+    if (root == null) return null; // Base case: key not found
+    if (key < root.val)      root.left = deleteNode(root.left, key); // Key is smaller, search left
+    else if (key > root.val) root.right = deleteNode(root.right, key); // Key is larger, search right
+    else { // Node found
+        if (root.left == null) return root.right; // Has only right child or no children
+        if (root.right == null) return root.left; // Has only left child
+        TreeNode succ = root.right; // Has two children: find the inorder successor
+        while (succ.left != null) succ = succ.left; // Go as left as possible in right subtree
+        root.val = succ.val; // Replace value with successor's value
+        root.right = deleteNode(root.right, succ.val); // Delete the successor from the right subtree
     }
-    return root;
+    return root; // Return the updated root
 }
 ```
 
@@ -1146,15 +1149,15 @@ TreeNode deleteNode(TreeNode root, int key) {
 
 ```java
 int kthSmallest(TreeNode root, int k) {
-    Deque<TreeNode> st = new ArrayDeque<>();
-    TreeNode cur = root;
-    while (cur != null || !st.isEmpty()) {
-        while (cur != null) { st.push(cur); cur = cur.left; }
-        cur = st.pop();
-        if (--k == 0) return cur.val;
-        cur = cur.right;
+    Deque<TreeNode> st = new ArrayDeque<>(); // Stack to track nodes for inorder traversal
+    TreeNode cur = root; // Start from the root
+    while (cur != null || !st.isEmpty()) { // Traverse while nodes remain
+        while (cur != null) { st.push(cur); cur = cur.left; } // Go left as far as possible
+        cur = st.pop(); // Process the smallest unvisited node
+        if (--k == 0) return cur.val; // If it's the kth node, return its value
+        cur = cur.right; // Move to the right subtree to continue inorder traversal
     }
-    return -1;   // k invalid
+    return -1;   // Return -1 if k is invalid or out of bounds
 }
 ```
 
@@ -1167,13 +1170,13 @@ int kthSmallest(TreeNode root, int k) {
 
 ```java
 TreeNode lcaBST(TreeNode root, TreeNode p, TreeNode q) {
-    TreeNode cur = root;
-    while (cur != null) {
-        if (p.val < cur.val && q.val < cur.val)      cur = cur.left;
-        else if (p.val > cur.val && q.val > cur.val) cur = cur.right;
-        else return cur;
+    TreeNode cur = root; // Start searching from the root
+    while (cur != null) { // Traverse the BST
+        if (p.val < cur.val && q.val < cur.val)      cur = cur.left; // Both nodes are smaller, move left
+        else if (p.val > cur.val && q.val > cur.val) cur = cur.right; // Both nodes are larger, move right
+        else return cur; // Split point found or found one of the nodes, this is the LCA
     }
-    return null;
+    return null; // Return null if the tree is empty or nodes not found
 }
 ```
 
@@ -1186,15 +1189,15 @@ TreeNode lcaBST(TreeNode root, TreeNode p, TreeNode q) {
 
 ```java
 TreeNode sortedArrayToBST(int[] nums) {
-    return build(nums, 0, nums.length - 1);
+    return build(nums, 0, nums.length - 1); // Helper handles the bounds
 }
 TreeNode build(int[] nums, int lo, int hi) {
-    if (lo > hi) return null;
-    int mid = lo + (hi - lo) / 2;
-    TreeNode root = new TreeNode(nums[mid]);
-    root.left = build(nums, lo, mid - 1);
-    root.right = build(nums, mid + 1, hi);
-    return root;
+    if (lo > hi) return null; // Base case: invalid range
+    int mid = lo + (hi - lo) / 2; // Choose the middle element to ensure balance
+    TreeNode root = new TreeNode(nums[mid]); // Create the root from the middle element
+    root.left = build(nums, lo, mid - 1); // Recursively build left half
+    root.right = build(nums, mid + 1, hi); // Recursively build right half
+    return root; // Return the constructed balanced BST
 }
 ```
 
@@ -1207,17 +1210,17 @@ TreeNode build(int[] nums, int lo, int hi) {
 
 ```java
 class BSTIterator {
-    private Deque<TreeNode> st = new ArrayDeque<>();
-    public BSTIterator(TreeNode root) { pushLeft(root); }
-    private void pushLeft(TreeNode n) {
-        while (n != null) { st.push(n); n = n.left; }
+    private Deque<TreeNode> st = new ArrayDeque<>(); // Stack for partial inorder traversal
+    public BSTIterator(TreeNode root) { pushLeft(root); } // Initialize by pushing the left spine
+    private void pushLeft(TreeNode n) { // Helper to push all left children
+        while (n != null) { st.push(n); n = n.left; } // Keep pushing and moving left
     }
-    public int next() {
-        TreeNode n = st.pop();
-        pushLeft(n.right);
-        return n.val;
+    public int next() { // Get the next smallest element
+        TreeNode n = st.pop(); // Pop the smallest remaining element
+        pushLeft(n.right); // Before returning, push the left spine of its right child
+        return n.val; // Return the value
     }
-    public boolean hasNext() { return !st.isEmpty(); }
+    public boolean hasNext() { return !st.isEmpty(); } // If stack is not empty, there are more elements
 }
 ```
 
@@ -1284,31 +1287,31 @@ trie.search("app");     // return True
 
 ```java
 class Trie {
-    private final Trie[] kids = new Trie[26];
-    private boolean end;
+    private final Trie[] kids = new Trie[26]; // Array holding links to child nodes (a-z)
+    private boolean end; // Flag to indicate if a word ends at this node
     public void insert(String word) {
-        Trie n = this;
-        for (char c : word.toCharArray()) {
-            int i = c - 'a';
-            if (n.kids[i] == null) n.kids[i] = new Trie();
-            n = n.kids[i];
+        Trie n = this; // Start from the root of the Trie
+        for (char c : word.toCharArray()) { // Iterate through each character of the word
+            int i = c - 'a'; // Get the index (0-25) for the character
+            if (n.kids[i] == null) n.kids[i] = new Trie(); // Create a new node if the path doesn't exist
+            n = n.kids[i]; // Move to the child node
         }
-        n.end = true;
+        n.end = true; // Mark the end of the inserted word
     }
     public boolean search(String word) {
-        Trie n = find(word);
-        return n != null && n.end;
+        Trie n = find(word); // Attempt to find the node where the word ends
+        return n != null && n.end; // It's a word if the node exists and is marked as an end
     }
     public boolean startsWith(String prefix) {
-        return find(prefix) != null;
+        return find(prefix) != null; // It's a prefix if the path exists, regardless of the end flag
     }
-    private Trie find(String s) {
-        Trie n = this;
-        for (char c : s.toCharArray()) {
-            n = n.kids[c - 'a'];
-            if (n == null) return null;
+    private Trie find(String s) { // Helper method to trace a string path
+        Trie n = this; // Start from the root
+        for (char c : s.toCharArray()) { // Traverse character by character
+            n = n.kids[c - 'a']; // Move to the corresponding child
+            if (n == null) return null; // Path breaks, prefix/word doesn't exist
         }
-        return n;
+        return n; // Return the final node reached
     }
 }
 ```
@@ -1322,28 +1325,28 @@ class Trie {
 
 ```java
 class WordDictionary {
-    private final WordDictionary[] kids = new WordDictionary[26];
-    private boolean end;
+    private final WordDictionary[] kids = new WordDictionary[26]; // Links to child nodes for 'a'-'z'
+    private boolean end; // Flag indicating if a valid word ends here
     public void addWord(String word) {
-        WordDictionary n = this;
-        for (char c : word.toCharArray()) {
-            int i = c - 'a';
-            if (n.kids[i] == null) n.kids[i] = new WordDictionary();
-            n = n.kids[i];
+        WordDictionary n = this; // Start at the root
+        for (char c : word.toCharArray()) { // Insert character by character
+            int i = c - 'a'; // Convert character to an index 0-25
+            if (n.kids[i] == null) n.kids[i] = new WordDictionary(); // Create child if missing
+            n = n.kids[i]; // Move to the child node
         }
-        n.end = true;
+        n.end = true; // Mark the final node as a complete word
     }
-    public boolean search(String word) { return dfs(word, 0, this); }
+    public boolean search(String word) { return dfs(word, 0, this); } // Initiate DFS to handle '.' wildcards
     private boolean dfs(String w, int i, WordDictionary n) {
-        if (n == null) return false;
-        if (i == w.length()) return n.end;
-        char c = w.charAt(i);
-        if (c == '.') {
-            for (WordDictionary k : n.kids)
-                if (dfs(w, i + 1, k)) return true;
-            return false;
+        if (n == null) return false; // Reached a null node, path is invalid
+        if (i == w.length()) return n.end; // Reached end of string, check if it's a valid word
+        char c = w.charAt(i); // Get current character
+        if (c == '.') { // Wildcard character: check all possible children
+            for (WordDictionary k : n.kids) // Iterate over all 26 possible children
+                if (dfs(w, i + 1, k)) return true; // If any path matches, return true
+            return false; // No valid path found for the wildcard
         }
-        return dfs(w, i + 1, n.kids[c - 'a']);
+        return dfs(w, i + 1, n.kids[c - 'a']); // Normal character: follow the specific edge
     }
 }
 ```
@@ -1357,36 +1360,36 @@ class WordDictionary {
 
 ```java
 class WordSearchII {
-    static class Node { Node[] kids = new Node[26]; String word; }
+    static class Node { Node[] kids = new Node[26]; String word; } // Trie node holds an entire word at its end
     public List<String> findWords(char[][] board, String[] words) {
-        Node root = new Node();
-        for (String w : words) {
-            Node n = root;
-            for (char c : w.toCharArray()) {
-                int i = c - 'a';
-                if (n.kids[i] == null) n.kids[i] = new Node();
-                n = n.kids[i];
+        Node root = new Node(); // Root of the Trie
+        for (String w : words) { // Insert all search words into the Trie
+            Node n = root; // Start at root for each word
+            for (char c : w.toCharArray()) { // Traverse characters
+                int i = c - 'a'; // Get index for character
+                if (n.kids[i] == null) n.kids[i] = new Node(); // Create node if missing
+                n = n.kids[i]; // Move to child
             }
-            n.word = w;
+            n.word = w; // Store the word at the final node for O(1) retrieval
         }
-        List<String> out = new ArrayList<>();
-        for (int r = 0; r < board.length; r++)
+        List<String> out = new ArrayList<>(); // Result list
+        for (int r = 0; r < board.length; r++) // Try starting a word from every cell
             for (int c = 0; c < board[0].length; c++)
-                dfs(board, r, c, root, out);
-        return out;
+                dfs(board, r, c, root, out); // Initiate DFS from this cell
+        return out; // Return found words
     }
     private void dfs(char[][] b, int r, int c, Node n, List<String> out) {
-        if (r < 0 || c < 0 || r >= b.length || c >= b[0].length) return;
-        char ch = b[r][c];
-        if (ch == '#' || n.kids[ch - 'a'] == null) return;
-        n = n.kids[ch - 'a'];
-        if (n.word != null) { out.add(n.word); n.word = null; }
-        b[r][c] = '#';
-        dfs(b, r + 1, c, n, out);
-        dfs(b, r - 1, c, n, out);
-        dfs(b, r, c + 1, n, out);
-        dfs(b, r, c - 1, n, out);
-        b[r][c] = ch;
+        if (r < 0 || c < 0 || r >= b.length || c >= b[0].length) return; // Bounds check
+        char ch = b[r][c]; // Get character at current cell
+        if (ch == '#' || n.kids[ch - 'a'] == null) return; // Stop if visited ('#') or path not in Trie
+        n = n.kids[ch - 'a']; // Advance the Trie node pointer
+        if (n.word != null) { out.add(n.word); n.word = null; } // Word found! Add it and deduplicate by setting to null
+        b[r][c] = '#'; // Mark the cell as visited to prevent self-intersection
+        dfs(b, r + 1, c, n, out); // Explore Down
+        dfs(b, r - 1, c, n, out); // Explore Up
+        dfs(b, r, c + 1, n, out); // Explore Right
+        dfs(b, r, c - 1, n, out); // Explore Left
+        b[r][c] = ch; // Backtrack: restore the original character
     }
 }
 ```
@@ -1453,37 +1456,37 @@ Return *the `sentence`* after the replacement.
 
 ```java
 class ReplaceWords {
-    static class Node { Node[] kids = new Node[26]; boolean end; }
+    static class Node { Node[] kids = new Node[26]; boolean end; } // Trie node definition
     public String replaceWords(List<String> dict, String sentence) {
-        Node root = new Node();
-        for (String w : dict) {
-            Node n = root;
-            for (char c : w.toCharArray()) {
-                int i = c - 'a';
-                if (n.kids[i] == null) n.kids[i] = new Node();
-                n = n.kids[i];
+        Node root = new Node(); // Initialize the root of the Trie
+        for (String w : dict) { // Insert all dictionary roots into the Trie
+            Node n = root; // Start at root for each word
+            for (char c : w.toCharArray()) { // Iterate characters
+                int i = c - 'a'; // Calculate index
+                if (n.kids[i] == null) n.kids[i] = new Node(); // Create node if missing
+                n = n.kids[i]; // Traverse to child
             }
-            n.end = true;
+            n.end = true; // Mark the end of the root word
         }
-        String[] words = sentence.split(" ");
-        StringBuilder sb = new StringBuilder();
-        for (int j = 0; j < words.length; j++) {
-            if (j > 0) sb.append(' ');
-            sb.append(shortestRoot(root, words[j]));
+        String[] words = sentence.split(" "); // Split the sentence into individual words
+        StringBuilder sb = new StringBuilder(); // StringBuilder for the new sentence
+        for (int j = 0; j < words.length; j++) { // Process each word
+            if (j > 0) sb.append(' '); // Append a space between words
+            sb.append(shortestRoot(root, words[j])); // Find and append the shortest root replacement
         }
-        return sb.toString();
+        return sb.toString(); // Return the modified sentence
     }
     private String shortestRoot(Node root, String word) {
-        Node n = root;
-        StringBuilder pre = new StringBuilder();
-        for (char c : word.toCharArray()) {
-            Node nxt = n.kids[c - 'a'];
-            if (nxt == null) return word;
-            pre.append(c);
-            if (nxt.end) return pre.toString();
-            n = nxt;
+        Node n = root; // Start searching from Trie root
+        StringBuilder pre = new StringBuilder(); // To build the matched prefix
+        for (char c : word.toCharArray()) { // Iterate through the word's characters
+            Node nxt = n.kids[c - 'a']; // Get the child node
+            if (nxt == null) return word; // If path breaks, no root matches, return original word
+            pre.append(c); // Append character to the prefix being built
+            if (nxt.end) return pre.toString(); // If we hit an end marker, it's the shortest root, return it
+            n = nxt; // Continue down the Trie
         }
-        return word;
+        return word; // If we finish without hitting an end, return original word
     }
 }
 ```
@@ -1538,37 +1541,37 @@ Can you solve it without sorting?
 
 ```java
 int findKthLargest(int[] nums, int k) {
-    PriorityQueue<Integer> heap = new PriorityQueue<>();   // min-heap
-    for (int x : nums) {
-        heap.offer(x);
-        if (heap.size() > k) heap.poll();
+    PriorityQueue<Integer> heap = new PriorityQueue<>(); // min-heap to store the k largest elements
+    for (int x : nums) { // Iterate through the array
+        heap.offer(x); // Add element to the heap
+        if (heap.size() > k) heap.poll(); // If heap exceeds size k, remove the smallest element
     }
-    return heap.peek();
+    return heap.peek(); // The root of the min-heap is the kth largest element
 }
 ```
 **Alternative:** Quickselect — partition around a pivot targeting index `n-k`; average O(n), worst O(n^2). Recurse only into the side containing the target index instead of fully sorting.
 ```java
 int quickselect(int[] nums, int k) {
-    int target = nums.length - k, lo = 0, hi = nums.length - 1;
-    Random rnd = new Random();
-    while (lo < hi) {
-        int p = partition(nums, lo, hi, lo + rnd.nextInt(hi - lo + 1));
-        if (p == target) break;
-        else if (p < target) lo = p + 1;
-        else hi = p - 1;
+    int target = nums.length - k, lo = 0, hi = nums.length - 1; // target index for kth largest in a sorted array
+    Random rnd = new Random(); // Random number generator for pivot selection
+    while (lo < hi) { // Loop until the search space is narrowed to 1 element
+        int p = partition(nums, lo, hi, lo + rnd.nextInt(hi - lo + 1)); // Partition around a random pivot
+        if (p == target) break; // Found the target index
+        else if (p < target) lo = p + 1; // Target is in the right half
+        else hi = p - 1; // Target is in the left half
     }
-    return nums[target];
+    return nums[target]; // Return the element at the target index
 }
 int partition(int[] a, int lo, int hi, int pivot) {
-    int pv = a[pivot];
-    swap(a, pivot, hi);
-    int store = lo;
-    for (int i = lo; i < hi; i++)
-        if (a[i] < pv) swap(a, i, store++);
-    swap(a, store, hi);
-    return store;
+    int pv = a[pivot]; // Store the pivot value
+    swap(a, pivot, hi); // Move pivot to the end
+    int store = lo; // Pointer for the smaller elements
+    for (int i = lo; i < hi; i++) // Iterate through the range
+        if (a[i] < pv) swap(a, i, store++); // Swap elements smaller than pivot to the left
+    swap(a, store, hi); // Restore pivot to its correct sorted position
+    return store; // Return the final index of the pivot
 }
-void swap(int[] a, int i, int j) { int t = a[i]; a[i] = a[j]; a[j] = t; }
+void swap(int[] a, int i, int j) { int t = a[i]; a[i] = a[j]; a[j] = t; } // Utility to swap array elements
 ```
 
 ### Top K Frequent Elements
@@ -1632,17 +1635,17 @@ Given an integer array `nums` and an integer `k`, return *the* `k` *most frequen
 
 ```java
 int[] topKFrequent(int[] nums, int k) {
-    Map<Integer, Integer> freq = new HashMap<>();
-    for (int x : nums) freq.merge(x, 1, Integer::sum);
-    PriorityQueue<Integer> heap =
+    Map<Integer, Integer> freq = new HashMap<>(); // Map to store frequencies of each number
+    for (int x : nums) freq.merge(x, 1, Integer::sum); // Count frequencies
+    PriorityQueue<Integer> heap = // Min-heap based on frequency
         new PriorityQueue<>((a, b) -> freq.get(a) - freq.get(b));
-    for (int key : freq.keySet()) {
-        heap.offer(key);
-        if (heap.size() > k) heap.poll();
+    for (int key : freq.keySet()) { // Process each unique number
+        heap.offer(key); // Add to heap
+        if (heap.size() > k) heap.poll(); // Keep only the top k frequent elements
     }
-    int[] out = new int[k];
-    for (int i = k - 1; i >= 0; i--) out[i] = heap.poll();
-    return out;
+    int[] out = new int[k]; // Result array
+    for (int i = k - 1; i >= 0; i--) out[i] = heap.poll(); // Populate array (optional reverse for order)
+    return out; // Return the top k elements
 }
 ```
 **Alternative:** Bucket sort — index buckets by frequency (1..n) and collect from the high end for O(n).
@@ -1702,15 +1705,15 @@ We only want the closest k = 1 points from the origin, so the answer is just [[-
 
 ```java
 int[][] kClosest(int[][] points, int k) {
-    PriorityQueue<int[]> heap = new PriorityQueue<>(
+    PriorityQueue<int[]> heap = new PriorityQueue<>( // Max-heap based on squared distance from origin
         (a, b) -> (b[0]*b[0] + b[1]*b[1]) - (a[0]*a[0] + a[1]*a[1]));
-    for (int[] p : points) {
-        heap.offer(p);
-        if (heap.size() > k) heap.poll();
+    for (int[] p : points) { // Process each point
+        heap.offer(p); // Add point to the max-heap
+        if (heap.size() > k) heap.poll(); // Remove the farthest point if we exceed size k
     }
-    int[][] out = new int[k][2];
-    for (int i = 0; i < k; i++) out[i] = heap.poll();
-    return out;
+    int[][] out = new int[k][2]; // Array to hold the k closest points
+    for (int i = 0; i < k; i++) out[i] = heap.poll(); // Extract the remaining points from the heap
+    return out; // Return the answer
 }
 ```
 
@@ -1782,16 +1785,16 @@ medianFinder.findMedian(); // return 2.0
 
 ```java
 class MedianFinder {
-    private PriorityQueue<Integer> lo = new PriorityQueue<>(Collections.reverseOrder());
-    private PriorityQueue<Integer> hi = new PriorityQueue<>();
+    private PriorityQueue<Integer> lo = new PriorityQueue<>(Collections.reverseOrder()); // Max-heap for the smaller half
+    private PriorityQueue<Integer> hi = new PriorityQueue<>(); // Min-heap for the larger half
     public void addNum(int num) {
-        lo.offer(num);
-        hi.offer(lo.poll());
-        if (hi.size() > lo.size()) lo.offer(hi.poll());
+        lo.offer(num); // Always add to max-heap first
+        hi.offer(lo.poll()); // Move the largest of the smaller half to the min-heap to balance values
+        if (hi.size() > lo.size()) lo.offer(hi.poll()); // Keep max-heap size >= min-heap size
     }
     public double findMedian() {
-        if (lo.size() > hi.size()) return lo.peek();
-        return (lo.peek() + hi.peek()) / 2.0;
+        if (lo.size() > hi.size()) return lo.peek(); // Odd number of elements: median is top of max-heap
+        return (lo.peek() + hi.peek()) / 2.0; // Even number of elements: average of both tops
     }
 }
 ```
@@ -1868,16 +1871,16 @@ merging them into one sorted linked list:
 ```java
 // class ListNode { int val; ListNode next; ListNode(int v){val=v;} }
 ListNode mergeKLists(ListNode[] lists) {
-    PriorityQueue<ListNode> heap = new PriorityQueue<>((a, b) -> a.val - b.val);
-    for (ListNode l : lists) if (l != null) heap.offer(l);
-    ListNode dummy = new ListNode(0), tail = dummy;
-    while (!heap.isEmpty()) {
-        ListNode n = heap.poll();
-        tail.next = n;
-        tail = n;
-        if (n.next != null) heap.offer(n.next);
+    PriorityQueue<ListNode> heap = new PriorityQueue<>((a, b) -> a.val - b.val); // Min-heap to find smallest node
+    for (ListNode l : lists) if (l != null) heap.offer(l); // Insert the head of each list into the heap
+    ListNode dummy = new ListNode(0), tail = dummy; // Dummy node to simplify appending
+    while (!heap.isEmpty()) { // Process until all nodes are merged
+        ListNode n = heap.poll(); // Extract the smallest node
+        tail.next = n; // Append it to the merged list
+        tail = n; // Move the tail pointer
+        if (n.next != null) heap.offer(n.next); // Push the next node from the extracted node's list
     }
-    return dummy.next;
+    return dummy.next; // Return the merged head
 }
 ```
 
@@ -1890,22 +1893,22 @@ ListNode mergeKLists(ListNode[] lists) {
 
 ```java
 int kthSmallest(int[][] matrix, int k) {
-    int n = matrix.length;
-    int lo = matrix[0][0], hi = matrix[n-1][n-1];
-    while (lo < hi) {
-        int mid = lo + (hi - lo) / 2;
-        if (countLE(matrix, mid) < k) lo = mid + 1;
-        else hi = mid;
+    int n = matrix.length; // Matrix dimensions
+    int lo = matrix[0][0], hi = matrix[n-1][n-1]; // Binary search bounds based on values
+    while (lo < hi) { // Binary search on the value range
+        int mid = lo + (hi - lo) / 2; // Midpoint value
+        if (countLE(matrix, mid) < k) lo = mid + 1; // If fewer than k elements are <= mid, target is larger
+        else hi = mid; // Otherwise, target is <= mid
     }
-    return lo;
+    return lo; // lo converges to the exact kth smallest value
 }
-int countLE(int[][] m, int val) {
-    int n = m.length, r = n - 1, c = 0, count = 0;
-    while (r >= 0 && c < n) {
-        if (m[r][c] <= val) { count += r + 1; c++; }
-        else r--;
+int countLE(int[][] m, int val) { // Helper to count elements <= val
+    int n = m.length, r = n - 1, c = 0, count = 0; // Start at bottom-left corner
+    while (r >= 0 && c < n) { // Traverse within bounds
+        if (m[r][c] <= val) { count += r + 1; c++; } // If current is <= val, all above in column are too; move right
+        else r--; // Otherwise, current is > val; move up
     }
-    return count;
+    return count; // Total count of elements <= val
 }
 ```
 **Alternative:** Min-heap of size k seeded with the first row, expanding right/down — O(k log n).
@@ -2024,15 +2027,15 @@ There are only two types of tasks, A and B, which need to be separated by 3 inte
 
 ```java
 int leastInterval(char[] tasks, int n) {
-    int[] freq = new int[26];
-    int max = 0, maxCount = 0;
-    for (char t : tasks) {
+    int[] freq = new int[26]; // Array to count frequencies of tasks A-Z
+    int max = 0, maxCount = 0; // max frequency, and how many tasks share that max frequency
+    for (char t : tasks) { // Iterate and count
         freq[t - 'A']++;
-        if (freq[t - 'A'] > max) { max = freq[t - 'A']; maxCount = 1; }
-        else if (freq[t - 'A'] == max) maxCount++;
+        if (freq[t - 'A'] > max) { max = freq[t - 'A']; maxCount = 1; } // New max found
+        else if (freq[t - 'A'] == max) maxCount++; // Tie for the max frequency
     }
-    int slots = (max - 1) * (n + 1) + maxCount;
-    return Math.max(slots, tasks.length);
+    int slots = (max - 1) * (n + 1) + maxCount; // Calculate minimum slots based on idle time formula
+    return Math.max(slots, tasks.length); // Return the max of formula result and total tasks
 }
 ```
 
@@ -2080,20 +2083,20 @@ Return *any possible rearrangement of* `s` *or return* `""` *if not possible*.
 
 ```java
 String reorganizeString(String s) {
-    int[] freq = new int[26];
-    for (char c : s.toCharArray()) freq[c - 'a']++;
-    PriorityQueue<int[]> heap = new PriorityQueue<>((a, b) -> b[1] - a[1]); // {char, count}
-    for (int i = 0; i < 26; i++)
+    int[] freq = new int[26]; // Array to count character frequencies
+    for (char c : s.toCharArray()) freq[c - 'a']++; // Populate frequencies
+    PriorityQueue<int[]> heap = new PriorityQueue<>((a, b) -> b[1] - a[1]); // Max-heap storing {charIndex, count}
+    for (int i = 0; i < 26; i++) // Add non-zero frequencies to the heap
         if (freq[i] > 0) heap.offer(new int[]{i, freq[i]});
-    StringBuilder sb = new StringBuilder();
-    int[] prev = null;
-    while (!heap.isEmpty()) {
-        int[] cur = heap.poll();
-        sb.append((char) ('a' + cur[0]));
-        cur[1]--;
-        if (prev != null && prev[1] > 0) heap.offer(prev);
-        prev = cur;
+    StringBuilder sb = new StringBuilder(); // Construct the result string
+    int[] prev = null; // Store the previously placed character to avoid adjacent duplicates
+    while (!heap.isEmpty()) { // Process characters
+        int[] cur = heap.poll(); // Get the most frequent available character
+        sb.append((char) ('a' + cur[0])); // Append it
+        cur[1]--; // Decrement its remaining count
+        if (prev != null && prev[1] > 0) heap.offer(prev); // Re-add the previous character if it still has remaining instances
+        prev = cur; // Set current character as previous for the next iteration
     }
-    return sb.length() == s.length() ? sb.toString() : "";
+    return sb.length() == s.length() ? sb.toString() : ""; // Return the result or "" if it's impossible
 }
 ```

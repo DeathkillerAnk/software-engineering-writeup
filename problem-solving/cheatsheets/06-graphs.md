@@ -13,28 +13,28 @@ Graph traversal, ordering, connectivity, and shortest-path patterns with reusabl
 <!-- Problem Statement not automatically found -->
 
 ```java
-import java.util.*;
+import java.util.*; // Import utility classes like List, ArrayList
 
 // From edge list. n = number of nodes labeled 0..n-1.
 List<List<Integer>> buildGraph(int n, int[][] edges, boolean directed) {
-    List<List<Integer>> adj = new ArrayList<>();
-    for (int i = 0; i < n; i++) adj.add(new ArrayList<>());
-    for (int[] e : edges) {
-        adj.get(e[0]).add(e[1]);
-        if (!directed) adj.get(e[1]).add(e[0]);
+    List<List<Integer>> adj = new ArrayList<>(); // Create a list of lists to represent the adjacency list
+    for (int i = 0; i < n; i++) adj.add(new ArrayList<>()); // Initialize an empty list for each node
+    for (int[] e : edges) { // Iterate through the provided array of edges
+        adj.get(e[0]).add(e[1]); // Add a directed edge from e[0] to e[1]
+        if (!directed) adj.get(e[1]).add(e[0]); // If undirected, add the reverse edge from e[1] to e[0]
     }
-    return adj;
+    return adj; // Return the fully constructed adjacency list
 }
 
 // Weighted variant: store {neighbor, weight}.
 List<List<int[]>> buildWeighted(int n, int[][] edges, boolean directed) {
-    List<List<int[]>> adj = new ArrayList<>();
-    for (int i = 0; i < n; i++) adj.add(new ArrayList<>());
-    for (int[] e : edges) {
-        adj.get(e[0]).add(new int[]{e[1], e[2]});
-        if (!directed) adj.get(e[1]).add(new int[]{e[0], e[2]});
+    List<List<int[]>> adj = new ArrayList<>(); // Outer list stores lists of int[] pairs
+    for (int i = 0; i < n; i++) adj.add(new ArrayList<>()); // Initialize empty lists for each node
+    for (int[] e : edges) { // Iterate through each edge containing [source, dest, weight]
+        adj.get(e[0]).add(new int[]{e[1], e[2]}); // Add dest node and weight to source's list
+        if (!directed) adj.get(e[1]).add(new int[]{e[0], e[2]}); // Add reverse weighted edge if undirected
     }
-    return adj;
+    return adj; // Return the weighted adjacency list
 }
 ```
 
@@ -47,22 +47,22 @@ List<List<int[]>> buildWeighted(int n, int[][] edges, boolean directed) {
 ```java
 // Level-order traversal from a single source. Returns shortest #edges to each node.
 int[] bfs(List<List<Integer>> adj, int start) {
-    int n = adj.size();
-    int[] dist = new int[n];
-    Arrays.fill(dist, -1);
-    Queue<Integer> q = new ArrayDeque<>();
-    q.offer(start);
-    dist[start] = 0;
-    while (!q.isEmpty()) {
-        int node = q.poll();
-        for (int next : adj.get(node)) {
-            if (dist[next] == -1) {          // unvisited
-                dist[next] = dist[node] + 1;
-                q.offer(next);
+    int n = adj.size(); // Number of total nodes in the graph
+    int[] dist = new int[n]; // Array to store the shortest distance to each node
+    Arrays.fill(dist, -1); // Initialize distances to -1 (representing unvisited)
+    Queue<Integer> q = new ArrayDeque<>(); // Initialize a queue for BFS level-order traversal
+    q.offer(start); // Add the starting node to the queue
+    dist[start] = 0; // The distance to the starting node is 0
+    while (!q.isEmpty()) { // Continue exploring while there are nodes in the queue
+        int node = q.poll(); // Retrieve and remove the next node to process from the queue
+        for (int next : adj.get(node)) { // Iterate over all adjacent neighbors of the current node
+            if (dist[next] == -1) {          // unvisited; If neighbor hasn't been processed yet
+                dist[next] = dist[node] + 1; // Set its distance to current node's distance + 1
+                q.offer(next); // Add the unvisited neighbor to the queue for future processing
             }
         }
     }
-    return dist;
+    return dist; // Return the array containing shortest path distances from start
 }
 ```
 
@@ -75,22 +75,22 @@ int[] bfs(List<List<Integer>> adj, int start) {
 ```java
 // Recursive DFS marking visited.
 void dfs(List<List<Integer>> adj, int node, boolean[] visited) {
-    visited[node] = true;
-    for (int next : adj.get(node)) {
-        if (!visited[next]) dfs(adj, next, visited);
+    visited[node] = true; // Mark the current node as visited
+    for (int next : adj.get(node)) { // Iterate through all neighboring nodes
+        if (!visited[next]) dfs(adj, next, visited); // If neighbor is unvisited, recursively visit it
     }
 }
 
 // Iterative DFS (avoids stack overflow on deep graphs).
 void dfsIterative(List<List<Integer>> adj, int start, boolean[] visited) {
-    Deque<Integer> stack = new ArrayDeque<>();
-    stack.push(start);
-    while (!stack.isEmpty()) {
-        int node = stack.pop();
-        if (visited[node]) continue;
-        visited[node] = true;
-        for (int next : adj.get(node)) {
-            if (!visited[next]) stack.push(next);
+    Deque<Integer> stack = new ArrayDeque<>(); // Use a stack (Deque) to simulate the call stack
+    stack.push(start); // Push the starting node onto the stack
+    while (!stack.isEmpty()) { // Keep processing until the stack is empty
+        int node = stack.pop(); // Pop the top node from the stack
+        if (visited[node]) continue; // If already visited, skip to the next iteration
+        visited[node] = true; // Mark the current node as visited after popping
+        for (int next : adj.get(node)) { // Iterate through all neighboring nodes
+            if (!visited[next]) stack.push(next); // Push unvisited neighbors onto the stack for exploration
         }
     }
 }
@@ -104,35 +104,35 @@ void dfsIterative(List<List<Integer>> adj, int start, boolean[] visited) {
 
 ```java
 class DSU {
-    int[] parent, rank;
+    int[] parent, rank; // Arrays to store parent pointers and subtree ranks for union by rank
     int count;                 // number of disjoint components
 
     DSU(int n) {
-        parent = new int[n];
-        rank = new int[n];
-        count = n;
-        for (int i = 0; i < n; i++) parent[i] = i;
+        parent = new int[n]; // Initialize parent array of size n
+        rank = new int[n]; // Initialize rank array of size n
+        count = n; // Initially, every node is its own separate component
+        for (int i = 0; i < n; i++) parent[i] = i; // Make each node point to itself as its parent
     }
 
     int find(int x) {                       // with path compression
-        while (parent[x] != x) {
-            parent[x] = parent[parent[x]];   // halving
-            x = parent[x];
+        while (parent[x] != x) { // While the node is not its own parent (not the root)
+            parent[x] = parent[parent[x]];   // halving: compress path by pointing node to its grandparent
+            x = parent[x]; // Move up the tree to continue finding the root
         }
-        return x;
+        return x; // Return the representative root of the set
     }
 
     boolean union(int a, int b) {            // by rank; returns false if already joined
-        int ra = find(a), rb = find(b);
-        if (ra == rb) return false;
-        if (rank[ra] < rank[rb]) { int t = ra; ra = rb; rb = t; }
-        parent[rb] = ra;
-        if (rank[ra] == rank[rb]) rank[ra]++;
-        count--;
-        return true;
+        int ra = find(a), rb = find(b); // Find the roots of both components
+        if (ra == rb) return false; // If they have the same root, they are already in the same set
+        if (rank[ra] < rank[rb]) { int t = ra; ra = rb; rb = t; } // Ensure 'ra' points to the tree with equal or larger rank
+        parent[rb] = ra; // Attach the smaller rank tree under the root of the larger rank tree
+        if (rank[ra] == rank[rb]) rank[ra]++; // If ranks were equal, increment the rank of the new root
+        count--; // Merging two separate components decreases total component count by 1
+        return true; // Return true indicating a successful merge
     }
 
-    boolean connected(int a, int b) { return find(a) == find(b); }
+    boolean connected(int a, int b) { return find(a) == find(b); } // Return true if both nodes share the same root
 }
 ```
 
@@ -203,18 +203,18 @@ An **island** is surrounded by water and is formed by connecting adjacent lands 
 
 ```java
 public int numIslands(char[][] grid) {
-    int m = grid.length, n = grid[0].length, count = 0;
-    for (int i = 0; i < m; i++)
-        for (int j = 0; j < n; j++)
-            if (grid[i][j] == '1') { count++; sink(grid, i, j); }
-    return count;
+    int m = grid.length, n = grid[0].length, count = 0; // Get grid dimensions and initialize island counter
+    for (int i = 0; i < m; i++) // Iterate through every row
+        for (int j = 0; j < n; j++) // Iterate through every column
+            if (grid[i][j] == '1') { count++; sink(grid, i, j); } // If unvisited land is found, increment count and sink the whole island
+    return count; // Return total number of islands discovered
 }
 
 private void sink(char[][] g, int i, int j) {
-    if (i < 0 || i >= g.length || j < 0 || j >= g[0].length || g[i][j] != '1') return;
-    g[i][j] = '0';
-    sink(g, i + 1, j); sink(g, i - 1, j);
-    sink(g, i, j + 1); sink(g, i, j - 1);
+    if (i < 0 || i >= g.length || j < 0 || j >= g[0].length || g[i][j] != '1') return; // Out of bounds or already water/visited, return
+    g[i][j] = '0'; // Mutate the land to water '0' to mark it as visited
+    sink(g, i + 1, j); sink(g, i - 1, j); // Recursively sink bottom and top neighbors
+    sink(g, i, j + 1); sink(g, i, j - 1); // Recursively sink right and left neighbors
 }
 ```
 **Alternative:** BFS with a queue if recursion depth is a concern; or a DSU over land cells.
@@ -299,16 +299,16 @@ The starting pixel is already colored with 0, which is the same as the target co
 
 ```java
 public int[][] floodFill(int[][] image, int sr, int sc, int color) {
-    int start = image[sr][sc];
-    if (start != color) fill(image, sr, sc, start, color);
-    return image;
+    int start = image[sr][sc]; // Store the original color of the starting pixel
+    if (start != color) fill(image, sr, sc, start, color); // If the new color is different, initiate the flood fill
+    return image; // Return the modified image grid
 }
 
 private void fill(int[][] img, int i, int j, int from, int to) {
-    if (i < 0 || i >= img.length || j < 0 || j >= img[0].length || img[i][j] != from) return;
-    img[i][j] = to;
-    fill(img, i + 1, j, from, to); fill(img, i - 1, j, from, to);
-    fill(img, i, j + 1, from, to); fill(img, i, j - 1, from, to);
+    if (i < 0 || i >= img.length || j < 0 || j >= img[0].length || img[i][j] != from) return; // Stop if out of bounds or color doesn't match the original
+    img[i][j] = to; // Update the current pixel to the new target color
+    fill(img, i + 1, j, from, to); fill(img, i - 1, j, from, to); // Recursively fill the bottom and top adjacent pixels
+    fill(img, i, j + 1, from, to); fill(img, i, j - 1, from, to); // Recursively fill the right and left adjacent pixels
 }
 ```
 
@@ -404,23 +404,23 @@ The given node will always be the first node with `val = 1`. You must return the
 
 ```java
 class Node {
-    public int val;
-    public List<Node> neighbors;
-    public Node(int v) { val = v; neighbors = new ArrayList<>(); }
+    public int val; // Node value
+    public List<Node> neighbors; // List of adjacent neighboring nodes
+    public Node(int v) { val = v; neighbors = new ArrayList<>(); } // Constructor to initialize node and its neighbor list
 }
 
 public Node cloneGraph(Node node) {
-    if (node == null) return null;
-    Map<Node, Node> seen = new HashMap<>();
-    return dfs(node, seen);
+    if (node == null) return null; // Handle edge case of an empty graph
+    Map<Node, Node> seen = new HashMap<>(); // Hash map to track visited nodes and map original to cloned nodes
+    return dfs(node, seen); // Start DFS traversal to clone the graph
 }
 
 private Node dfs(Node node, Map<Node, Node> seen) {
-    if (seen.containsKey(node)) return seen.get(node);
-    Node copy = new Node(node.val);
-    seen.put(node, copy);
-    for (Node nb : node.neighbors) copy.neighbors.add(dfs(nb, seen));
-    return copy;
+    if (seen.containsKey(node)) return seen.get(node); // If already cloned, return the existing clone to prevent cycles
+    Node copy = new Node(node.val); // Create a new cloned node with the same value
+    seen.put(node, copy); // Store the clone in the map immediately before visiting neighbors
+    for (Node nb : node.neighbors) copy.neighbors.add(dfs(nb, seen)); // Recursively clone all neighbors and add them to the clone's neighbor list
+    return copy; // Return the fully constructed cloned node
 }
 ```
 
@@ -434,9 +434,9 @@ private Node dfs(Node node, Map<Node, Node> seen) {
 
 ```java
 public int countComponents(int n, int[][] edges) {
-    DSU dsu = new DSU(n);
-    for (int[] e : edges) dsu.union(e[0], e[1]);
-    return dsu.count;
+    DSU dsu = new DSU(n); // Initialize Disjoint Set Union data structure for n nodes
+    for (int[] e : edges) dsu.union(e[0], e[1]); // Process each edge, merging components if they belong to different sets
+    return dsu.count; // Return the final number of disjoint components tracked by the DSU
 }
 ```
 **Alternative:** DFS from each unvisited node, counting how many DFS launches occur.
@@ -503,19 +503,19 @@ In the above diagram, the bottom region is not captured because it is on the edg
 
 ```java
 public void solve(char[][] board) {
-    int m = board.length, n = board[0].length;
-    for (int i = 0; i < m; i++) { guard(board, i, 0); guard(board, i, n - 1); }
-    for (int j = 0; j < n; j++) { guard(board, 0, j); guard(board, m - 1, j); }
-    for (int i = 0; i < m; i++)
-        for (int j = 0; j < n; j++)
-            board[i][j] = board[i][j] == '#' ? 'O' : 'X';
+    int m = board.length, n = board[0].length; // Get the dimensions of the board
+    for (int i = 0; i < m; i++) { guard(board, i, 0); guard(board, i, n - 1); } // Run DFS from all 'O's on the left and right edges
+    for (int j = 0; j < n; j++) { guard(board, 0, j); guard(board, m - 1, j); } // Run DFS from all 'O's on the top and bottom edges
+    for (int i = 0; i < m; i++) // Iterate through the entire board
+        for (int j = 0; j < n; j++) // Iterate through each column
+            board[i][j] = board[i][j] == '#' ? 'O' : 'X'; // Convert safe '#' back to 'O', and capture all remaining unsurrounded 'O's to 'X'
 }
 
 private void guard(char[][] b, int i, int j) {
-    if (i < 0 || i >= b.length || j < 0 || j >= b[0].length || b[i][j] != 'O') return;
-    b[i][j] = '#';
-    guard(b, i + 1, j); guard(b, i - 1, j);
-    guard(b, i, j + 1); guard(b, i, j - 1);
+    if (i < 0 || i >= b.length || j < 0 || j >= b[0].length || b[i][j] != 'O') return; // Stop if out of bounds or not an 'O'
+    b[i][j] = '#'; // Mark this border-connected 'O' temporarily as a safe '#'
+    guard(b, i + 1, j); guard(b, i - 1, j); // Recursively explore bottom and top neighbors
+    guard(b, i, j + 1); guard(b, i, j - 1); // Recursively explore right and left neighbors
 }
 ```
 
@@ -592,25 +592,25 @@ Note that there are other possible paths for these cells to flow to the Pacific 
 
 ```java
 public List<List<Integer>> pacificAtlantic(int[][] h) {
-    int m = h.length, n = h[0].length;
-    boolean[][] pac = new boolean[m][n], atl = new boolean[m][n];
-    for (int i = 0; i < m; i++) { flow(h, i, 0, pac); flow(h, i, n - 1, atl); }
-    for (int j = 0; j < n; j++) { flow(h, 0, j, pac); flow(h, m - 1, j, atl); }
-    List<List<Integer>> res = new ArrayList<>();
-    for (int i = 0; i < m; i++)
-        for (int j = 0; j < n; j++)
-            if (pac[i][j] && atl[i][j]) res.add(List.of(i, j));
-    return res;
+    int m = h.length, n = h[0].length; // Get dimensions of the height matrix
+    boolean[][] pac = new boolean[m][n], atl = new boolean[m][n]; // Arrays to track cells reachable from Pacific and Atlantic
+    for (int i = 0; i < m; i++) { flow(h, i, 0, pac); flow(h, i, n - 1, atl); } // Flow inwards from left (Pacific) and right (Atlantic) edges
+    for (int j = 0; j < n; j++) { flow(h, 0, j, pac); flow(h, m - 1, j, atl); } // Flow inwards from top (Pacific) and bottom (Atlantic) edges
+    List<List<Integer>> res = new ArrayList<>(); // List to store coordinates that can reach both oceans
+    for (int i = 0; i < m; i++) // Iterate over all rows
+        for (int j = 0; j < n; j++) // Iterate over all columns
+            if (pac[i][j] && atl[i][j]) res.add(List.of(i, j)); // If cell is reachable by both, add to results
+    return res; // Return the valid coordinates
 }
 
 private void flow(int[][] h, int i, int j, boolean[][] seen) {
-    seen[i][j] = true;
-    int[][] dirs = {{1,0},{-1,0},{0,1},{0,-1}};
-    for (int[] d : dirs) {
-        int ni = i + d[0], nj = j + d[1];
-        if (ni >= 0 && ni < h.length && nj >= 0 && nj < h[0].length
-                && !seen[ni][nj] && h[ni][nj] >= h[i][j])
-            flow(h, ni, nj, seen);
+    seen[i][j] = true; // Mark current cell as reachable from the respective ocean
+    int[][] dirs = {{1,0},{-1,0},{0,1},{0,-1}}; // Four possible directions for water flow
+    for (int[] d : dirs) { // Try each direction
+        int ni = i + d[0], nj = j + d[1]; // Calculate neighbor coordinates
+        if (ni >= 0 && ni < h.length && nj >= 0 && nj < h[0].length // Check bounds
+                && !seen[ni][nj] && h[ni][nj] >= h[i][j]) // Ensure neighbor is unvisited and has height >= current (water flows uphill recursively)
+            flow(h, ni, nj, seen); // Continue flow from the neighbor
     }
 }
 ```
@@ -670,16 +670,17 @@ Return *the maximum **area** of an island in *`grid`. If there is no island, ret
 
 ```java
 public int maxAreaOfIsland(int[][] grid) {
-    int best = 0;
-    for (int i = 0; i < grid.length; i++)
-        for (int j = 0; j < grid[0].length; j++)
-            if (grid[i][j] == 1) best = Math.max(best, area(grid, i, j));
-    return best;
+    int best = 0; // Initialize variable to store the maximum island area found
+    for (int i = 0; i < grid.length; i++) // Iterate through each row of the grid
+        for (int j = 0; j < grid[0].length; j++) // Iterate through each column
+            if (grid[i][j] == 1) best = Math.max(best, area(grid, i, j)); // If land is found, calculate its area and update the best max area
+    return best; // Return the maximum area found
 }
 
 private int area(int[][] g, int i, int j) {
-    if (i < 0 || i >= g.length || j < 0 || j >= g[0].length || g[i][j] != 1) return 0;
-    g[i][j] = 0;
+    if (i < 0 || i >= g.length || j < 0 || j >= g[0].length || g[i][j] != 1) return 0; // Base case: return 0 if out of bounds or not land
+    g[i][j] = 0; // Mark the land cell as visited by sinking it to water (0)
+    // Recursively calculate the area by adding 1 (current cell) to the area of 4-directional neighbors
     return 1 + area(g, i + 1, j) + area(g, i - 1, j) + area(g, i, j + 1) + area(g, i, j - 1);
 }
 ```
@@ -759,27 +760,27 @@ Return *the minimum number of minutes that must elapse until no cell has a fresh
 
 ```java
 public int orangesRotting(int[][] grid) {
-    int m = grid.length, n = grid[0].length, fresh = 0, minutes = 0;
-    Queue<int[]> q = new ArrayDeque<>();
-    for (int i = 0; i < m; i++)
+    int m = grid.length, n = grid[0].length, fresh = 0, minutes = 0; // Initialize grid dimensions, fresh count, and minute tracker
+    Queue<int[]> q = new ArrayDeque<>(); // Queue for multi-source BFS
+    for (int i = 0; i < m; i++) // Scan entire grid to setup initial state
         for (int j = 0; j < n; j++) {
-            if (grid[i][j] == 2) q.offer(new int[]{i, j});
-            else if (grid[i][j] == 1) fresh++;
+            if (grid[i][j] == 2) q.offer(new int[]{i, j}); // Add all rotten oranges to queue (level 0)
+            else if (grid[i][j] == 1) fresh++; // Count the total number of fresh oranges
         }
-    int[][] dirs = {{1,0},{-1,0},{0,1},{0,-1}};
-    while (!q.isEmpty() && fresh > 0) {
-        minutes++;
-        for (int sz = q.size(); sz > 0; sz--) {
-            int[] cur = q.poll();
-            for (int[] d : dirs) {
-                int ni = cur[0] + d[0], nj = cur[1] + d[1];
-                if (ni >= 0 && ni < m && nj >= 0 && nj < n && grid[ni][nj] == 1) {
-                    grid[ni][nj] = 2; fresh--; q.offer(new int[]{ni, nj});
+    int[][] dirs = {{1,0},{-1,0},{0,1},{0,-1}}; // 4 directional movements
+    while (!q.isEmpty() && fresh > 0) { // Continue BFS while queue isn't empty and there are still fresh oranges
+        minutes++; // Increment minutes for the new BFS level
+        for (int sz = q.size(); sz > 0; sz--) { // Process all rotten oranges at the current minute (level)
+            int[] cur = q.poll(); // Get a rotten orange's coordinates
+            for (int[] d : dirs) { // Check all 4 adjacent cells
+                int ni = cur[0] + d[0], nj = cur[1] + d[1]; // Calculate adjacent coordinates
+                if (ni >= 0 && ni < m && nj >= 0 && nj < n && grid[ni][nj] == 1) { // If adjacent is fresh
+                    grid[ni][nj] = 2; fresh--; q.offer(new int[]{ni, nj}); // Rot it, decrement fresh count, and add to next minute's queue
                 }
             }
         }
     }
-    return fresh == 0 ? minutes : -1;
+    return fresh == 0 ? minutes : -1; // If all fresh rotted, return minutes; otherwise -1 (impossible)
 }
 ```
 
@@ -844,26 +845,26 @@ The distance between two cells sharing a common edge is `1`.
 
 ```java
 public int[][] updateMatrix(int[][] mat) {
-    int m = mat.length, n = mat[0].length;
-    int[][] dist = new int[m][n];
-    Queue<int[]> q = new ArrayDeque<>();
-    for (int i = 0; i < m; i++)
+    int m = mat.length, n = mat[0].length; // Get matrix dimensions
+    int[][] dist = new int[m][n]; // Distance matrix to return
+    Queue<int[]> q = new ArrayDeque<>(); // Queue for multi-source BFS
+    for (int i = 0; i < m; i++) // Iterate over the entire matrix
         for (int j = 0; j < n; j++) {
-            if (mat[i][j] == 0) q.offer(new int[]{i, j});
-            else dist[i][j] = -1;
+            if (mat[i][j] == 0) q.offer(new int[]{i, j}); // Zero cells are distance 0, push them as starting points
+            else dist[i][j] = -1; // For 1-cells, initialize distance as unvisited (-1)
         }
-    int[][] dirs = {{1,0},{-1,0},{0,1},{0,-1}};
-    while (!q.isEmpty()) {
-        int[] c = q.poll();
-        for (int[] d : dirs) {
-            int ni = c[0] + d[0], nj = c[1] + d[1];
-            if (ni >= 0 && ni < m && nj >= 0 && nj < n && dist[ni][nj] == -1) {
-                dist[ni][nj] = dist[c[0]][c[1]] + 1;
-                q.offer(new int[]{ni, nj});
+    int[][] dirs = {{1,0},{-1,0},{0,1},{0,-1}}; // 4 directional movements
+    while (!q.isEmpty()) { // Process the BFS queue
+        int[] c = q.poll(); // Pop current cell
+        for (int[] d : dirs) { // Try moving 4 directions
+            int ni = c[0] + d[0], nj = c[1] + d[1]; // Get neighbor coordinates
+            if (ni >= 0 && ni < m && nj >= 0 && nj < n && dist[ni][nj] == -1) { // If neighbor is valid and unvisited
+                dist[ni][nj] = dist[c[0]][c[1]] + 1; // Shortest distance is current distance + 1
+                q.offer(new int[]{ni, nj}); // Enqueue neighbor for subsequent expansion
             }
         }
     }
-    return dist;
+    return dist; // Return the completely populated distance matrix
 }
 ```
 
@@ -932,29 +933,29 @@ Given two words, `beginWord` and `endWord`, and a dictionary `wordList`, return 
 
 ```java
 public int ladderLength(String beginWord, String endWord, List<String> wordList) {
-    Set<String> dict = new HashSet<>(wordList);
-    if (!dict.contains(endWord)) return 0;
-    Queue<String> q = new ArrayDeque<>();
-    q.offer(beginWord);
-    int level = 1;
-    while (!q.isEmpty()) {
-        for (int sz = q.size(); sz > 0; sz--) {
-            String w = q.poll();
-            if (w.equals(endWord)) return level;
-            char[] arr = w.toCharArray();
-            for (int i = 0; i < arr.length; i++) {
-                char orig = arr[i];
-                for (char c = 'a'; c <= 'z'; c++) {
-                    arr[i] = c;
-                    String next = new String(arr);
-                    if (dict.remove(next)) q.offer(next);  // remove = mark visited
+    Set<String> dict = new HashSet<>(wordList); // Convert word list to a hash set for O(1) lookups
+    if (!dict.contains(endWord)) return 0; // If endWord is not in the dictionary, no path exists
+    Queue<String> q = new ArrayDeque<>(); // BFS queue to hold words at the current level
+    q.offer(beginWord); // Start BFS with beginWord
+    int level = 1; // Path length starts at 1 (inclusive of the start word itself)
+    while (!q.isEmpty()) { // Continue until there are no more words to explore
+        for (int sz = q.size(); sz > 0; sz--) { // Process the entire current level
+            String w = q.poll(); // Get next word to explore from the queue
+            if (w.equals(endWord)) return level; // If target word is reached, return the path length
+            char[] arr = w.toCharArray(); // Convert string to mutable character array
+            for (int i = 0; i < arr.length; i++) { // Iterate through each character position in the word
+                char orig = arr[i]; // Store original character to restore later
+                for (char c = 'a'; c <= 'z'; c++) { // Try replacing with every lowercase English letter
+                    arr[i] = c; // Substitute character
+                    String next = new String(arr); // Create the new transformed word string
+                    if (dict.remove(next)) q.offer(next);  // remove = mark visited; If valid, enqueue and remove from dict to avoid cycles
                 }
-                arr[i] = orig;
+                arr[i] = orig; // Backtrack and restore the original character for the next iteration
             }
         }
-        level++;
+        level++; // Increment the path length after fully exploring the current level
     }
-    return 0;
+    return 0; // Return 0 if queue empties and no path is found
 }
 ```
 **Alternative:** Bidirectional BFS from both ends roughly halves the explored frontier.
@@ -1027,27 +1028,27 @@ The **length of a clear path** is the number of visited cells of this path.
 
 ```java
 public int shortestPathBinaryMatrix(int[][] grid) {
-    int n = grid.length;
-    if (grid[0][0] == 1 || grid[n-1][n-1] == 1) return -1;
-    int[][] dirs = {{1,0},{-1,0},{0,1},{0,-1},{1,1},{1,-1},{-1,1},{-1,-1}};
-    Queue<int[]> q = new ArrayDeque<>();
-    q.offer(new int[]{0, 0});
-    grid[0][0] = 1;
-    int len = 1;
-    while (!q.isEmpty()) {
-        for (int sz = q.size(); sz > 0; sz--) {
-            int[] c = q.poll();
-            if (c[0] == n - 1 && c[1] == n - 1) return len;
-            for (int[] d : dirs) {
-                int ni = c[0] + d[0], nj = c[1] + d[1];
-                if (ni >= 0 && ni < n && nj >= 0 && nj < n && grid[ni][nj] == 0) {
-                    grid[ni][nj] = 1; q.offer(new int[]{ni, nj});
+    int n = grid.length; // Get the grid size n x n
+    if (grid[0][0] == 1 || grid[n-1][n-1] == 1) return -1; // Path is impossible if start or end is blocked (1)
+    int[][] dirs = {{1,0},{-1,0},{0,1},{0,-1},{1,1},{1,-1},{-1,1},{-1,-1}}; // 8 directional movements allowed
+    Queue<int[]> q = new ArrayDeque<>(); // BFS queue to store grid coordinates
+    q.offer(new int[]{0, 0}); // Add starting point (top-left)
+    grid[0][0] = 1; // Mutate grid to mark starting point as visited (to prevent revisiting)
+    int len = 1; // Path length starts at 1 for the initial cell
+    while (!q.isEmpty()) { // Continue BFS while there are reachable cells
+        for (int sz = q.size(); sz > 0; sz--) { // Process all cells at the current BFS level
+            int[] c = q.poll(); // Get next cell
+            if (c[0] == n - 1 && c[1] == n - 1) return len; // If bottom-right reached, return the path length
+            for (int[] d : dirs) { // Try all 8 possible directions
+                int ni = c[0] + d[0], nj = c[1] + d[1]; // Compute neighbor coordinates
+                if (ni >= 0 && ni < n && nj >= 0 && nj < n && grid[ni][nj] == 0) { // Check bounds and if it is an unvisited clear cell (0)
+                    grid[ni][nj] = 1; q.offer(new int[]{ni, nj}); // Mark as visited immediately and enqueue
                 }
             }
         }
-        len++;
+        len++; // Increment path length for the next BFS frontier
     }
-    return -1;
+    return -1; // Return -1 if bottom-right is unreachable
 }
 ```
 
@@ -1123,28 +1124,30 @@ because the wheels of the lock become stuck after the display becomes the dead e
 
 ```java
 public int openLock(String[] deadends, String target) {
-    Set<String> dead = new HashSet<>(Arrays.asList(deadends));
-    if (dead.contains("0000")) return -1;
-    Set<String> visited = new HashSet<>();
-    Queue<String> q = new ArrayDeque<>();
-    q.offer("0000"); visited.add("0000");
-    int turns = 0;
-    while (!q.isEmpty()) {
-        for (int sz = q.size(); sz > 0; sz--) {
-            String s = q.poll();
-            if (s.equals(target)) return turns;
-            for (int i = 0; i < 4; i++) {
-                for (int delta = -1; delta <= 1; delta += 2) {
-                    char[] a = s.toCharArray();
+    Set<String> dead = new HashSet<>(Arrays.asList(deadends)); // Convert deadends array to a HashSet for O(1) lookups
+    if (dead.contains("0000")) return -1; // If the starting combination is a deadend, it's impossible to start
+    Set<String> visited = new HashSet<>(); // Set to keep track of visited combinations to prevent loops
+    Queue<String> q = new ArrayDeque<>(); // Queue for BFS traversal
+    q.offer("0000"); visited.add("0000"); // Start with the initial lock state and mark it visited
+    int turns = 0; // Track the minimum number of wheel turns
+    while (!q.isEmpty()) { // Perform BFS level by level
+        for (int sz = q.size(); sz > 0; sz--) { // Process all states at the current depth (turn count)
+            String s = q.poll(); // Retrieve the next state from the queue
+            if (s.equals(target)) return turns; // If the target state is reached, return the accumulated turns
+            for (int i = 0; i < 4; i++) { // Iterate over each of the 4 wheels
+                for (int delta = -1; delta <= 1; delta += 2) { // Try rotating the wheel backwards (-1) and forwards (+1)
+                    char[] a = s.toCharArray(); // Convert the string state to a mutable char array
+                    // Apply rotation and handle wrap-around using modulo 10 (e.g., '9' + 1 -> '0', '0' - 1 -> '9')
                     a[i] = (char) ('0' + ((a[i] - '0' + delta + 10) % 10));
-                    String next = new String(a);
+                    String next = new String(a); // Form the new rotated combination string
+                    // Add to queue if it's not a deadend and hasn't been visited before
                     if (!dead.contains(next) && visited.add(next)) q.offer(next);
                 }
             }
         }
-        turns++;
+        turns++; // Increment turn count after completing a full level of BFS
     }
-    return -1;
+    return -1; // Target is unreachable
 }
 ```
 
@@ -1211,18 +1214,18 @@ To take course 1 you should have finished course 0, and to take course 0 you sho
 
 ```java
 public boolean canFinish(int numCourses, int[][] prerequisites) {
-    List<List<Integer>> adj = new ArrayList<>();
-    int[] indeg = new int[numCourses];
-    for (int i = 0; i < numCourses; i++) adj.add(new ArrayList<>());
-    for (int[] p : prerequisites) { adj.get(p[1]).add(p[0]); indeg[p[0]]++; }
-    Queue<Integer> q = new ArrayDeque<>();
-    for (int i = 0; i < numCourses; i++) if (indeg[i] == 0) q.offer(i);
-    int done = 0;
-    while (!q.isEmpty()) {
-        int c = q.poll(); done++;
-        for (int nx : adj.get(c)) if (--indeg[nx] == 0) q.offer(nx);
+    List<List<Integer>> adj = new ArrayList<>(); // Adjacency list for the directed prerequisite graph
+    int[] indeg = new int[numCourses]; // Array to store the in-degree (number of prerequisites) for each course
+    for (int i = 0; i < numCourses; i++) adj.add(new ArrayList<>()); // Initialize the adjacency list for each node
+    for (int[] p : prerequisites) { adj.get(p[1]).add(p[0]); indeg[p[0]]++; } // Populate graph: p[1] must precede p[0], so edge is p[1] -> p[0]
+    Queue<Integer> q = new ArrayDeque<>(); // Queue to process nodes with 0 in-degree (no remaining prerequisites)
+    for (int i = 0; i < numCourses; i++) if (indeg[i] == 0) q.offer(i); // Add all inherently available courses to queue
+    int done = 0; // Counter for the number of courses successfully completed
+    while (!q.isEmpty()) { // Kahn's Algorithm for Topological Sorting
+        int c = q.poll(); done++; // Take a course and increment the completed count
+        for (int nx : adj.get(c)) if (--indeg[nx] == 0) q.offer(nx); // Decrement in-degree for dependent courses; if 0, they are now available
     }
-    return done == numCourses;
+    return done == numCourses; // If all courses were completed, no cycles exist; return true
 }
 ```
 
@@ -1295,20 +1298,20 @@ So one correct course order is [0,1,2,3]. Another correct ordering is [0,2,1,3].
 
 ```java
 public int[] findOrder(int numCourses, int[][] prerequisites) {
-    List<List<Integer>> adj = new ArrayList<>();
-    int[] indeg = new int[numCourses];
-    for (int i = 0; i < numCourses; i++) adj.add(new ArrayList<>());
-    for (int[] p : prerequisites) { adj.get(p[1]).add(p[0]); indeg[p[0]]++; }
-    Queue<Integer> q = new ArrayDeque<>();
-    for (int i = 0; i < numCourses; i++) if (indeg[i] == 0) q.offer(i);
-    int[] order = new int[numCourses];
-    int idx = 0;
-    while (!q.isEmpty()) {
-        int c = q.poll();
-        order[idx++] = c;
-        for (int nx : adj.get(c)) if (--indeg[nx] == 0) q.offer(nx);
+    List<List<Integer>> adj = new ArrayList<>(); // Adjacency list representation
+    int[] indeg = new int[numCourses]; // Array tracking the number of incoming edges for each course
+    for (int i = 0; i < numCourses; i++) adj.add(new ArrayList<>()); // Create empty neighbor lists
+    for (int[] p : prerequisites) { adj.get(p[1]).add(p[0]); indeg[p[0]]++; } // Build graph edges p[1] -> p[0] and tally in-degrees
+    Queue<Integer> q = new ArrayDeque<>(); // Queue to collect nodes with 0 dependencies
+    for (int i = 0; i < numCourses; i++) if (indeg[i] == 0) q.offer(i); // Initialize queue with courses having no prerequisites
+    int[] order = new int[numCourses]; // Array to record the valid topological ordering
+    int idx = 0; // Index pointer for the order array
+    while (!q.isEmpty()) { // Process all eligible nodes
+        int c = q.poll(); // Dequeue the next available course
+        order[idx++] = c; // Place the course in our topological sequence
+        for (int nx : adj.get(c)) if (--indeg[nx] == 0) q.offer(nx); // Reduce dependencies for children and enqueue if they drop to 0
     }
-    return idx == numCourses ? order : new int[0];
+    return idx == numCourses ? order : new int[0]; // If sequence length matches numCourses, it's a DAG; otherwise, cycle exists
 }
 ```
 
@@ -1322,27 +1325,27 @@ public int[] findOrder(int numCourses, int[][] prerequisites) {
 
 ```java
 public String alienOrder(String[] words) {
-    Map<Character, Set<Character>> adj = new HashMap<>();
-    Map<Character, Integer> indeg = new HashMap<>();
-    for (String w : words)
-        for (char c : w.toCharArray()) { adj.putIfAbsent(c, new HashSet<>()); indeg.putIfAbsent(c, 0); }
-    for (int i = 0; i < words.length - 1; i++) {
-        String a = words[i], b = words[i + 1];
-        int min = Math.min(a.length(), b.length()), j = 0;
-        while (j < min && a.charAt(j) == b.charAt(j)) j++;
-        if (j == min) { if (a.length() > b.length()) return ""; }   // invalid prefix case
-        else if (adj.get(a.charAt(j)).add(b.charAt(j)))
-            indeg.merge(b.charAt(j), 1, Integer::sum);
+    Map<Character, Set<Character>> adj = new HashMap<>(); // Adjacency list for the character ordering graph
+    Map<Character, Integer> indeg = new HashMap<>(); // In-degree map for Kahn's topological sort
+    for (String w : words) // Iterate over all words
+        for (char c : w.toCharArray()) { adj.putIfAbsent(c, new HashSet<>()); indeg.putIfAbsent(c, 0); } // Initialize maps for every unique character
+    for (int i = 0; i < words.length - 1; i++) { // Compare each adjacent pair of words
+        String a = words[i], b = words[i + 1]; // Get adjacent word pair
+        int min = Math.min(a.length(), b.length()), j = 0; // Find the shorter length to avoid out of bounds
+        while (j < min && a.charAt(j) == b.charAt(j)) j++; // Skip matching prefixes
+        if (j == min) { if (a.length() > b.length()) return ""; }   // invalid prefix case: e.g., ["abc", "ab"] implies cycle
+        else if (adj.get(a.charAt(j)).add(b.charAt(j))) // Add directed edge a.charAt(j) -> b.charAt(j) if not already added
+            indeg.merge(b.charAt(j), 1, Integer::sum); // Increment the in-degree of the destination character
     }
-    Queue<Character> q = new ArrayDeque<>();
-    for (char c : indeg.keySet()) if (indeg.get(c) == 0) q.offer(c);
-    StringBuilder sb = new StringBuilder();
-    while (!q.isEmpty()) {
-        char c = q.poll();
-        sb.append(c);
-        for (char nx : adj.get(c)) if (indeg.merge(nx, -1, Integer::sum) == 0) q.offer(nx);
+    Queue<Character> q = new ArrayDeque<>(); // BFS queue to store characters with 0 in-degree
+    for (char c : indeg.keySet()) if (indeg.get(c) == 0) q.offer(c); // Enqueue all starting characters
+    StringBuilder sb = new StringBuilder(); // Builder for the final sorted sequence
+    while (!q.isEmpty()) { // Process nodes
+        char c = q.poll(); // Extract character with no remaining precedents
+        sb.append(c); // Append it to the dictionary ordering
+        for (char nx : adj.get(c)) if (indeg.merge(nx, -1, Integer::sum) == 0) q.offer(nx); // Decrement child in-degrees, enqueue if they reach 0
     }
-    return sb.length() == indeg.size() ? sb.toString() : "";
+    return sb.length() == indeg.size() ? sb.toString() : ""; // Return the sequence if all characters were processed (no cycles)
 }
 ```
 **Alternative (DFS variant):** Post-order DFS pushing finished nodes onto a stack; reverse the stack for the topo order. Use a 3-color (white/gray/black) marking to detect cycles.
@@ -1350,14 +1353,14 @@ public String alienOrder(String[] words) {
 ```java
 // DFS-based topological sort skeleton (0=unvisited, 1=in-stack, 2=done).
 boolean dfsTopo(int node, List<List<Integer>> adj, int[] state, Deque<Integer> out) {
-    state[node] = 1;
-    for (int nx : adj.get(node)) {
-        if (state[nx] == 1) return false;                 // back edge => cycle
-        if (state[nx] == 0 && !dfsTopo(nx, adj, state, out)) return false;
+    state[node] = 1; // Mark current node as currently being visited (in the call stack)
+    for (int nx : adj.get(node)) { // Iterate over all adjacent children
+        if (state[nx] == 1) return false;                 // back edge => cycle: if a child is already in the stack, we found a cycle
+        if (state[nx] == 0 && !dfsTopo(nx, adj, state, out)) return false; // Recursively visit unvisited children; fail fast if cycle detected deep down
     }
-    state[node] = 2;
-    out.push(node);                                       // push on finish
-    return true;
+    state[node] = 2; // Mark node as fully processed (all descendants visited)
+    out.push(node);                                       // push on finish: push to stack to assemble topological order in reverse
+    return true; // DFS completed successfully without cycles
 }
 ```
 
@@ -1426,12 +1429,12 @@ Return *the total number of **provinces***.
 
 ```java
 public int findCircleNum(int[][] isConnected) {
-    int n = isConnected.length;
-    DSU dsu = new DSU(n);
-    for (int i = 0; i < n; i++)
-        for (int j = i + 1; j < n; j++)
-            if (isConnected[i][j] == 1) dsu.union(i, j);
-    return dsu.count;
+    int n = isConnected.length; // Number of cities
+    DSU dsu = new DSU(n); // Initialize Disjoint Set Union
+    for (int i = 0; i < n; i++) // Iterate through each city
+        for (int j = i + 1; j < n; j++) // Iterate through other cities (upper triangle of matrix)
+            if (isConnected[i][j] == 1) dsu.union(i, j); // Merge into one province if connected
+    return dsu.count; // The number of remaining disjoint sets is the number of provinces
 }
 ```
 
@@ -1496,10 +1499,11 @@ Return *an edge that can be removed so that the resulting graph is a tree of *`n
 
 ```java
 public int[] findRedundantConnection(int[][] edges) {
-    DSU dsu = new DSU(edges.length + 1);   // nodes are 1-indexed
-    for (int[] e : edges)
-        if (!dsu.union(e[0], e[1])) return e;
-    return new int[0];
+    DSU dsu = new DSU(edges.length + 1);   // nodes are 1-indexed; allocate enough space
+    for (int[] e : edges) // Iterate through edges sequentially
+        // If the two endpoints are already in the same component, this edge creates a cycle
+        if (!dsu.union(e[0], e[1])) return e; // Return the redundant edge immediately
+    return new int[0]; // Fallback, shouldn't be reached per problem statement
 }
 ```
 
@@ -1563,27 +1567,32 @@ We could return these lists in any order, for example the answer [['Mary', 'mary
 
 ```java
 public List<List<String>> accountsMerge(List<List<String>> accounts) {
-    Map<String, Integer> id = new HashMap<>();
-    Map<String, String> owner = new HashMap<>();
-    int n = 0;
-    for (List<String> acc : accounts)
-        for (int i = 1; i < acc.size(); i++)
+    Map<String, Integer> id = new HashMap<>(); // Maps an email to a unique integer ID
+    Map<String, String> owner = new HashMap<>(); // Maps an email to its owner's name
+    int n = 0; // Counter to generate unique IDs
+    for (List<String> acc : accounts) { // Map each unique email to an ID and owner
+        for (int i = 1; i < acc.size(); i++) {
             if (!id.containsKey(acc.get(i))) { id.put(acc.get(i), n++); owner.put(acc.get(i), acc.get(0)); }
-    DSU dsu = new DSU(n);
-    for (List<String> acc : accounts)
-        for (int i = 2; i < acc.size(); i++)
-            dsu.union(id.get(acc.get(1)), id.get(acc.get(i)));
-    Map<Integer, TreeSet<String>> groups = new HashMap<>();
-    for (String email : id.keySet())
-        groups.computeIfAbsent(dsu.find(id.get(email)), k -> new TreeSet<>()).add(email);
-    List<List<String>> res = new ArrayList<>();
-    for (TreeSet<String> emails : groups.values()) {
-        List<String> row = new ArrayList<>();
-        row.add(owner.get(emails.first()));
-        row.addAll(emails);
-        res.add(row);
+        }
     }
-    return res;
+    DSU dsu = new DSU(n); // Initialize Disjoint Set Union for all unique emails
+    for (List<String> acc : accounts) { // Union all emails belonging to the same account array
+        for (int i = 2; i < acc.size(); i++) {
+            dsu.union(id.get(acc.get(1)), id.get(acc.get(i))); // Join all emails to the first email in the array
+        }
+    }
+    Map<Integer, TreeSet<String>> groups = new HashMap<>(); // Map DSU root ID to a sorted set of emails
+    for (String email : id.keySet()) { // Group emails by their root ID
+        groups.computeIfAbsent(dsu.find(id.get(email)), k -> new TreeSet<>()).add(email);
+    }
+    List<List<String>> res = new ArrayList<>(); // Resulting merged list
+    for (TreeSet<String> emails : groups.values()) { // Format the output per group
+        List<String> row = new ArrayList<>();
+        row.add(owner.get(emails.first())); // Get the owner name of the first email (all share the same owner)
+        row.addAll(emails); // Append sorted emails
+        res.add(row); // Add the merged account to the result
+    }
+    return res; // Return grouped and sorted accounts
 }
 ```
 
@@ -1597,11 +1606,11 @@ public List<List<String>> accountsMerge(List<List<String>> accounts) {
 
 ```java
 public boolean validTree(int n, int[][] edges) {
-    if (edges.length != n - 1) return false;        // tree needs exactly n-1 edges
-    DSU dsu = new DSU(n);
-    for (int[] e : edges)
-        if (!dsu.union(e[0], e[1])) return false;    // cycle detected
-    return dsu.count == 1;
+    if (edges.length != n - 1) return false;        // tree needs exactly n-1 edges: if not, it's not a tree
+    DSU dsu = new DSU(n); // Initialize Disjoint Set Union
+    for (int[] e : edges) // Iterate through each edge
+        if (!dsu.union(e[0], e[1])) return false;    // cycle detected: if endpoints share root, adding edge makes a cycle
+    return dsu.count == 1; // It's a valid tree if exactly 1 connected component remains
 }
 ```
 
@@ -1619,28 +1628,28 @@ public boolean validTree(int n, int[][] edges) {
 
 ```java
 public int networkDelayTime(int[][] times, int n, int k) {
-    List<List<int[]>> adj = new ArrayList<>();
-    for (int i = 0; i <= n; i++) adj.add(new ArrayList<>());
-    for (int[] t : times) adj.get(t[0]).add(new int[]{t[1], t[2]});
-    int[] dist = new int[n + 1];
-    Arrays.fill(dist, Integer.MAX_VALUE);
-    dist[k] = 0;
-    PriorityQueue<int[]> pq = new PriorityQueue<>((a, b) -> a[1] - b[1]);  // {node, dist}
-    pq.offer(new int[]{k, 0});
-    while (!pq.isEmpty()) {
-        int[] cur = pq.poll();
-        if (cur[1] > dist[cur[0]]) continue;                              // stale
-        for (int[] e : adj.get(cur[0])) {
-            int nd = cur[1] + e[1];
-            if (nd < dist[e[0]]) { dist[e[0]] = nd; pq.offer(new int[]{e[0], nd}); }
+    List<List<int[]>> adj = new ArrayList<>(); // Adjacency list storing pairs of {neighbor, travel_time}
+    for (int i = 0; i <= n; i++) adj.add(new ArrayList<>()); // Initialize lists for 1-indexed nodes
+    for (int[] t : times) adj.get(t[0]).add(new int[]{t[1], t[2]}); // Build the directed, weighted graph
+    int[] dist = new int[n + 1]; // Array storing shortest time to each node
+    Arrays.fill(dist, Integer.MAX_VALUE); // Initialize to infinity
+    dist[k] = 0; // Distance to the start node is 0
+    PriorityQueue<int[]> pq = new PriorityQueue<>((a, b) -> a[1] - b[1]);  // Min-heap ordered by accumulated distance: {node, dist}
+    pq.offer(new int[]{k, 0}); // Push the start node to the queue
+    while (!pq.isEmpty()) { // Dijkstra's algorithm loop
+        int[] cur = pq.poll(); // Extract the node with the minimum current distance
+        if (cur[1] > dist[cur[0]]) continue;                              // stale: if we found a shorter path earlier, ignore this entry
+        for (int[] e : adj.get(cur[0])) { // Iterate over all outgoing edges from current node
+            int nd = cur[1] + e[1]; // Calculate new distance through current node
+            if (nd < dist[e[0]]) { dist[e[0]] = nd; pq.offer(new int[]{e[0], nd}); } // If shorter, relax the edge and add to PQ
         }
     }
-    int max = 0;
-    for (int i = 1; i <= n; i++) {
-        if (dist[i] == Integer.MAX_VALUE) return -1;
-        max = Math.max(max, dist[i]);
+    int max = 0; // Variable to find the maximum shortest distance
+    for (int i = 1; i <= n; i++) { // Iterate over all nodes
+        if (dist[i] == Integer.MAX_VALUE) return -1; // If any node is unreachable (dist is infinity), return -1
+        max = Math.max(max, dist[i]); // Keep track of the longest shortest path
     }
-    return max;
+    return max; // Return the time when the last node is reached
 }
 ```
 
@@ -1654,17 +1663,17 @@ public int networkDelayTime(int[][] times, int n, int k) {
 
 ```java
 public int findCheapestPrice(int n, int[][] flights, int src, int dst, int k) {
-    int[] dist = new int[n];
-    Arrays.fill(dist, Integer.MAX_VALUE);
-    dist[src] = 0;
-    for (int i = 0; i <= k; i++) {
-        int[] prev = dist.clone();                       // snapshot
-        for (int[] f : flights) {
-            if (prev[f[0]] == Integer.MAX_VALUE) continue;
-            dist[f[1]] = Math.min(dist[f[1]], prev[f[0]] + f[2]);
+    int[] dist = new int[n]; // Array tracking minimum cost to reach each node
+    Arrays.fill(dist, Integer.MAX_VALUE); // Initialize all costs to infinity
+    dist[src] = 0; // Cost to reach starting city is 0
+    for (int i = 0; i <= k; i++) { // Run Bellman-Ford exactly k + 1 times (max allowed flights)
+        int[] prev = dist.clone();                       // snapshot: Use distances from previous round to enforce hop limits
+        for (int[] f : flights) { // Iterate over all available flights
+            if (prev[f[0]] == Integer.MAX_VALUE) continue; // Skip if source city hasn't been reached yet
+            dist[f[1]] = Math.min(dist[f[1]], prev[f[0]] + f[2]); // Update destination city cost if path through source is cheaper
         }
     }
-    return dist[dst] == Integer.MAX_VALUE ? -1 : dist[dst];
+    return dist[dst] == Integer.MAX_VALUE ? -1 : dist[dst]; // Return cost or -1 if unreachable within k stops
 }
 ```
 
@@ -1678,27 +1687,27 @@ public int findCheapestPrice(int n, int[][] flights, int src, int dst, int k) {
 
 ```java
 public int minimumEffortPath(int[][] heights) {
-    int m = heights.length, n = heights[0].length;
-    int[][] effort = new int[m][n];
-    for (int[] row : effort) Arrays.fill(row, Integer.MAX_VALUE);
-    effort[0][0] = 0;
-    PriorityQueue<int[]> pq = new PriorityQueue<>((a, b) -> a[0] - b[0]); // {effort, r, c}
-    pq.offer(new int[]{0, 0, 0});
-    int[][] dirs = {{1,0},{-1,0},{0,1},{0,-1}};
-    while (!pq.isEmpty()) {
-        int[] cur = pq.poll();
-        int e = cur[0], r = cur[1], c = cur[2];
-        if (r == m - 1 && c == n - 1) return e;
-        if (e > effort[r][c]) continue;
-        for (int[] d : dirs) {
-            int nr = r + d[0], nc = c + d[1];
-            if (nr >= 0 && nr < m && nc >= 0 && nc < n) {
-                int ne = Math.max(e, Math.abs(heights[nr][nc] - heights[r][c]));
-                if (ne < effort[nr][nc]) { effort[nr][nc] = ne; pq.offer(new int[]{ne, nr, nc}); }
+    int m = heights.length, n = heights[0].length; // Get dimensions of the height grid
+    int[][] effort = new int[m][n]; // Grid storing minimum max-effort to reach each cell
+    for (int[] row : effort) Arrays.fill(row, Integer.MAX_VALUE); // Initialize to infinity
+    effort[0][0] = 0; // Starting cell requires 0 effort
+    PriorityQueue<int[]> pq = new PriorityQueue<>((a, b) -> a[0] - b[0]); // Min-heap ordered by accumulated effort: {effort, r, c}
+    pq.offer(new int[]{0, 0, 0}); // Start Dijkstra from top-left cell
+    int[][] dirs = {{1,0},{-1,0},{0,1},{0,-1}}; // 4 directional movements
+    while (!pq.isEmpty()) { // Process cells in order of their effort
+        int[] cur = pq.poll(); // Extract the cell with the lowest effort
+        int e = cur[0], r = cur[1], c = cur[2]; // Unpack effort, row, column
+        if (r == m - 1 && c == n - 1) return e; // Early exit: reaching target with minimum effort
+        if (e > effort[r][c]) continue; // Ignore stale, sub-optimal paths
+        for (int[] d : dirs) { // Check all neighbors
+            int nr = r + d[0], nc = c + d[1]; // Compute neighbor coordinates
+            if (nr >= 0 && nr < m && nc >= 0 && nc < n) { // If neighbor is in bounds
+                int ne = Math.max(e, Math.abs(heights[nr][nc] - heights[r][c])); // New effort is max of current path effort and this step's elevation difference
+                if (ne < effort[nr][nc]) { effort[nr][nc] = ne; pq.offer(new int[]{ne, nr, nc}); } // If we found a lower effort path, relax and enqueue
             }
         }
     }
-    return 0;
+    return 0; // Fallback
 }
 ```
 
@@ -1712,13 +1721,13 @@ public int minimumEffortPath(int[][] heights) {
 
 ```java
 void floydWarshall(int[][] dist) {   // dist[i][j] init: 0 on diagonal, edge weight, else INF
-    int n = dist.length;
-    final int INF = Integer.MAX_VALUE / 2;   // avoid overflow on addition
-    for (int k = 0; k < n; k++)
-        for (int i = 0; i < n; i++)
-            for (int j = 0; j < n; j++)
-                if (dist[i][k] + dist[k][j] < dist[i][j])
-                    dist[i][j] = dist[i][k] + dist[k][j];
+    int n = dist.length; // Number of nodes in the graph
+    final int INF = Integer.MAX_VALUE / 2;   // avoid overflow on addition: use a safe infinity
+    for (int k = 0; k < n; k++) // Outermost loop: intermediate node k
+        for (int i = 0; i < n; i++) // Source node i
+            for (int j = 0; j < n; j++) // Destination node j
+                if (dist[i][k] + dist[k][j] < dist[i][j]) // If routing through k is cheaper
+                    dist[i][j] = dist[i][k] + dist[k][j]; // Update shortest path distance
 }
 ```
 
@@ -1736,23 +1745,23 @@ void floydWarshall(int[][] dist) {   // dist[i][j] init: 0 on diagonal, edge wei
 
 ```java
 public int minCostConnectPoints(int[][] points) {
-    int n = points.length;
-    List<int[]> edges = new ArrayList<>();          // {weight, i, j}
-    for (int i = 0; i < n; i++)
-        for (int j = i + 1; j < n; j++) {
-            int w = Math.abs(points[i][0] - points[j][0]) + Math.abs(points[i][1] - points[j][1]);
-            edges.add(new int[]{w, i, j});
+    int n = points.length; // Number of points to connect
+    List<int[]> edges = new ArrayList<>();          // {weight, i, j}: Edge list to store all possible connections
+    for (int i = 0; i < n; i++) // Build a complete graph
+        for (int j = i + 1; j < n; j++) { // Avoid duplicate edges and self-loops
+            int w = Math.abs(points[i][0] - points[j][0]) + Math.abs(points[i][1] - points[j][1]); // Calculate Manhattan distance as weight
+            edges.add(new int[]{w, i, j}); // Add the edge representation
         }
-    edges.sort((a, b) -> a[0] - b[0]);
-    DSU dsu = new DSU(n);
-    int cost = 0, used = 0;
-    for (int[] e : edges) {
-        if (dsu.union(e[1], e[2])) {
-            cost += e[0];
-            if (++used == n - 1) break;
+    edges.sort((a, b) -> a[0] - b[0]); // Sort edges globally by ascending weight
+    DSU dsu = new DSU(n); // Initialize Disjoint Set Union to track components
+    int cost = 0, used = 0; // Variables to track total MST cost and number of edges selected
+    for (int[] e : edges) { // Process edges in greedy order (lowest weight first)
+        if (dsu.union(e[1], e[2])) { // If nodes belong to different components, adding the edge won't form a cycle
+            cost += e[0]; // Add edge weight to total cost
+            if (++used == n - 1) break; // Optimization: MST requires exactly n-1 edges; break early
         }
     }
-    return cost;
+    return cost; // Return the MST cost
 }
 ```
 
@@ -1766,24 +1775,24 @@ public int minCostConnectPoints(int[][] points) {
 
 ```java
 public int minCostConnectPointsPrim(int[][] points) {
-    int n = points.length;
-    boolean[] inMST = new boolean[n];
-    PriorityQueue<int[]> pq = new PriorityQueue<>((a, b) -> a[0] - b[0]); // {cost, node}
-    pq.offer(new int[]{0, 0});
-    int cost = 0, count = 0;
-    while (count < n) {
-        int[] cur = pq.poll();
-        int w = cur[0], u = cur[1];
-        if (inMST[u]) continue;
-        inMST[u] = true; cost += w; count++;
-        for (int v = 0; v < n; v++) {
-            if (!inMST[v]) {
-                int d = Math.abs(points[u][0] - points[v][0]) + Math.abs(points[u][1] - points[v][1]);
-                pq.offer(new int[]{d, v});
+    int n = points.length; // Number of points
+    boolean[] inMST = new boolean[n]; // Track which points are already included in the MST
+    PriorityQueue<int[]> pq = new PriorityQueue<>((a, b) -> a[0] - b[0]); // Min-heap based on edge cost: {cost, node_index}
+    pq.offer(new int[]{0, 0}); // Start with node 0, cost to reach it is 0
+    int cost = 0, count = 0; // Total accumulated cost and number of points added to MST
+    while (count < n) { // Repeat until all n points are in the MST
+        int[] cur = pq.poll(); // Extract the lowest cost edge available
+        int w = cur[0], u = cur[1]; // Unpack cost and target node
+        if (inMST[u]) continue; // Skip if the node is already in the MST (stale edge)
+        inMST[u] = true; cost += w; count++; // Mark as included, add to total cost, and increment count
+        for (int v = 0; v < n; v++) { // Look at all possible next nodes
+            if (!inMST[v]) { // If the node is not yet in the MST
+                int d = Math.abs(points[u][0] - points[v][0]) + Math.abs(points[u][1] - points[v][1]); // Calculate Manhattan distance
+                pq.offer(new int[]{d, v}); // Add this potential edge to the priority queue
             }
         }
     }
-    return cost;
+    return cost; // Return the total MST cost
 }
 ```
 
@@ -1860,21 +1869,21 @@ Return `true`* if and only if it is **bipartite***.
 
 ```java
 public boolean isBipartite(int[][] graph) {
-    int n = graph.length;
-    int[] color = new int[n];           // 0 = uncolored, 1 / -1 = colors
-    for (int i = 0; i < n; i++) {
-        if (color[i] != 0) continue;
-        Queue<Integer> q = new ArrayDeque<>();
-        q.offer(i); color[i] = 1;
-        while (!q.isEmpty()) {
-            int u = q.poll();
-            for (int v : graph[u]) {
-                if (color[v] == color[u]) return false;
-                if (color[v] == 0) { color[v] = -color[u]; q.offer(v); }
+    int n = graph.length; // Number of nodes in the graph
+    int[] color = new int[n];           // 0 = uncolored, 1 / -1 = colors: array to store the color of each node
+    for (int i = 0; i < n; i++) { // Check each node (graph might be disconnected)
+        if (color[i] != 0) continue; // Skip if the node is already colored from a previous component traversal
+        Queue<Integer> q = new ArrayDeque<>(); // BFS queue
+        q.offer(i); color[i] = 1; // Start a new component coloring with node i assigned color 1
+        while (!q.isEmpty()) { // Process the BFS queue
+            int u = q.poll(); // Get the next node
+            for (int v : graph[u]) { // Iterate through its neighbors
+                if (color[v] == color[u]) return false; // If a neighbor has the same color, the graph cannot be bipartite
+                if (color[v] == 0) { color[v] = -color[u]; q.offer(v); } // If uncolored, assign it the opposite color and enqueue
             }
         }
     }
-    return true;
+    return true; // Successfully colored all components with 2 colors without conflict
 }
 ```
 
@@ -1888,19 +1897,19 @@ public boolean isBipartite(int[][] graph) {
 
 ```java
 public List<String> findItinerary(List<List<String>> tickets) {
-    Map<String, PriorityQueue<String>> adj = new HashMap<>();
-    for (List<String> t : tickets)
-        adj.computeIfAbsent(t.get(0), k -> new PriorityQueue<>()).add(t.get(1));
-    LinkedList<String> route = new LinkedList<>();
-    dfs("JFK", adj, route);
-    return route;
+    Map<String, PriorityQueue<String>> adj = new HashMap<>(); // Adjacency list, using PriorityQueue to ensure lexical sorting of destinations
+    for (List<String> t : tickets) // Iterate through all tickets
+        adj.computeIfAbsent(t.get(0), k -> new PriorityQueue<>()).add(t.get(1)); // Map origin to destination in a min-heap
+    LinkedList<String> route = new LinkedList<>(); // LinkedList to efficiently prepend nodes (acting as a reversed list)
+    dfs("JFK", adj, route); // Start Eulerian path DFS from "JFK"
+    return route; // Return the fully constructed itinerary
 }
 
 private void dfs(String node, Map<String, PriorityQueue<String>> adj, LinkedList<String> route) {
-    PriorityQueue<String> dests = adj.get(node);
-    while (dests != null && !dests.isEmpty())
-        dfs(dests.poll(), adj, route);
-    route.addFirst(node);    // add on the way back (post-order)
+    PriorityQueue<String> dests = adj.get(node); // Get all available destinations from current node
+    while (dests != null && !dests.isEmpty()) // While there are still outgoing flights
+        dfs(dests.poll(), adj, route); // Greedily pick the lexicographically smallest destination and recurse
+    route.addFirst(node);    // add on the way back (post-order): prepend current node after exhausting all its outgoing edges
 }
 ```
 
