@@ -10,7 +10,18 @@ Always prefer `lo + (hi - lo) / 2` over `(lo + hi) / 2` to avoid integer overflo
 
 ### lower_bound — first index where `a[i] >= target`
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given a sorted array `a` and a `target`, return the index of the first element that is greater than or equal to `target`. If no such element exists, return the length of the array.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** a = [1, 2, 4, 5], target = 3
+**Output:** 2
+**Explanation:** The first element >= 3 is 4, which is at index 2.
+```
+</details>
 
 **Category:** 🧩 Template
 Returns `n` if no such index. Half-open interval `[lo, hi)`.
@@ -30,7 +41,18 @@ static int lowerBound(int[] a, int target) {
 
 ### upper_bound — first index where `a[i] > target`
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given a sorted array `a` and a `target`, return the index of the first element that is strictly greater than `target`. If no such element exists, return the length of the array.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** a = [1, 2, 4, 5], target = 2
+**Output:** 2
+**Explanation:** The first element > 2 is 4, which is at index 2.
+```
+</details>
 
 **Category:** 🧩 Template
 Returns `n` if no such index.
@@ -50,7 +72,18 @@ static int upperBound(int[] a, int target) {
 
 ### Binary Search on Answer
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given a monotonic condition `feasible(x)` that evaluates to `false` for small `x` and `true` for large `x`, find the smallest `x` in the range `[lo, hi]` such that `feasible(x)` is `true`.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** lo = 1, hi = 10, feasible(x) = (x >= 5)
+**Output:** 5
+**Explanation:** 5 is the smallest value where feasible(x) evaluates to true.
+```
+</details>
 
 **Category:** 🧩 Template
 When the answer is a number in a monotonic range: `feasible(x)` is false for small x then true for all larger x (or vice versa). Search for the boundary.
@@ -76,7 +109,18 @@ static int searchAnswer(int lo, int hi) {
 
 ### Binary Search (classic)
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given an array of integers `nums` which is sorted in ascending order, and an integer `target`, write a function to search `target` in `nums`. If `target` exists, then return its index. Otherwise, return `-1`.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** nums = [-1,0,3,5,9,12], target = 9
+**Output:** 4
+**Explanation:** 9 exists in nums and its index is 4.
+```
+</details>
 
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** Binary Search  **Time:** O(log n)  **Space:** O(1)
@@ -173,7 +217,18 @@ class Solution {
 
 ### Find First and Last Position of Element
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given an array of integers `nums` sorted in non-decreasing order, find the starting and ending position of a given `target` value. If `target` is not found in the array, return `[-1, -1]`.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** nums = [5,7,7,8,8,10], target = 8
+**Output:** [3,4]
+**Explanation:** 8 is found at indices 3 and 4.
+```
+</details>
 
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** lower_bound + upper_bound  **Time:** O(log n)  **Space:** O(1)
@@ -953,7 +1008,18 @@ class Solution {
 
 ### General Backtracking Template
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+A generic template for backtracking problems to explore all possible configurations. Construct candidates incrementally and abandon a candidate ("backtrack") as soon as it determines that the candidate cannot lead to a valid solution.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** A combinatorial search space
+**Output:** All valid states matching the criteria
+**Explanation:** Incrementally builds candidates and prunes invalid choices.
+```
+</details>
 
 **Category:** 🧩 Template
 
@@ -1044,7 +1110,18 @@ class Solution {
 
 ### Subsets II (dups)
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given an integer array `nums` that may contain duplicates, return all possible subsets (the power set). The solution set must not contain duplicate subsets. Return the solution in any order.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** nums = [1,2,2]
+**Output:** [[],[1],[1,2],[1,2,2],[2],[2,2]]
+**Explanation:** All unique subsets are generated.
+```
+</details>
 
 **Category:** Tier 2 · Reinforce
 **Pattern:** Backtracking + dedup  **Time:** O(n · 2^n)  **Space:** O(n)
@@ -1153,7 +1230,18 @@ class Solution {
 
 ### Permutations II (dups)
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given a collection of numbers, `nums`, that might contain duplicates, return all possible unique permutations in any order.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** nums = [1,1,2]
+**Output:** [[1,1,2],[1,2,1],[2,1,1]]
+**Explanation:** Returns all distinct permutations of the array.
+```
+</details>
 
 **Category:** Tier 2 · Reinforce
 **Pattern:** Backtracking + used[] + dedup  **Time:** O(n · n!)  **Space:** O(n)

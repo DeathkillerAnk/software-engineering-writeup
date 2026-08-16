@@ -14,6 +14,9 @@ This repository is a curated study workspace for building depth beyond surface-l
 | [Spring Boot](spring-boot/) | IoC container, bean lifecycle, AOP, auto-configuration, web, data, production | Debugging and designing Spring apps from first principles |
 | [AI Engineering](ai-engineering/) | GenAI/agentic engineering: API, RAG, agents, evals, MCP, production, FDE skills | Becoming a GenAI/Agentic AI Engineer or Forward Deployed Engineer |
 | [System Design](system-design/) | Interview problem coverage, patterns, and practice roadmap | Timed system design interview preparation |
+| [Problem Solving](problem-solving/) | DSA master list, patterns, and Java cheatsheets | Systematic approach to algorithmic interviews |
+| [Principal Engineer Curriculum](principal_engineer_curriculum/) | Roadmap and expectations for staff/principal level | Career progression beyond senior engineer |
+| [Shared Visualizations](shared-viz/) | Animation harness and visualization templates | Creating self-contained interactive architecture diagrams |
 | [Study Material](study-material/) | Reference PDFs and supporting notes | Extra reading and practice resources |
 | [Kafka](kafka/) | Reference PDFs and supporting notes | Extra reading and practice resources |
 
@@ -49,6 +52,10 @@ This repository is a curated study workspace for building depth beyond surface-l
 |-- java/             # Java and JVM internals curriculum
 |-- spring-boot/      # Spring and Spring Boot internals curriculum
 |-- system-design/    # Interview practice roadmap and problem bank
+|-- problem-solving/  # DSA master list, patterns, and Java cheatsheets
+|-- principal_engineer_curriculum/ # Roadmap and expectations for staff/principal level
+|-- shared-viz/       # Animation harness and visualization templates
+|-- kafka/            # Reference PDFs and supporting notes
 `-- study-material/   # Supporting reference material
 ```
 
@@ -83,3 +90,5 @@ The goal is not to memorize answers. The goal is to develop the judgment to deri
 - [Spring Boot study method](spring-boot/STUDY-METHOD.md)
 - [AI engineering roadmap](ai-engineering/ROADMAP.md)
 - [System design problem bank](system-design/PROBLEM-BANK.md)
+- [Problem solving study plan](problem-solving/STUDY-PLAN.md)
+- [Principal engineer roadmap](principal_engineer_curriculum/roadmap.md)

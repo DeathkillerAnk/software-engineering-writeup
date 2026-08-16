@@ -416,7 +416,18 @@ public boolean isPalindrome(String s) {
 
 ### Sort Colors (Dutch National Flag)
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given an array `nums` with `n` objects colored red, white, or blue, sort them in-place so that objects of the same color are adjacent, with the colors in the order red, white, and blue. We will use the integers `0`, `1`, and `2` to represent the color red, white, and blue, respectively. You must solve this problem without using the library's sort function.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** nums = [2,0,2,1,1,0]
+**Output:** [0,0,1,1,2,2]
+**Explanation:** The colors are sorted in-place.
+```
+</details>
 
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** Three pointers, one pass  **Time:** O(n)  **Space:** O(1)
@@ -623,7 +634,18 @@ for (int i = 0; i < arr.length; i++) { // Iterate through the array elements
 
 ### Maximum Sum Subarray of Size K
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given an array of integers `nums` and an integer `k`, find the maximum sum of any contiguous subarray of size `k`.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** nums = [2,1,5,1,3,2], k = 3
+**Output:** 9
+**Explanation:** Subarray with maximum sum is [5, 1, 3].
+```
+</details>
 
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** Fixed sliding window  **Time:** O(n)  **Space:** O(1)
@@ -1450,7 +1472,22 @@ class NumArray {
 
 ### Difference Array (Range Updates)
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given an integer `n` representing the size of an array initialized to 0, and an array of `updates` where `updates[i] = [l, r, val]`, add `val` to all elements from index `l` to `r` (inclusive). Return the final array after all updates are applied.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** n = 5, updates = [[1, 3, 2], [2, 4, 3], [0, 2, -2]]
+**Output:** [-2, 0, 3, 5, 3]
+**Explanation:** 
+Initial: [0, 0, 0, 0, 0]
+After [1, 3, 2]: [0, 2, 2, 2, 0]
+After [2, 4, 3]: [0, 2, 5, 5, 3]
+After [0, 2, -2]: [-2, 0, 3, 5, 3]
+```
+</details>
 
 **Category:** Tier 3 · Reference
 **Pattern:** Difference array (inverse of prefix sum)  **Time:** O(n + q) for q updates  **Space:** O(n)

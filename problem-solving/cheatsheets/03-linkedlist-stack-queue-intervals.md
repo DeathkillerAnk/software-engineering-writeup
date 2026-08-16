@@ -18,7 +18,18 @@ class ListNode {
 
 ### Linked List Cycle I
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given `head`, the head of a linked list, determine if the linked list has a cycle in it.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** head = [3,2,0,-4], pos = 1
+**Output:** true
+**Explanation:** There is a cycle in the linked list, where the tail connects to the 1st node (0-indexed).
+```
+</details>
 
 **Category:** Tier 2 · Reinforce
 **Pattern:** Floyd's cycle detection  **Time:** O(n)  **Space:** O(1)
@@ -39,7 +50,18 @@ public boolean hasCycle(ListNode head) {
 
 ### Linked List Cycle II (find start)
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given the `head` of a linked list, return the node where the cycle begins. If there is no cycle, return `null`.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** head = [3,2,0,-4], pos = 1
+**Output:** tail connects to node index 1
+**Explanation:** There is a cycle in the linked list, where tail connects to the second node.
+```
+</details>
 
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** Floyd's cycle detection + math  **Time:** O(n)  **Space:** O(1)
@@ -294,7 +316,18 @@ public ListNode reverseListRec(ListNode head) {
 
 ### Reverse Linked List II (between m..n)
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given the `head` of a singly linked list and two integers `left` and `right` where `left <= right`, reverse the nodes of the list from position `left` to position `right`, and return the reversed list.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** head = [1,2,3,4,5], left = 2, right = 4
+**Output:** [1,4,3,2,5]
+**Explanation:** The sublist from position 2 to 4 is reversed.
+```
+</details>
 
 **Category:** Tier 3 · Reference
 **Pattern:** Pointer reversal with dummy head  **Time:** O(n)  **Space:** O(1)
@@ -705,7 +738,18 @@ public ListNode addTwoNumbers(ListNode l1, ListNode l2) {
 
 ### Remove Nth Node From End
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given the `head` of a linked list, remove the `n`th node from the end of the list and return its head.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** head = [1,2,3,4,5], n = 2
+**Output:** [1,2,3,5]
+**Explanation:** The second node from the end is 4, which is removed.
+```
+</details>
 
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** Two-pointer gap  **Time:** O(n)  **Space:** O(1)
@@ -1496,7 +1540,27 @@ public String removeKdigits(String num, int k) {
 
 ### Stock Span
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Design a class `StockSpanner` which collects daily price quotes for some stock and returns the span of that stock's price for the current day.
+The span of the stock's price today is defined as the maximum number of consecutive days (starting from today and going backward) for which the stock price was less than or equal to today's price.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** ["StockSpanner", "next", "next", "next", "next", "next", "next", "next"], [[], [100], [80], [60], [70], [60], [75], [85]]
+**Output:** [null, 1, 1, 1, 2, 1, 4, 6]
+**Explanation:** 
+StockSpanner stockSpanner = new StockSpanner();
+stockSpanner.next(100); // return 1
+stockSpanner.next(80);  // return 1
+stockSpanner.next(60);  // return 1
+stockSpanner.next(70);  // return 2
+stockSpanner.next(60);  // return 1
+stockSpanner.next(75);  // return 4
+stockSpanner.next(85);  // return 6
+```
+</details>
 
 **Category:** Tier 3 · Reference
 **Pattern:** Monotonic decreasing stack of (price, span)  **Time:** O(1) amortized  **Space:** O(n)
@@ -1908,7 +1972,18 @@ public int eraseOverlapIntervals(int[][] intervals) {
 
 ### Meeting Rooms II
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given an array of meeting time intervals consisting of start and end times `[[s1,e1],[s2,e2],...]` (`si < ei`), find the minimum number of conference rooms required.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** intervals = [[0,30],[5,10],[15,20]]
+**Output:** 2
+**Explanation:** Two rooms are needed because [0,30] overlaps with both [5,10] and [15,20].
+```
+</details>
 
 **Category:** Tier 2 · Reinforce
 **Pattern:** Min-heap of end times (or sweep line)  **Time:** O(n log n)  **Space:** O(n)

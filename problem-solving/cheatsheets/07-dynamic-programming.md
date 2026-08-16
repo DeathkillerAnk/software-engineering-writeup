@@ -490,7 +490,18 @@ Each item may be taken **at most once**. The state tracks which items are consid
 
 ### 0/1 Knapsack (template)
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given `N` items where each item has some weight and profit associated with it and also given a bag with capacity `W` (i.e., the bag can hold at most `W` weight in it). The task is to put the items into the bag such that the sum of profits associated with them is the maximum possible. Note: The constraint here is we can either put an item completely into the bag or cannot put it at all (It is not possible to put a part of an item into the bag).
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** wt = [1, 2, 3], val = [4, 5, 1], W = 4
+**Output:** 9
+**Explanation:** Choose the first and second items with weights 1 and 2. Their total value is 4 + 5 = 9 and the total weight is 3, which is within the capacity of 4.
+```
+</details>
 
 **Category:** 🧩 Template
 **Pattern:** 0/1 Knapsack  **Time:** O(n·W)  **Space:** O(W)
@@ -808,7 +819,18 @@ Each item may be taken **any number of times**. The space-optimized loop iterate
 
 ### Coin Change (minimum coins)
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+You are given an integer array `coins` representing coins of different denominations and an integer `amount` representing a total amount of money. Return the fewest number of coins that you need to make up that amount. If that amount of money cannot be made up by any combination of the coins, return `-1`. You may assume that you have an infinite number of each kind of coin.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** coins = [1, 2, 5], amount = 11
+**Output:** 3
+**Explanation:** 11 = 5 + 5 + 1
+```
+</details>
 
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** Unbounded Knapsack (min)  **Time:** O(n·amount)  **Space:** O(amount)
@@ -842,7 +864,22 @@ public int coinChange(int[] coins, int amount) {
 
 ### Coin Change II (count combinations)
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+You are given an integer array `coins` representing coins of different denominations and an integer `amount` representing a total amount of money. Return the number of combinations that make up that amount. If that amount of money cannot be made up by any combination of the coins, return `0`. You may assume that you have an infinite number of each kind of coin.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** amount = 5, coins = [1, 2, 5]
+**Output:** 4
+**Explanation:** there are four ways to make up the amount:
+5=5
+5=2+2+1
+5=2+1+1+1
+5=1+1+1+1+1
+```
+</details>
 
 **Category:** Tier 2 · Reinforce
 **Pattern:** Unbounded Knapsack (count combinations)  **Time:** O(n·amount)  **Space:** O(amount)
@@ -957,7 +994,18 @@ public int combinationSum4(int[] nums, int target) {
 
 ### Rod Cutting
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given a rod of length `n` inches and an array of prices that includes prices of all pieces of size smaller than `n`. Determine the maximum value obtainable by cutting up the rod and selling the pieces. For example, if the length of the rod is 8 and the values of different pieces are given as follows, then the maximum obtainable value is 22 (by cutting in two pieces of lengths 2 and 6).
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** price = [1, 5, 8, 9, 10, 17, 17, 20], n = 8
+**Output:** 22
+**Explanation:** We can get maximum value by cutting into two pieces of length 2 and 6, which have prices 5 and 17.
+```
+</details>
 
 **Category:** Tier 3 · Reference
 **Pattern:** Unbounded Knapsack (max value)  **Time:** O(n²)  **Space:** O(n)
@@ -1537,7 +1585,19 @@ public int maxCoins(int[] nums) {
 
 ### Matrix Chain Multiplication
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given a sequence of matrices, find the most efficient way to multiply these matrices together. The problem is not actually to perform the multiplications, but merely to decide in which order to perform the multiplications. We have many options to multiply a chain of matrices because matrix multiplication is associative. Given an array `p[]` which represents the chain of matrices such that the `i`th matrix `A[i]` is of dimension `p[i-1] x p[i]`. We need to write a function that should return the minimum number of multiplications needed to multiply the chain.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** p = [40, 20, 30, 10, 30]
+**Output:** 26000
+**Explanation:** There are 4 matrices of dimensions 40x20, 20x30, 30x10, and 10x30.
+The minimum cost is achieved by (A(BC))D, which requires 20*30*10 + 40*20*10 + 40*10*30 = 6000 + 8000 + 12000 = 26000 multiplications.
+```
+</details>
 
 **Category:** Tier 3 · Reference
 **Pattern:** Interval DP (split point)  **Time:** O(n³)  **Space:** O(n²)
@@ -2109,7 +2169,18 @@ State machine DP over days × (holding / not holding) × extra dimensions like r
 
 ### Best Time to Buy and Sell with Cooldown
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+You are given an array `prices` where `prices[i]` is the price of a given stock on the `i`th day. Find the maximum profit you can achieve. You may complete as many transactions as you like (i.e., buy one and sell one share of the stock multiple times) with the following restrictions: After you sell your stock, you cannot buy stock on the next day (i.e., cooldown one day). Note: You may not engage in multiple transactions simultaneously (i.e., you must sell the stock before you buy again).
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** prices = [1, 2, 3, 0, 2]
+**Output:** 3
+**Explanation:** transactions = [buy, sell, cooldown, buy, sell]
+```
+</details>
 
 **Category:** Tier 3 · Reference
 **Pattern:** State-machine DP  **Time:** O(n)  **Space:** O(1)
@@ -2146,7 +2217,18 @@ public int maxProfit(int[] prices) {
 
 ### Best Time to Buy and Sell Stock IV (k transactions)
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+You are given an integer array `prices` where `prices[i]` is the price of a given stock on the `i`th day, and an integer `k`. Find the maximum profit you can achieve. You may complete at most `k` transactions: i.e. you may buy at most `k` times and sell at most `k` times. Note: You may not engage in multiple transactions simultaneously (i.e., you must sell the stock before you buy again).
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** k = 2, prices = [3, 2, 6, 5, 0, 3]
+**Output:** 7
+**Explanation:** Buy on day 2 (price = 2) and sell on day 3 (price = 6), profit = 6-2 = 4. Then buy on day 5 (price = 0) and sell on day 6 (price = 3), profit = 3-0 = 3.
+```
+</details>
 
 **Category:** Tier 3 · Reference
 **Pattern:** State-machine DP with transaction count  **Time:** O(n·k)  **Space:** O(k)
@@ -2193,7 +2275,23 @@ public int maxProfit(int k, int[] prices) {
 
 ### Best Time to Buy and Sell with Transaction Fee
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+You are given an array `prices` where `prices[i]` is the price of a given stock on the `i`th day, and an integer `fee` representing a transaction fee. Find the maximum profit you can achieve. You may complete as many transactions as you like, but you need to pay the transaction fee for each transaction. Note: You may not engage in multiple transactions simultaneously (i.e., you must sell the stock before you buy again). The transaction fee is only charged once for each stock purchase and sale.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** prices = [1, 3, 2, 8, 4, 9], fee = 2
+**Output:** 8
+**Explanation:** The maximum profit can be achieved by:
+- Buying at prices[0] = 1
+- Selling at prices[3] = 8
+- Buying at prices[4] = 4
+- Selling at prices[5] = 9
+The total profit is ((8 - 1) - 2) + ((9 - 4) - 2) = 8.
+```
+</details>
 
 **Category:** Tier 3 · Reference
 **Pattern:** State-machine DP  **Time:** O(n)  **Space:** O(1)
@@ -2320,7 +2418,18 @@ public boolean canPartitionKSubsets(int[] nums, int k) {
 
 ### Travelling Salesman Problem (brief)
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given a set of cities and the distance between every pair of cities, the problem is to find the shortest possible route that visits every city exactly once and returns to the starting point. Note: the difference between Hamiltonian Cycle and TSP is that the Hamiltonian Cycle is to find if there exist a tour that visits every city exactly once, whereas TSP is to find the minimum weight Hamiltonian Cycle.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** dist = [[0, 10, 15, 20], [10, 0, 35, 25], [15, 35, 0, 30], [20, 25, 30, 0]]
+**Output:** 80
+**Explanation:** The shortest path is 0 -> 1 -> 3 -> 2 -> 0, which has total cost 10 + 25 + 30 + 15 = 80.
+```
+</details>
 
 **Category:** Tier 3 · Reference
 **Pattern:** Bitmask DP (Held–Karp)  **Time:** O(n²·2ⁿ)  **Space:** O(n·2ⁿ)

@@ -690,7 +690,22 @@ class Solution {
 
 ### Task Scheduler (greedy framing)
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given a characters array `tasks`, representing the tasks a CPU needs to do, where each letter represents a different task. Tasks could be done in any order. Each task is done in one unit of time. For each unit of time, the CPU could complete either one task or just be idle.
+However, there is a non-negative integer `n` that represents the cooldown period between two same tasks (the same letter in the array), that is that there must be at least `n` units of time between any two same tasks.
+Return the least number of units of times that the CPU will take to finish all the given tasks.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** tasks = ["A","A","A","B","B","B"], n = 2
+**Output:** 8
+**Explanation:** 
+A -> B -> idle -> A -> B -> idle -> A -> B
+There is at least 2 units of time between any two same tasks.
+```
+</details>
 
 **Category:** Tier 2 · Reinforce
 **Pattern:** Greedy by most-frequent task + idle-slot formula  **Time:** O(n) (counting) **Space:** O(1)
@@ -721,7 +736,27 @@ class Solution {
 
 ### Segment Tree — Range Sum & Range Min
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Design a data structure that can handle point updates and range queries efficiently. Specifically, implement a Segment Tree that supports:
+1. Building the tree from an initial array.
+2. Updating the value at a specific index (`update(i, val)`).
+3. Querying the aggregate (sum or minimum) over a specific range `[ql, qr]` (`query(ql, qr)`).
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** 
+["SegTreeSum", "query", "update", "query"]
+[[[1, 3, 5]], [0, 2], [1, 2], [0, 2]]
+**Output:** [null, 9, null, 8]
+**Explanation:** 
+SegTreeSum segTree = new SegTreeSum([1, 3, 5]);
+segTree.query(0, 2); // return 1 + 3 + 5 = 9
+segTree.update(1, 2);   // array becomes [1, 2, 5]
+segTree.query(0, 2); // return 1 + 2 + 5 = 8
+```
+</details>
 
 **Category:** 🧩 Template
 **Pattern:** Recursive segment tree, point update + range query  **Time:** build O(n), query/update O(log n)  **Space:** O(n)
@@ -810,7 +845,25 @@ class SegTreeMin {
 
 ### Segment Tree — Lazy Propagation (range update + range query)
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Design a data structure that can handle deferred range updates and range queries efficiently using Lazy Propagation. Implement a Segment Tree that supports:
+1. Adding a value to all elements within a specific range `[ql, qr]` (`update(ql, qr, delta)`).
+2. Querying the sum of elements over a specific range `[ql, qr]` (`query(ql, qr)`).
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** 
+["LazySegTree", "update", "query"]
+[[[1, 2, 3, 4, 5]], [1, 3, 2], [0, 4]]
+**Output:** [null, null, 21]
+**Explanation:** 
+LazySegTree tree = new LazySegTree([1, 2, 3, 4, 5]);
+tree.update(1, 3, 2); // array becomes [1, 4, 5, 6, 5]
+tree.query(0, 4); // return 1 + 4 + 5 + 6 + 5 = 21
+```
+</details>
 
 **Category:** 🧩 Template
 **Pattern:** Deferred range updates  **Time:** O(log n) per op  **Space:** O(n)
@@ -877,7 +930,26 @@ class LazySegTree {
 
 ### Fenwick Tree (BIT) — point update + prefix sum
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Implement a Binary Indexed Tree (Fenwick Tree) to efficiently compute prefix sums and perform point updates. The data structure should support:
+1. Point Update: Adding a delta to the element at a specific index `i`.
+2. Prefix Sum: Calculating the sum of elements from the beginning of the array up to a specific index `i`.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** 
+["Fenwick", "update", "prefixSum", "rangeSum"]
+[[5], [2, 3], [3], [2, 4]]
+**Output:** [null, null, 3, 3]
+**Explanation:** 
+Fenwick bit = new Fenwick(5); // array [0,0,0,0,0]
+bit.update(2, 3); // array [0,0,3,0,0]
+bit.prefixSum(3); // return 3
+bit.rangeSum(2, 4); // return 3
+```
+</details>
 
 **Category:** 🧩 Template
 **Pattern:** Binary Indexed Tree  **Time:** update/query O(log n)  **Space:** O(n)
@@ -917,7 +989,31 @@ class Fenwick {
 
 ### Range Sum Query - Mutable (LeetCode 307)
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given an integer array `nums`, handle multiple queries of the following types:
+1. **Update** the value of an element in `nums`.
+2. Calculate the **sum** of the elements of `nums` between indices `left` and `right` **inclusive** where `left <= right`.
+
+Implement the `NumArray` class:
+- `NumArray(int[] nums)` Initializes the object with the integer array `nums`.
+- `void update(int index, int val)` **Updates** the value of `nums[index]` to be `val`.
+- `int sumRange(int left, int right)` Returns the **sum** of the elements of `nums` between indices `left` and `right` **inclusive**.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** 
+["NumArray", "sumRange", "update", "sumRange"]
+[[[1, 3, 5]], [0, 2], [1, 2], [0, 2]]
+**Output:** [null, 9, null, 8]
+**Explanation:** 
+NumArray numArray = new NumArray([1, 3, 5]);
+numArray.sumRange(0, 2); // return 1 + 3 + 5 = 9
+numArray.update(1, 2);   // nums = [1, 2, 5]
+numArray.sumRange(0, 2); // return 1 + 2 + 5 = 8
+```
+</details>
 
 **Category:** Tier 3 · Reference
 **Pattern:** BIT storing deltas  **Time:** update/query O(log n)  **Space:** O(n)
@@ -962,7 +1058,22 @@ class NumArray {
 
 ### Count of Smaller Numbers After Self (LeetCode 315)
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given an integer array `nums`, return an integer array `counts` where `counts[i]` is the number of smaller elements to the right of `nums[i]`.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** nums = [5,2,6,1]
+**Output:** [2,1,1,0]
+**Explanation:**
+To the right of 5 there are 2 smaller elements (2 and 1).
+To the right of 2 there is only 1 smaller element (1).
+To the right of 6 there is 1 smaller element (1).
+To the right of 1 there is 0 smaller element.
+```
+</details>
 
 **Category:** Tier 3 · Reference
 **Pattern:** Coordinate compression + BIT, iterate right-to-left  **Time:** O(n log n)  **Space:** O(n)
@@ -999,7 +1110,21 @@ class Solution {
 
 ### Reverse Pairs (LeetCode 493)
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given an integer array `nums`, return the number of reverse pairs in the array.
+A reverse pair is a pair `(i, j)` where `0 <= i < j < nums.length` and `nums[i] > 2 * nums[j]`.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** nums = [1,3,2,3,1]
+**Output:** 2
+**Explanation:** The reverse pairs are:
+(1, 4) --> nums[1] = 3, nums[4] = 1, 3 > 2 * 1
+(3, 4) --> nums[3] = 3, nums[4] = 1, 3 > 2 * 1
+```
+</details>
 
 **Category:** Tier 3 · Reference
 **Pattern:** BIT over compressed values, count `nums[i] > 2*nums[j]`  **Time:** O(n log n)  **Space:** O(n)
@@ -1043,7 +1168,28 @@ class Solution {
 
 ### DSU recap — Weighted Union-Find
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Implement a Disjoint Set Union (DSU) data structure with path compression and union by rank/size. The data structure should support:
+1. `find(x)`: Find the representative of the set containing element `x`.
+2. `union(a, b)`: Merge the sets containing elements `a` and `b`.
+3. `connected(a, b)`: Check if elements `a` and `b` are in the same set.
+4. `componentSize(x)`: Get the size of the set containing element `x`.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** 
+["DSU", "union", "connected", "componentSize"]
+[[5], [0, 1], [0, 1], [0]]
+**Output:** [null, true, true, 2]
+**Explanation:** 
+DSU dsu = new DSU(5); // 5 isolated sets
+dsu.union(0, 1); // merges sets 0 and 1
+dsu.connected(0, 1); // returns true
+dsu.componentSize(0); // returns 2
+```
+</details>
 
 **Category:** 🧩 Template
 **Pattern:** Disjoint Set Union with path compression + union by rank/size  **Time:** ~O(α(n)) amortized per op  **Space:** O(n)
@@ -1098,7 +1244,31 @@ class DSU {
 
 ### LRU Cache (LeetCode 146)
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Design a data structure that follows the constraints of a Least Recently Used (LRU) cache.
+
+Implement the `LRUCache` class:
+- `LRUCache(int capacity)` Initialize the LRU cache with **positive** size `capacity`.
+- `int get(int key)` Return the value of the `key` if the key exists, otherwise return `-1`.
+- `void put(int key, int value)` Update the value of the `key` if the `key` exists. Otherwise, add the `key-value` pair to the cache. If the number of keys exceeds the `capacity` from this operation, **evict** the least recently used key.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:**
+["LRUCache", "put", "put", "get", "put", "get", "put", "get", "get", "get"]
+[[2], [1, 1], [2, 2], [1], [3, 3], [2], [4, 4], [1], [3], [4]]
+**Output:** [null, null, null, 1, null, -1, null, -1, 3, 4]
+**Explanation:**
+LRUCache lRUCache = new LRUCache(2);
+lRUCache.put(1, 1); // cache is {1=1}
+lRUCache.put(2, 2); // cache is {1=1, 2=2}
+lRUCache.get(1);    // return 1
+lRUCache.put(3, 3); // LRU key was 2, evicts key 2, cache is {1=1, 3=3}
+lRUCache.get(2);    // returns -1 (not found)
+```
+</details>
 
 **Category:** Tier 3 · Reference
 **Pattern:** HashMap + doubly linked list  **Time:** O(1) get/put  **Space:** O(capacity)
@@ -1166,7 +1336,24 @@ class LRUCache {
 
 ### LFU Cache (LeetCode 460)
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Design and implement a data structure for a Least Frequently Used (LFU) cache.
+
+Implement the `LFUCache` class:
+- `LFUCache(int capacity)` Initializes the object with the `capacity` of the data structure.
+- `int get(int key)` Gets the value of the `key` if the `key` exists in the cache. Otherwise, returns `-1`.
+- `void put(int key, int value)` Update the value of the `key` if present, or inserts the `key` if not already present. When the cache reaches its `capacity`, it should invalidate and remove the **least frequently used** key before inserting a new item. For this problem, when there is a **tie** (i.e., two or more keys with the same frequency), the **least recently used** `key` would be invalidated.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:**
+["LFUCache", "put", "put", "get", "put", "get", "get", "put", "get", "get", "get"]
+[[2], [1, 1], [2, 2], [1], [3, 3], [2], [3], [4, 4], [1], [3], [4]]
+**Output:** [null, null, null, 1, null, -1, 3, null, -1, 3, 4]
+```
+</details>
 
 **Category:** Tier 3 · Reference
 **Pattern:** Two HashMaps + per-frequency LinkedHashSet + minFreq pointer  **Time:** O(1) get/put  **Space:** O(capacity)
@@ -1226,7 +1413,23 @@ class LFUCache {
 
 ### Insert Delete GetRandom O(1) (LeetCode 380)
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Implement the `RandomizedSet` class:
+- `RandomizedSet()` Initializes the `RandomizedSet` object.
+- `bool insert(int val)` Inserts an item `val` into the set if not present. Returns `true` if the item was not present, `false` otherwise.
+- `bool remove(int val)` Removes an item `val` from the set if present. Returns `true` if the item was present, `false` otherwise.
+- `int getRandom()` Returns a random element from the current set of elements (it's guaranteed that at least one element exists when this method is called). Each element must have the **same probability** of being returned.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:**
+["RandomizedSet", "insert", "remove", "insert", "getRandom", "remove", "insert", "getRandom"]
+[[], [1], [2], [2], [], [1], [2], []]
+**Output:** [null, true, false, true, 2, true, false, 2]
+```
+</details>
 
 **Category:** Tier 3 · Reference
 **Pattern:** ArrayList + HashMap with swap-to-end deletion  **Time:** O(1) avg all ops  **Space:** O(n)
@@ -1266,7 +1469,24 @@ class RandomizedSet {
 
 ### Time Based Key-Value Store (LeetCode 981)
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Design a time-based key-value data structure that can store multiple values for the same key at different time stamps and retrieve the key's value at a certain timestamp.
+
+Implement the `TimeMap` class:
+- `TimeMap()` Initializes the object of the data structure.
+- `void set(String key, String value, int timestamp)` Stores the key `key` with the value `value` at the given time `timestamp`.
+- `String get(String key, int timestamp)` Returns a value such that `set` was called previously, with `timestamp_prev <= timestamp`. If there are multiple such values, it returns the value associated with the largest `timestamp_prev`. If there are no values, it returns `""`.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:**
+["TimeMap", "set", "get", "get", "set", "get", "get"]
+[[], ["foo", "bar", 1], ["foo", 1], ["foo", 3], ["foo", "bar2", 4], ["foo", 4], ["foo", 5]]
+**Output:** [null, null, "bar", "bar", null, "bar2", "bar2"]
+```
+</details>
 
 **Category:** Tier 3 · Reference
 **Pattern:** HashMap of (sorted) timestamp lists + binary search  **Time:** set O(1), get O(log n)  **Space:** O(n)
@@ -1310,7 +1530,26 @@ class TimeMap {
 
 ### Design Twitter (LeetCode 355)
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Design a simplified version of Twitter where users can post tweets, follow/unfollow another user, and is able to see the `10` most recent tweets in the user's news feed.
+
+Implement the `Twitter` class:
+- `Twitter()` Initializes your twitter object.
+- `void postTweet(int userId, int tweetId)` Composes a new tweet with ID `tweetId` by the user `userId`.
+- `List<Integer> getNewsFeed(int userId)` Retrieves the `10` most recent tweet IDs in the user's news feed. Each item in the news feed must be posted by users who the user followed or by the user themself. Tweets must be **ordered from most recent to least recent**.
+- `void follow(int followerId, int followeeId)` The user with ID `followerId` started following the user with ID `followeeId`.
+- `void unfollow(int followerId, int followeeId)` The user with ID `followerId` started unfollowing the user with ID `followeeId`.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:**
+["Twitter", "postTweet", "getNewsFeed", "follow", "postTweet", "getNewsFeed", "unfollow", "getNewsFeed"]
+[[], [1, 5], [1], [1, 2], [2, 6], [1], [1, 2], [1]]
+**Output:** [null, null, [5], null, null, [6, 5], null, [5]]
+```
+</details>
 
 **Category:** Tier 3 · Reference
 **Pattern:** Follow sets + per-user tweet lists + k-way merge via heap  **Time:** getNewsFeed O(F + k log F)  **Space:** O(users + tweets)

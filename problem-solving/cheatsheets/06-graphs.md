@@ -8,7 +8,18 @@ Graph traversal, ordering, connectivity, and shortest-path patterns with reusabl
 
 ### Adjacency list building
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given an integer `n` representing the number of nodes in a graph and a list of `edges`, construct an adjacency list representation of the graph. The graph can be either directed or undirected.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** n = 3, edges = [[0,1], [1,2], [2,0]], directed = true
+**Output:** [[1], [2], [0]]
+**Explanation:** Node 0 points to 1, 1 points to 2, and 2 points to 0.
+```
+</details>
 
 **Category:** 🧩 Template
 
@@ -41,7 +52,18 @@ List<List<int[]>> buildWeighted(int n, int[][] edges, boolean directed) {
 
 ### Generic BFS template
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Perform a Breadth-First Search (BFS) starting from a given `start` node on a graph represented as an adjacency list. Return an array of the shortest path distances (in number of edges) from the start node to all other nodes. Unreachable nodes should have a distance of -1.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** adj = [[1, 2], [0, 3], [0, 3], [1, 2]], start = 0
+**Output:** [0, 1, 1, 2]
+**Explanation:** Node 0 is at distance 0. Nodes 1 and 2 are adjacent to 0 (distance 1). Node 3 is reached through 1 or 2 (distance 2).
+```
+</details>
 
 **Category:** 🧩 Template
 
@@ -70,7 +92,18 @@ int[] bfs(List<List<Integer>> adj, int start) {
 
 ### Generic DFS template
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Traverse a graph represented as an adjacency list using Depth-First Search (DFS). The algorithm should mark all reachable nodes as visited starting from a given `node`.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** adj = [[1, 2], [0, 3], [0, 3], [1, 2]], start = 0, visited = [false, false, false, false]
+**Output:** [true, true, true, true]
+**Explanation:** Starting from node 0, all nodes are visited and marked as true.
+```
+</details>
 
 **Category:** 🧩 Template
 
@@ -101,7 +134,18 @@ void dfsIterative(List<List<Integer>> adj, int start, boolean[] visited) {
 
 ### Union-Find (DSU) — path compression + union by rank
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Implement a Disjoint Set Union (DSU) data structure that supports two operations: `find(x)`, which returns the root representative of the set containing `x` with path compression, and `union(a, b)`, which merges the sets containing `a` and `b` using union by rank.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** n = 5, operations = [union(0, 1), union(1, 2), find(0), find(2), connected(0, 3)]
+**Output:** [true, true, 0, 0, false]
+**Explanation:** Nodes 0, 1, and 2 are merged into the same set. Node 3 remains isolated.
+```
+</details>
 
 **Category:** 🧩 Template
 
@@ -433,7 +477,18 @@ private Node dfs(Node node, Map<Node, Node> seen) {
 
 ### Number of Connected Components (in an Undirected Graph)
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+You have a graph of `n` nodes. You are given an integer `n` and an array `edges` where `edges[i] = [a, b]` indicates that there is an edge between `a` and `b` in the graph. Return the number of connected components in the graph.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** n = 5, edges = [[0,1], [1,2], [3,4]]
+**Output:** 2
+**Explanation:** Nodes 0, 1, and 2 are connected. Nodes 3 and 4 are connected. Thus, there are 2 connected components.
+```
+</details>
 
 **Category:** Tier 3 · Reference
 **Pattern:** Union-Find (or DFS).  **Time:** O(V + E·α)  **Space:** O(V).
@@ -1335,7 +1390,18 @@ public int[] findOrder(int numCourses, int[][] prerequisites) {
 
 ### Alien Dictionary
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+There is a new alien language that uses the English alphabet. However, the order among the letters is unknown to you. You are given a list of strings `words` from the alien language's dictionary, where the strings in `words` are sorted lexicographically by the rules of this new language. Return a string of the unique letters in the new alien language sorted in lexicographically increasing order by the new language's rules. If there is no valid ordering, return `""`.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** words = ["wrt","wrf","er","ett","rftt"]
+**Output:** "wertf"
+**Explanation:** From "wrt" and "wrf", we know 't' < 'f'. From "wrt" and "er", we know 'w' < 'e'. From "er" and "ett", we know 'r' < 't'. From "ett" and "rftt", we know 'e' < 'r'. Thus the sequence is w -> e -> r -> t -> f.
+```
+</details>
 
 **Category:** Tier 3 · Reference
 **Pattern:** Build a precedence graph, then topological sort.  **Time:** O(C) total chars  **Space:** O(1) (≤26 nodes).
@@ -1620,7 +1686,18 @@ public List<List<String>> accountsMerge(List<List<String>> accounts) {
 
 ### Graph Valid Tree
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+You have a graph of `n` nodes labeled from `0` to `n - 1`. You are given an integer `n` and a list of `edges` where `edges[i] = [a, b]` indicates that there is an undirected edge between nodes `a` and `b` in the graph. Return `true` if the edges of the given graph make up a valid tree, and `false` otherwise.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** n = 5, edges = [[0,1], [0,2], [0,3], [1,4]]
+**Output:** true
+**Explanation:** The given edges connect all 5 nodes without forming any cycles, satisfying the properties of a tree.
+```
+</details>
 
 **Category:** Tier 3 · Reference
 **Pattern:** DSU — connectivity + acyclicity.  **Time:** O(n·α)  **Space:** O(n).
@@ -1643,7 +1720,18 @@ public boolean validTree(int n, int[][] edges) {
 
 ### Network Delay Time (Dijkstra)
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+You are given a network of `n` nodes, labeled from `1` to `n`. You are also given `times`, a list of travel times as directed edges `times[i] = (u, v, w)`, where `u` is the source node, `v` is the target node, and `w` is the time it takes for a signal to travel from source to target. We will send a signal from a given node `k`. Return the minimum time it takes for all the `n` nodes to receive the signal. If it is impossible, return `-1`.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** times = [[2,1,1],[2,3,1],[3,4,1]], n = 4, k = 2
+**Output:** 2
+**Explanation:** The signal takes 1 time unit to reach 1 and 3. Then it takes 1 more time unit from 3 to reach 4. Total time = 2.
+```
+</details>
 
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** Dijkstra with a min-heap.  **Time:** O(E log V)  **Space:** O(V + E).
@@ -1679,7 +1767,18 @@ public int networkDelayTime(int[][] times, int n, int k) {
 
 ### Cheapest Flights Within K Stops (Bellman-Ford)
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+There are `n` cities connected by some number of flights. You are given an array `flights` where `flights[i] = [from, to, price]` indicates that there is a flight from city `from` to city `to` with cost `price`. You are also given three integers `src`, `dst`, and `k`, return the cheapest price from `src` to `dst` with at most `k` stops. If there is no such route, return `-1`.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** n = 4, flights = [[0,1,100],[1,2,100],[2,0,100],[1,3,600],[2,3,200]], src = 0, dst = 3, k = 1
+**Output:** 700
+**Explanation:** The path with at most 1 stop is 0 -> 1 -> 3, which costs 100 + 600 = 700. The path 0 -> 1 -> 2 -> 3 costs 400 but has 2 stops.
+```
+</details>
 
 **Category:** Tier 2 · Reinforce
 **Pattern:** Bounded Bellman-Ford (≤ K+1 edges).  **Time:** O(K·E)  **Space:** O(V).
@@ -1704,7 +1803,18 @@ public int findCheapestPrice(int n, int[][] flights, int src, int dst, int k) {
 
 ### Path with Minimum Effort (Dijkstra-style)
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+You are a hiker preparing for an upcoming hike. You are given `heights`, a 2D array of size `rows x columns`, where `heights[row][col]` represents the height of cell `(row, col)`. You are situated in the top-left cell, `(0, 0)`, and you hope to travel to the bottom-right cell, `(rows-1, columns-1)`. You can move up, down, left, or right, and you wish to find a route that requires the minimum effort. A route's effort is the maximum absolute difference in heights between two consecutive cells of the route. Return the minimum effort required to travel from the top-left cell to the bottom-right cell.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** heights = [[1,2,2],[3,8,2],[5,3,5]]
+**Output:** 2
+**Explanation:** The route [1,3,5,3,5] has a maximum absolute difference of 2 in consecutive cells.
+```
+</details>
 
 **Category:** Tier 3 · Reference
 **Pattern:** Dijkstra where cost = max edge on path (minimax).  **Time:** O(m·n·log(m·n))  **Space:** O(m·n).
@@ -1739,7 +1849,18 @@ public int minimumEffortPath(int[][] heights) {
 
 ### Floyd-Warshall template
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given an adjacency matrix representing a weighted graph, find the shortest path distances between all pairs of vertices. The Floyd-Warshall algorithm iteratively updates the distance between each pair of vertices `(i, j)` by considering if an intermediate vertex `k` offers a shorter path.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** graph = [[0, 5, INF, 10], [INF, 0, 3, INF], [INF, INF, 0, 1], [INF, INF, INF, 0]]
+**Output:** [[0, 5, 8, 9], [INF, 0, 3, 4], [INF, INF, 0, 1], [INF, INF, INF, 0]]
+**Explanation:** The shortest path from 0 to 3 is 0 -> 1 -> 2 -> 3 with total weight 5 + 3 + 1 = 9.
+```
+</details>
 
 **Category:** 🧩 Template
 **Pattern:** All-pairs shortest path via DP.  **Time:** O(V³)  **Space:** O(V²).
@@ -1764,7 +1885,18 @@ void floydWarshall(int[][] dist) {   // dist[i][j] init: 0 on diagonal, edge wei
 
 ### Min Cost to Connect All Points — Kruskal
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+You are given an array `points` representing integer coordinates of some points on a 2D-plane, where `points[i] = [xi, yi]`. The cost of connecting two points `[xi, yi]` and `[xj, yj]` is the Manhattan distance between them: `|xi - xj| + |yi - yj|`. Return the minimum cost to make all points connected. All points are connected if there is exactly one simple path between any two points. This solution uses Kruskal's algorithm to find the Minimum Spanning Tree (MST).
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** points = [[0,0],[2,2],[3,10],[5,2],[7,0]]
+**Output:** 20
+**Explanation:** We can connect the points to form a tree with edges (0,0)-(2,2), (2,2)-(5,2), (5,2)-(7,0), and (2,2)-(3,10). The total cost is 4 + 3 + 4 + 9 = 20.
+```
+</details>
 
 **Category:** Tier 2 · Reinforce
 **Pattern:** Sort edges, union greedily.  **Time:** O(n² log n)  **Space:** O(n²).
@@ -1795,7 +1927,18 @@ public int minCostConnectPoints(int[][] points) {
 
 ### Min Cost to Connect All Points — Prim
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+You are given an array `points` representing integer coordinates of some points on a 2D-plane, where `points[i] = [xi, yi]`. The cost of connecting two points `[xi, yi]` and `[xj, yj]` is the Manhattan distance between them: `|xi - xj| + |yi - yj|`. Return the minimum cost to make all points connected. All points are connected if there is exactly one simple path between any two points. This solution uses Prim's algorithm to find the Minimum Spanning Tree (MST).
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** points = [[0,0],[2,2],[3,10],[5,2],[7,0]]
+**Output:** 20
+**Explanation:** We start from point 0 and greedily pick the nearest disconnected point, accumulating the cost until all points are visited. Total cost is 20.
+```
+</details>
 
 **Category:** Tier 2 · Reinforce
 **Pattern:** Grow MST from one node with a min-heap.  **Time:** O(n² log n)  **Space:** O(n).
@@ -1919,7 +2062,18 @@ public boolean isBipartite(int[][] graph) {
 
 ### Reconstruct Itinerary (Hierholzer / Eulerian path)
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+You are given a list of airline `tickets` where `tickets[i] = [from_i, to_i]` represent the departure and the arrival airports of one flight. Reconstruct the itinerary in order and return it. All of the tickets belong to a man who departs from `"JFK"`, thus, the itinerary must begin with `"JFK"`. If there are multiple valid itineraries, you should return the itinerary that has the smallest lexical order when read as a single string. You may assume all tickets form at least one valid itinerary. You must use all the tickets once and only once.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** tickets = [["MUC","LHR"],["JFK","MUC"],["SFO","SJC"],["LHR","SFO"]]
+**Output:** ["JFK","MUC","LHR","SFO","SJC"]
+**Explanation:** The itinerary must start with JFK, which goes to MUC, then to LHR, SFO, and finally SJC.
+```
+</details>
 
 **Category:** Tier 3 · Reference
 **Pattern:** Hierholzer's algorithm for an Eulerian path.  **Time:** O(E log E)  **Space:** O(E).

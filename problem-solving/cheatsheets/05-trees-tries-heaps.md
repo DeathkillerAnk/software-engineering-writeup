@@ -23,7 +23,18 @@ public class TreeNode {
 
 ### Preorder / Inorder / Postorder (Recursive)
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given the `root` of a binary tree, return the preorder, inorder, or postorder traversal of its nodes' values.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** root = [1,null,2,3]
+**Output:** [1,2,3] (preorder), [1,3,2] (inorder), [3,2,1] (postorder)
+**Explanation:** Traverses the nodes following root-left-right, left-root-right, or left-right-root respectively.
+```
+</details>
 
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** DFS recursion  **Time:** O(n)  **Space:** O(h) stack
@@ -58,7 +69,18 @@ void post(TreeNode n, List<Integer> out) {
 
 ### Preorder / Inorder / Postorder (Iterative)
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given the `root` of a binary tree, return the preorder, inorder, or postorder traversal of its nodes' values using an iterative approach.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** root = [1,null,2,3]
+**Output:** [1,2,3] (preorder), [1,3,2] (inorder), [3,2,1] (postorder)
+**Explanation:** Uses an explicit stack to traverse without recursion.
+```
+</details>
 
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** Explicit stack  **Time:** O(n)  **Space:** O(h)
@@ -109,7 +131,18 @@ List<Integer> postIter(TreeNode root) {
 
 ### Level Order Traversal (BFS)
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given the `root` of a binary tree, return the level order traversal of its nodes' values. (i.e., from left to right, level by level).
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** root = [3,9,20,null,null,15,7]
+**Output:** [[3],[9,20],[15,7]]
+**Explanation:** The nodes are processed level by level from top to bottom.
+```
+</details>
 
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** BFS with queue  **Time:** O(n)  **Space:** O(n)
@@ -139,7 +172,18 @@ List<List<Integer>> levelOrder(TreeNode root) {
 
 ### Zigzag Level Order
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given the `root` of a binary tree, return the zigzag level order traversal of its nodes' values. (i.e., from left to right, then right to left for the next level and alternate between).
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** root = [3,9,20,null,null,15,7]
+**Output:** [[3],[20,9],[15,7]]
+**Explanation:** Level 1 is left-to-right, level 2 is right-to-left, level 3 is left-to-right.
+```
+</details>
 
 **Category:** Tier 3 · Reference
 **Pattern:** BFS + direction flag  **Time:** O(n)  **Space:** O(n)
@@ -266,7 +310,18 @@ List<Integer> rightSideView(TreeNode root) {
 
 ### Maximum Depth
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given the `root` of a binary tree, return its maximum depth. The maximum depth is the number of nodes along the longest path from the root node down to the farthest leaf node.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** root = [3,9,20,null,null,15,7]
+**Output:** 3
+**Explanation:** The longest path is 3 -> 20 -> 15 or 3 -> 20 -> 7, which has 3 nodes.
+```
+</details>
 
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** DFS post-order  **Time:** O(n)  **Space:** O(h)
@@ -638,7 +693,18 @@ int dfs(TreeNode n, long curr, int target, Map<Long, Integer> seen) {
 
 ### Lowest Common Ancestor (Binary Tree)
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given a binary tree, find the lowest common ancestor (LCA) of two given nodes in the tree. The lowest common ancestor is defined between two nodes `p` and `q` as the lowest node in `T` that has both `p` and `q` as descendants (where we allow a node to be a descendant of itself).
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** root = [3,5,1,6,2,0,8,null,null,7,4], p = 5, q = 1
+**Output:** 3
+**Explanation:** The LCA of nodes 5 and 1 is 3.
+```
+</details>
 
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** DFS post-order  **Time:** O(n)  **Space:** O(h)
@@ -915,7 +981,18 @@ boolean isSameTree(TreeNode p, TreeNode q) {
 
 ### Count Good Nodes
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given a binary tree `root`, a node `X` in the tree is named **good** if in the path from root to `X` there are no nodes with a value greater than `X`. Return the number of good nodes in the binary tree.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** root = [3,1,4,3,null,1,5]
+**Output:** 4
+**Explanation:** Nodes with values 3, 4, 5, and 3 are good.
+```
+</details>
 
 **Category:** Tier 3 · Reference
 **Pattern:** DFS carrying max-on-path  **Time:** O(n)  **Space:** O(h)
@@ -940,7 +1017,18 @@ int dfs(TreeNode n, int maxSoFar) {
 
 ### Construct from Preorder & Inorder
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given two integer arrays `preorder` and `inorder` where `preorder` is the preorder traversal of a binary tree and `inorder` is the inorder traversal of the same tree, construct and return the binary tree.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** preorder = [3,9,20,15,7], inorder = [9,3,15,20,7]
+**Output:** [3,9,20,null,null,15,7]
+**Explanation:** The root is 3, left subtree is built from [9], right subtree from [15,20,7].
+```
+</details>
 
 **Category:** Tier 2 · Reinforce
 **Pattern:** Recursive split + index map  **Time:** O(n)  **Space:** O(n)
@@ -1123,7 +1211,18 @@ void flatten(TreeNode root) {
 
 ### Validate BST
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given the `root` of a binary tree, determine if it is a valid binary search tree (BST). A valid BST is defined as follows: The left subtree of a node contains only nodes with keys less than the node's key. The right subtree of a node contains only nodes with keys greater than the node's key. Both the left and right subtrees must also be binary search trees.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** root = [2,1,3]
+**Output:** true
+**Explanation:** The tree correctly follows all BST properties.
+```
+</details>
 
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** DFS with (min, max) bounds  **Time:** O(n)  **Space:** O(h)
@@ -1144,7 +1243,18 @@ boolean valid(TreeNode n, long min, long max) {
 
 ### Insert into BST
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+You are given the `root` node of a binary search tree (BST) and a `value` to insert into the tree. Return the root node of the BST after the insertion. It is guaranteed that the new value does not exist in the original BST.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** root = [4,2,7,1,3], val = 5
+**Output:** [4,2,7,1,3,5]
+**Explanation:** The value 5 is inserted as the left child of 7 to maintain BST properties.
+```
+</details>
 
 **Category:** Tier 3 · Reference
 **Pattern:** BST descent  **Time:** O(h)  **Space:** O(h)
@@ -1162,7 +1272,18 @@ TreeNode insertIntoBST(TreeNode root, int val) {
 
 ### Delete Node in BST
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given a root node reference of a BST and a key, delete the node with the given key in the BST. Return the root node reference (possibly updated) of the BST.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** root = [5,3,6,2,4,null,7], key = 3
+**Output:** [5,4,6,2,null,null,7]
+**Explanation:** Node 3 is deleted and replaced by its inorder successor 4.
+```
+</details>
 
 **Category:** Tier 3 · Reference
 **Pattern:** BST descent + successor splice  **Time:** O(h)  **Space:** O(h)
@@ -1188,7 +1309,18 @@ TreeNode deleteNode(TreeNode root, int key) {
 
 ### Kth Smallest Element in BST
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given the `root` of a binary search tree, and an integer `k`, return the `k`th smallest value (1-indexed) of all the values of the nodes in the tree.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** root = [3,1,4,null,2], k = 1
+**Output:** 1
+**Explanation:** The smallest element in the BST is 1.
+```
+</details>
 
 **Category:** ⭐ Tier 1 · Core
 **Pattern:** Iterative inorder  **Time:** O(h + k)  **Space:** O(h)
@@ -1211,7 +1343,18 @@ int kthSmallest(TreeNode root, int k) {
 
 ### Lowest Common Ancestor of BST
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given a binary search tree (BST), find the lowest common ancestor (LCA) node of two given nodes in the BST.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** root = [6,2,8,0,4,7,9,null,null,3,5], p = 2, q = 8
+**Output:** 6
+**Explanation:** The LCA of nodes 2 and 8 is 6.
+```
+</details>
 
 **Category:** Tier 3 · Reference
 **Pattern:** BST descent  **Time:** O(h)  **Space:** O(1)
@@ -1232,7 +1375,18 @@ TreeNode lcaBST(TreeNode root, TreeNode p, TreeNode q) {
 
 ### Convert Sorted Array to BST
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given an integer array `nums` where the elements are sorted in ascending order, convert it to a height-balanced binary search tree.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** nums = [-10,-3,0,5,9]
+**Output:** [0,-3,9,-10,null,5]
+**Explanation:** The array is evenly divided to maintain an absolute height difference of at most 1.
+```
+</details>
 
 **Category:** Tier 3 · Reference
 **Pattern:** Divide & conquer on midpoint  **Time:** O(n)  **Space:** O(log n)
@@ -1255,7 +1409,18 @@ TreeNode build(int[] nums, int lo, int hi) {
 
 ### BST Iterator
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Implement the `BSTIterator` class that represents an iterator over the in-order traversal of a binary search tree (BST).
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** ["BSTIterator", "next", "hasNext", "next"] with tree [7, 3, 15, null, null, 9, 20]
+**Output:** [null, 3, true, 7]
+**Explanation:** `next()` returns the next smallest number in the BST.
+```
+</details>
 
 **Category:** Tier 3 · Reference
 **Pattern:** Controlled inorder via stack  **Time:** O(1) amortized next/hasNext  **Space:** O(h)
@@ -1374,7 +1539,18 @@ class Trie {
 
 ### Add and Search Word (with '.' wildcard)
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Design a data structure that supports adding new words and finding if a string matches any previously added string. The search string can contain the dot character `.` which can be matched with any letter.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** addWord("bad"), addWord("dad"), addWord("mad"), search("pad"), search("bad"), search(".ad"), search("b..")
+**Output:** [null, null, null, false, true, true, true]
+**Explanation:** A dot matches any single character.
+```
+</details>
 
 **Category:** Tier 3 · Reference
 **Pattern:** Trie + DFS for wildcard  **Time:** insert O(L), search O(26^dots · L)  **Space:** O(total chars)
@@ -1411,7 +1587,18 @@ class WordDictionary {
 
 ### Word Search II (Trie + DFS)
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given an `m x n` `board` of characters and a list of strings `words`, return all words on the board. Each word must be constructed from letters of sequentially adjacent cells (horizontally or vertically).
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** board = [["o","a","a","n"],["e","t","a","e"],["i","h","k","r"],["i","f","l","v"]], words = ["oath","pea","eat","rain"]
+**Output:** ["eat","oath"]
+**Explanation:** Both "eat" and "oath" can be found by traversing adjacent cells.
+```
+</details>
 
 **Category:** Tier 2 · Reinforce
 **Pattern:** Trie-pruned grid backtracking  **Time:** O(M·N·4·3^(L-1))  **Space:** O(total chars)
@@ -1958,7 +2145,18 @@ ListNode mergeKLists(ListNode[] lists) {
 
 ### Kth Smallest in a Sorted Matrix
 
-<!-- Problem Statement not automatically found -->
+<details><summary><b>Problem Statement & Examples</b></summary>
+
+**Problem Statement:**
+Given an `n x n` `matrix` where each of the rows and columns is sorted in ascending order, return the `k`th smallest element in the matrix. Note that it is the `k`th smallest element in the sorted order, not the `k`th distinct element.
+
+<strong class="example">Example 1:</strong>
+```text
+**Input:** matrix = [[1,5,9],[10,11,13],[12,13,15]], k = 8
+**Output:** 13
+**Explanation:** The elements in the matrix are [1, 5, 9, 10, 11, 12, 13, 13, 15], and the 8th smallest number is 13.
+```
+</details>
 
 **Category:** Tier 3 · Reference
 **Pattern:** Binary search on value  **Time:** O(n log(max-min))  **Space:** O(1)
