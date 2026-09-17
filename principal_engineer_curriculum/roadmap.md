@@ -749,7 +749,7 @@ For each system: **Problem → Architecture → Data Structures → Algorithms �
 
 *Topics:* ZooKeeper — ZAB protocol, znodes (ephemeral, sequential), watches, sessions, leader election recipe, distributed lock recipe, group membership recipe. Why ZooKeeper is being replaced by etcd/KRaft in modern systems. etcd — Raft implementation, key-value store (boltdb/bbolt), watch mechanism (streaming), lease mechanism, linearizable reads (ReadIndex), compaction and defragmentation. Comparison and migration patterns.
 
-*Existing Content:* None — NEW chapter
+*Existing Content:* Completed — [`level-5-principal-engineer/part-42-inside-zookeeper-and-etcd/ch54-inside-zookeeper-and-etcd.md`](./level-5-principal-engineer/part-42-inside-zookeeper-and-etcd/ch54-inside-zookeeper-and-etcd.md)
 
 ---
 
@@ -758,7 +758,7 @@ For each system: **Problem → Architecture → Data Structures → Algorithms �
 
 *Topics:* **Kubernetes internals:** API server (admission controllers, webhook chain), scheduler (filtering → scoring → binding), controller manager (reconciliation loop, informers, work queues), etcd usage (watch-based convergence), kubelet (pod lifecycle, CRI, CNI, CSI), kube-proxy (iptables vs IPVS mode), CoreDNS, service mesh integration points. **Load balancer internals:** L4 (connection-level — ECMP, DSR, maglev consistent hashing) vs L7 (request-level — host/path routing, header inspection, connection pooling, health checking, circuit breaking). Software LBs (HAProxy, Envoy, Nginx architecture). Cloud LB implementation patterns (NLB, ALB).
 
-*Existing Content:* None — NEW chapter
+*Existing Content:* Completed — [`level-5-principal-engineer/part-43-inside-kubernetes-and-load-balancers/ch55-inside-kubernetes-and-load-balancers.md`](./level-5-principal-engineer/part-43-inside-kubernetes-and-load-balancers/ch55-inside-kubernetes-and-load-balancers.md)
 
 ---
 
@@ -788,7 +788,7 @@ For each system: Requirements (functional + non-functional), traffic estimation,
 15. Multi-region SaaS Platform
 16. Search Engine
 
-*Existing Content:* [`HLD/04-design-case-studies`](../HLD/04-design-case-studies) (8 case studies: URL shortener, news feed, chat, search, payments, video, object store, KV store), [`system-design/SOLUTIONS.md`](../system-design/SOLUTIONS.md) (40+ problems, 397KB)
+*Existing Content:* Completed — [`level-5-principal-engineer/part-44-real-world-system-design-case-studies/ch56-real-world-system-design-case-studies.md`](./level-5-principal-engineer/part-44-real-world-system-design-case-studies/ch56-real-world-system-design-case-studies.md) ([`HLD/04-design-case-studies`](../HLD/04-design-case-studies), [`system-design/SOLUTIONS.md`](../system-design/SOLUTIONS.md))
 
 ---
 
@@ -799,7 +799,7 @@ For each system: Requirements (functional + non-functional), traffic estimation,
 
 *Topics:* Conway's Law — "organizations produce designs which mirror their communication structures." Inverse Conway maneuver — structuring teams to get the architecture you want. Team Topologies — stream-aligned teams, enabling teams, complicated subsystem teams, platform teams. Interaction modes — collaboration, X-as-a-Service, facilitating. Team cognitive load and service boundaries. How organizational structure constrains architecture decisions. Conway's Law in microservices — why one team owning multiple services creates a distributed monolith. Amazon's two-pizza teams and API mandate. Platform engineering as an organizational pattern.
 
-*Existing Content:* None — NEW chapter
+*Existing Content:* Completed — [`level-5-principal-engineer/part-45-organizational-and-economic-dimensions/ch57-organizational-design-and-conways-law.md`](./level-5-principal-engineer/part-45-organizational-and-economic-dimensions/ch57-organizational-design-and-conways-law.md)
 
 *Revisited In:* Ch 59 (platform engineering), Ch 60 (decision making — organizational constraints)
 
@@ -810,7 +810,7 @@ For each system: Requirements (functional + non-functional), traffic estimation,
 
 *Topics:* Cloud cost models — compute (on-demand vs reserved vs spot vs savings plans), storage (tiers, retrieval costs), network (egress, cross-AZ, cross-region), managed services (per-request pricing). Cost per request, cost per user, unit economics. Right-sizing (CPU/memory utilization targets). Cost of multi-region (you're paying for everything twice+). Cost of consistency (consensus = more round trips = more latency = more compute). Spot/preemptible instances for stateless workloads. Cost visibility — tagging, cost allocation, showback/chargeback. Making cost a first-class architecture constraint. Cost vs reliability vs latency trade-off triangle.
 
-*Existing Content:* None — NEW chapter
+*Existing Content:* Completed — [`level-5-principal-engineer/part-45-organizational-and-economic-dimensions/ch58-cost-engineering-and-finops.md`](./level-5-principal-engineer/part-45-organizational-and-economic-dimensions/ch58-cost-engineering-and-finops.md)
 
 *Revisited In:* Ch 60 (decision making — cost analysis), Ch 62 (capstone — cost reasoning)
 
@@ -821,7 +821,7 @@ For each system: Requirements (functional + non-functional), traffic estimation,
 
 *Topics:* Internal developer platforms (IDPs) — what they provide, what they abstract. Golden paths — opinionated defaults that teams can follow. Self-service infrastructure — service provisioning, database provisioning, secrets management, CI/CD pipeline templates. Developer portals (Backstage architecture). Platform as a product — treating internal teams as customers. Standardization vs autonomy trade-off. API standardization, observability standardization, deployment standardization. Build vs buy vs configure. When platform engineering creates value vs when it creates bureaucracy.
 
-*Existing Content:* None — NEW chapter
+*Existing Content:* Completed — [`level-5-principal-engineer/part-45-organizational-and-economic-dimensions/ch59-platform-engineering-and-developer-experience.md`](./level-5-principal-engineer/part-45-organizational-and-economic-dimensions/ch59-platform-engineering-and-developer-experience.md)
 
 *Revisited In:* Ch 60 (decision making — platform strategy)
 
@@ -834,7 +834,7 @@ For each system: Requirements (functional + non-functional), traffic estimation,
 
 *Topics:* Architecture Decision Records (ADRs) — format, when to write, lightweight ADRs. Decision framework: **Problem → Requirements → Constraints → Options → Trade-offs → Decision → Consequences → Monitoring → Revisit Conditions.** Technology evaluation methodology. Real-world architecture evolution — show how systems evolve through stages: Single Server → Monolith → Modular Monolith → Horizontally Scaled → Extracted Services → Microservices → Event-Driven → Multi-Region → Global Platform. At every stage: **Why changed, what problem appeared, what solution introduced, what new problems created, what trade-offs made.** Do not teach architecture patterns as isolated recipes — teach them as **responses to evolving constraints.**
 
-*Existing Content:* [`HLD/05-principal-skills/29-tradeoffs-and-adrs.md`](../HLD/05-principal-skills/29-tradeoffs-and-adrs.md), [`HLD/05-principal-skills/30-evolutionary-architecture.md`](../HLD/05-principal-skills/30-evolutionary-architecture.md)
+*Existing Content:* Completed — [`level-5-principal-engineer/part-46-architecture-evolution-and-decision-making/ch60-architecture-decision-making.md`](./level-5-principal-engineer/part-46-architecture-evolution-and-decision-making/ch60-architecture-decision-making.md) (Synthesizing and expanding `HLD/05-principal-skills/29-tradeoffs-and-adrs.md` and `HLD/05-principal-skills/30-evolutionary-architecture.md`)
 
 ---
 
@@ -858,7 +858,7 @@ Monolith → Modular Monolith → Service Decomposition → Microservices
 
 Use production-quality code. Explain every important implementation decision.
 
-*Existing Content:* None — NEW chapter
+*Existing Content:* Completed — [`level-5-principal-engineer/part-47-hands-on-master-project-and-failure-labs/ch61-hands-on-master-project.md`](./level-5-principal-engineer/part-47-hands-on-master-project-and-failure-labs/ch61-hands-on-master-project.md)
 
 ---
 
@@ -871,7 +871,7 @@ Design a **production-grade distributed platform from scratch**. The capstone mu
 
 Provide a **Principal Engineer reference architecture**. For each major decision: **Decision → Alternatives → Trade-offs → Why this choice → Failure modes → Future evolution.**
 
-*Existing Content:* None — NEW chapter
+*Existing Content:* Completed — [`level-5-principal-engineer/part-48-final-capstone/ch62-final-capstone-principal-engineer-reference-architecture.md`](./level-5-principal-engineer/part-48-final-capstone/ch62-final-capstone-principal-engineer-reference-architecture.md)
 
 ---
 
