@@ -8,12 +8,11 @@ This repository is a curated study workspace for building depth beyond surface-l
 
 | Track | Focus | Best for |
 |---|---|---|
-| [HLD](HLD/) | Distributed systems, architecture, scalability, reliability, case studies | System design depth and principal-level trade-off reasoning |
+| [HLD](HLD/) | Distributed systems, architecture, scalability, reliability, case studies, and 60+ interview problems with solutions | System design depth, interview preparation, and principal-level trade-off reasoning |
 | [LLD](LLD/) | Object design, SOLID, design patterns, refactoring, machine coding | Low-level design interviews and maintainable Java design |
 | [Java](java/) | JVM internals, GC, JIT, concurrency, language semantics | Understanding Java from bytecode to production behavior |
 | [Spring Boot](spring-boot/) | IoC container, bean lifecycle, AOP, auto-configuration, web, data, production | Debugging and designing Spring apps from first principles |
 | [AI Engineering](ai-engineering/) | GenAI/agentic engineering: API, RAG, agents, evals, MCP, production, FDE skills | Becoming a GenAI/Agentic AI Engineer or Forward Deployed Engineer |
-| [System Design](system-design/) | Interview problem coverage, patterns, and practice roadmap | Timed system design interview preparation |
 | [Problem Solving](problem-solving/) | DSA master list, patterns, and Java cheatsheets | Systematic approach to algorithmic interviews |
 | [Principal Engineer Curriculum](principal_engineer_curriculum/) | Roadmap and expectations for staff/principal level | Career progression beyond senior engineer |
 | [Shared Visualizations](shared-viz/) | Animation harness and visualization templates | Creating self-contained interactive architecture diagrams |
@@ -24,10 +23,9 @@ This repository is a curated study workspace for building depth beyond surface-l
 
 ### For system design interviews
 
-1. Start with [System Design](system-design/README.md).
-2. Read the [HLD interview framework](HLD/04-design-case-studies/21-interview-framework.md).
-3. Use the [problem bank](system-design/PROBLEM-BANK.md) for timed practice.
-4. Deep-dive HLD building blocks when a prompt exposes a weak area.
+1. Start with the [HLD roadmap](HLD/ROADMAP.md) and [interview framework](HLD/04-design-case-studies/21-interview-framework.md).
+2. Use the [problem bank](HLD/PROBLEM-BANK.md) and [worked solutions](HLD/SOLUTIONS.md) for timed practice.
+3. Deep-dive HLD building blocks and case studies when a prompt exposes a weak area.
 
 ### For low-level design and machine coding
 
@@ -46,12 +44,11 @@ This repository is a curated study workspace for building depth beyond surface-l
 
 ```text
 .
-|-- HLD/              # High-level design curriculum and distributed systems notes
+|-- HLD/              # High-level design curriculum, distributed systems notes, and problem bank
 |-- ai-engineering/   # GenAI & agentic AI engineering / FDE curriculum
 |-- LLD/              # Low-level design curriculum, Java examples, and machine-coding drills
 |-- java/             # Java and JVM internals curriculum
 |-- spring-boot/      # Spring and Spring Boot internals curriculum
-|-- system-design/    # Interview practice roadmap and problem bank
 |-- problem-solving/  # DSA master list, patterns, and Java cheatsheets
 |-- principal_engineer_curriculum/ # Roadmap and expectations for staff/principal level
 |-- shared-viz/       # Animation harness and visualization templates
@@ -82,6 +79,8 @@ The goal is not to memorize answers. The goal is to develop the judgment to deri
 
 - [HLD roadmap](HLD/ROADMAP.md)
 - [HLD cheat sheet](HLD/CHEATSHEET.md)
+- [HLD problem bank](HLD/PROBLEM-BANK.md)
+- [HLD solutions](HLD/SOLUTIONS.md)
 - [LLD study method](LLD/STUDY-METHOD.md)
 - [LLD cheat sheet](LLD/CHEATSHEET.md)
 - [Java roadmap](java/ROADMAP.md)
@@ -89,6 +88,5 @@ The goal is not to memorize answers. The goal is to develop the judgment to deri
 - [Spring Boot roadmap](spring-boot/ROADMAP.md)
 - [Spring Boot study method](spring-boot/STUDY-METHOD.md)
 - [AI engineering roadmap](ai-engineering/ROADMAP.md)
-- [System design problem bank](system-design/PROBLEM-BANK.md)
 - [Problem solving study plan](problem-solving/STUDY-PLAN.md)
 - [Principal engineer roadmap](principal_engineer_curriculum/roadmap.md)

@@ -19,7 +19,7 @@ A realistic intensive day, ~2–3 focused hours:
 | **Warm-up recall** | 15 min | Answer yesterday's Self-Check questions from memory. Spaced repetition is the highest-ROI 15 minutes you'll spend. |
 | **New material** | 60–90 min | Read the day's writeup using *predict → read → self-check* (see [README](README.md#how-to-use-this)). |
 | **Application** | 30–45 min | Sketch where today's idea appears in a real system, or work on the week's hands-on artifact. |
-| **Weekly (pick a day)** | 45 min | One full **mock design, out loud, no notes**, timed. |
+| **Weekly (pick a day)** | 45 min | One full **mock design, out loud, no notes**, timed — pick a prompt from the [Problem Bank](PROBLEM-BANK.md) and check against [Worked Solutions](SOLUTIONS.md). |
 
 > **The single most important habit:** the weekly out-loud mock design. Reading builds recognition; *speaking a design under a timer* builds the muscle you're actually here to grow. Record yourself and listen back — you'll hear every place you hand-waved.
 
@@ -179,7 +179,7 @@ Now you *use* everything. **For each case study: attempt it cold (timer, no note
 Three months gets you fluency, not finality. Principal-level depth compounds for years. To keep climbing:
 
 1. **Read the primary sources.** Work through the [reading list](05-principal-skills/31-reading-list-and-papers.md) — start with the Dynamo, Raft, and Google (GFS/MapReduce/Bigtable) papers, now that you have the scaffolding to understand them.
-2. **Re-run the case studies monthly**, cold. Add new ones (rate-limited API gateway, distributed scheduler, ad-click aggregator, multiplayer game backend).
+2. **Re-run the case studies monthly**, cold. Work through all 60+ prompts in the [Problem Bank](PROBLEM-BANK.md) and compare your designs with the [Worked Solutions](SOLUTIONS.md) (e.g. rate-limited API gateway, distributed scheduler, ad-click aggregator, stock trading exchange).
 3. **Write ADRs at work.** Every non-trivial decision. This is the single highest-leverage habit for visible principal-level impact.
 4. **Read your own systems' incidents.** Postmortems are distributed-systems theory with the names left in. Map each one back to a topic here.
 5. **Teach it.** Explaining sharding or consensus to a teammate will expose the last gaps faster than any reread.

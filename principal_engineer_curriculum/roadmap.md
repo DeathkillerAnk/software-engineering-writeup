@@ -788,7 +788,7 @@ For each system: Requirements (functional + non-functional), traffic estimation,
 15. Multi-region SaaS Platform
 16. Search Engine
 
-*Existing Content:* Completed — [`level-5-principal-engineer/part-44-real-world-system-design-case-studies/ch56-real-world-system-design-case-studies.md`](./level-5-principal-engineer/part-44-real-world-system-design-case-studies/ch56-real-world-system-design-case-studies.md) ([`HLD/04-design-case-studies`](../HLD/04-design-case-studies), [`system-design/SOLUTIONS.md`](../system-design/SOLUTIONS.md))
+*Existing Content:* Completed — [`level-5-principal-engineer/part-44-real-world-system-design-case-studies/ch56-real-world-system-design-case-studies.md`](./level-5-principal-engineer/part-44-real-world-system-design-case-studies/ch56-real-world-system-design-case-studies.md) ([`HLD/04-design-case-studies`](../HLD/04-design-case-studies), [`HLD/SOLUTIONS.md`](../HLD/SOLUTIONS.md))
 
 ---
 
@@ -1030,6 +1030,6 @@ Ch 1 (Computer Systems)
 | Milestone checkpoints | None | **5 milestones** |
 | Revisitation tracking | None | **10 concept threads** |
 | "Inside X" deep dives | 1 chapter (11 systems) | **6 dedicated chapters** |
-| System design case studies | 1 chapter | **1 chapter (16 case studies) + HLD/system-design refs** |
+| System design case studies | 1 chapter | **1 chapter (16 case studies) + HLD case studies & solutions refs** |
 | New topic areas beyond original | 0 | **14 new areas** |
 | Master Prompt Part coverage | ~80% | **100%** |

@@ -32,6 +32,7 @@ Reading 31 deep chapters front-to-back is the *slow* way to learn. Do this inste
 2. **Read each chapter's ⚡ 60-Second TL;DR** (top of every writeup) to build the scaffold fast.
 3. **Self-test** with the chapter's Self-Check questions — recall, don't re-read.
 4. **Deep-dive only the sections you couldn't recall.** That gap is the only part worth your slow reading time.
+5. **Drill interview problems & solutions** with the [Problem Bank](PROBLEM-BANK.md) and [Solutions Guide](SOLUTIONS.md) — 60+ categorized systems with cheat sheets and complete worked-out architectures.
 
 The full prose is there for when you *need* depth — not to be read cover-to-cover.
 
@@ -87,6 +88,8 @@ Work top to bottom — each part assumes the previous ones. The [ROADMAP](ROADMA
 - [26 · Distributed Object Store (S3) & Key-Value Store (Dynamo)](04-design-case-studies/26-object-store-and-kv-store.md) — the capstone that ties Parts 1–2 together
 - [27 · Payment System & Double-Entry Ledger](04-design-case-studies/27-payments-and-ledgers.md)
 - [28 · Video Streaming & Web Crawler](04-design-case-studies/28-streaming-and-crawler.md)
+- [Problem Bank & Practice Guide](PROBLEM-BANK.md) — 60+ categorized practice problems across starter, social, real-time, media, geo, payments, storage, streaming, and platform systems.
+- [Full Solutions & Architecture Guide](SOLUTIONS.md) — Complete worked-out architectures, capacity estimations, data models, APIs, and deep dives for every problem in the bank.
 
 ### Part 5 — Principal Skills *(the meta-skills that actually define the level)*
 - [29 · Trade-off Reasoning & Architecture Decision Records](05-principal-skills/29-tradeoffs-and-adrs.md)
@@ -108,6 +111,16 @@ As you study, measure yourself against these markers. They matter more than any 
 | "It's consistent." | "It's eventually consistent." | States the *exact* consistency model and what the client observes during a partition. |
 
 If you finish this curriculum able to *talk* like the right-hand column — with the numbers and failure modes to back it up — you'll be operating well above your years.
+
+---
+
+## Quick links
+
+- [12-Week Roadmap](ROADMAP.md)
+- [Master Cheat Sheet](CHEATSHEET.md)
+- [Interview Problem Bank](PROBLEM-BANK.md)
+- [Full Solutions](SOLUTIONS.md)
+- [Animations Gallery](animations/index.html)
 
 ---
 
