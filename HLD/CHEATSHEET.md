@@ -2,7 +2,7 @@
 
 > The entire curriculum distilled to what you must recall under pressure. Skim this in 20 minutes; open a [writeup](README.md) only when a row feels fuzzy. Pair it with each chapter's **⚡ 60-Second TL;DR**.
 >
-> 🚀 **Fast-Track Revision:** For an interview-focused, single-sitting walkthrough (framework, estimation math, 8 full archetypes, and SDE 3 verbal coaching), see the **[1-Day System Design Crash Guide](../study-material/system-design-interview-guide.md)**.
+> 🚀 **Fast-Track Revision:** For an interview-focused, single-sitting walkthrough (framework, estimation math, 8 full archetypes, and SDE 3 verbal coaching), see the **[1-Day System Design Crash Course](CRASHCOURSE.md)**.
 
 ---
 

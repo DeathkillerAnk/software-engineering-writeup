@@ -1,6 +1,8 @@
-# System Design Interview — One-Day Crash Guide (SDE 3 Bar)
+# System Design & HLD — The Last-Minute Crash Course (SDE 3 Bar)
 
-A complete reference: the answer framework, estimation math, every building block with options and trade-offs, and all eight archetype problems solved step by step with the follow-up questions interviewers actually ask.
+> A complete fast-track reference: the 5-step interview framework, estimation math, core building blocks with options & trade-offs, 8 full archetypes solved step-by-step, cross-cutting patterns, and SDE 3 verbal coaching.
+>
+> **Quick Links:** [HLD Curriculum Index](README.md) · [Master Cheat Sheet](CHEATSHEET.md) · [Problem Bank](PROBLEM-BANK.md) · [Worked Solutions](SOLUTIONS.md)
 
 ---
 

@@ -79,6 +79,7 @@ The goal is not to memorize answers. The goal is to develop the judgment to deri
 
 - [HLD roadmap](HLD/ROADMAP.md)
 - [HLD cheat sheet](HLD/CHEATSHEET.md)
+- [HLD crash course](HLD/CRASHCOURSE.md)
 - [HLD problem bank](HLD/PROBLEM-BANK.md)
 - [HLD solutions](HLD/SOLUTIONS.md)
 - [LLD study method](LLD/STUDY-METHOD.md)

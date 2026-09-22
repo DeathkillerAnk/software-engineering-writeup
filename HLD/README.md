@@ -33,6 +33,7 @@ Reading 31 deep chapters front-to-back is the *slow* way to learn. Do this inste
 3. **Self-test** with the chapter's Self-Check questions — recall, don't re-read.
 4. **Deep-dive only the sections you couldn't recall.** That gap is the only part worth your slow reading time.
 5. **Drill interview problems & solutions** with the [Problem Bank](PROBLEM-BANK.md) and [Solutions Guide](SOLUTIONS.md) — 60+ categorized systems with cheat sheets and complete worked-out architectures.
+6. **Last-minute interview prep** with the [Crash Course](CRASHCOURSE.md) — the 5-step framework, estimation shortcuts, 8 archetypes solved step-by-step, and SDE 3 verbal coaching.
 
 The full prose is there for when you *need* depth — not to be read cover-to-cover.
 
@@ -118,6 +119,7 @@ If you finish this curriculum able to *talk* like the right-hand column — with
 
 - [12-Week Roadmap](ROADMAP.md)
 - [Master Cheat Sheet](CHEATSHEET.md)
+- [Last-Minute Crash Course](CRASHCOURSE.md)
 - [Interview Problem Bank](PROBLEM-BANK.md)
 - [Full Solutions](SOLUTIONS.md)
 - [Animations Gallery](animations/index.html)

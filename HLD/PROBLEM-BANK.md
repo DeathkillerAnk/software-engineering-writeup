@@ -2,7 +2,7 @@
 
 > **Goal:** Master the major system design interview patterns through deliberate practice, not by memorizing one-off answers.
 >
-> **Quick Links:** [HLD Curriculum Index](README.md) · [12-Week Roadmap](ROADMAP.md) · [Master Cheat Sheet](CHEATSHEET.md) · [Worked Solutions & Architectures](SOLUTIONS.md)
+> **Quick Links:** [HLD Curriculum Index](README.md) · [12-Week Roadmap](ROADMAP.md) · [Master Cheat Sheet](CHEATSHEET.md) · [Last-Minute Crash Course](CRASHCOURSE.md) · [Worked Solutions](SOLUTIONS.md)
 
 ---
 
